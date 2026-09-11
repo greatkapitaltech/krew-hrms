@@ -174,6 +174,11 @@ def confirm_penny_drop(
     CompanyBankDetails.verification_status: Verified on match, Failed on
     mismatch. Still no cap on resubmissions — a Failed status can always
     be retried, flipping to Verified on a later correct attempt.
+
+    verified_attempt records WHICH attempt earned a match -- set on
+    success, cleared on a mismatch (so a stale reference from an earlier
+    successful confirmation doesn't linger once this account has since
+    failed a re-check).
     """
     matched = Decimal(entered_amount) == attempt.dropped_amount
     attempt.bank_details.verification_status = (
@@ -181,5 +186,6 @@ def confirm_penny_drop(
         if matched
         else CompanyBankDetails.VerificationStatus.FAILED
     )
+    attempt.bank_details.verified_attempt = attempt if matched else None
     attempt.bank_details.save()
     return matched

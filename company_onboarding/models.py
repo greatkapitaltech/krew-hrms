@@ -242,6 +242,20 @@ class CompanyBankDetails(HorillaModel):
         default=VerificationStatus.PENDING,
         verbose_name=_("Verification Status"),
     )
+    # Which CompanyBankVerification attempt actually earned the current
+    # VERIFIED status -- set by confirm_penny_drop() on a match, cleared on
+    # a mismatch or whenever the sensitive fields change (below). Without
+    # this there was no way to trace "verified" back to a specific attempt
+    # once more than one existed for the same account.
+    verified_attempt = models.ForeignKey(
+        "CompanyBankVerification",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="+",
+        verbose_name=_("Verified Attempt"),
+    )
 
     objects = models.Manager()
 
@@ -264,6 +278,10 @@ class CompanyBankDetails(HorillaModel):
                 # back to Pending (not Failed — nothing was actually
                 # attempted and failed here, it's just unverified again).
                 self.verification_status = self.VerificationStatus.PENDING
+                # Whatever attempt previously verified this account was
+                # verifying a DIFFERENT account number/bank/IFSC -- it no
+                # longer applies.
+                self.verified_attempt = None
         super().save(*args, **kwargs)
 
 

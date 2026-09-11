@@ -211,6 +211,12 @@
                         {% endif %}
                         {{ bank_details.get_verification_status_display }}
                     </p>
+                    {% if bank_details.verified_attempt %}
+                        <p class="text-muted small mb-0">
+                            {% trans "Ref" %} {{ bank_details.verified_attempt.cashfree_reference_id }}
+                            &middot; {{ bank_details.verified_attempt.created_at|date:"d M Y" }}
+                        </p>
+                    {% endif %}
                 </div>
             </div>
         {% else %}

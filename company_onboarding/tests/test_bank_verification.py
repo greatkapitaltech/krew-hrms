@@ -232,6 +232,40 @@ class PennyDropServiceTests(TestCase):
 
     @patch(_TRANSFER_TARGET, return_value=_RESOLVED_SUCCESS_TRANSFER)
     @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
+    def test_confirm_correct_amount_records_which_attempt_verified_it(
+        self, mock_verify, mock_transfer
+    ):
+        attempt = initiate_penny_drop(self.bank_details)
+        confirm_penny_drop(attempt, attempt.dropped_amount)
+        self.bank_details.refresh_from_db()
+        self.assertEqual(self.bank_details.verified_attempt_id, attempt.pk)
+
+    @patch(_TRANSFER_TARGET, return_value=_RESOLVED_SUCCESS_TRANSFER)
+    @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
+    def test_confirm_wrong_amount_leaves_verified_attempt_unset(self, mock_verify, mock_transfer):
+        attempt = initiate_penny_drop(self.bank_details)
+        wrong = Decimal("1.99") if attempt.dropped_amount != Decimal("1.99") else Decimal("1.01")
+        confirm_penny_drop(attempt, wrong)
+        self.bank_details.refresh_from_db()
+        self.assertIsNone(self.bank_details.verified_attempt)
+
+    @patch(_TRANSFER_TARGET, return_value=_RESOLVED_SUCCESS_TRANSFER)
+    @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
+    def test_reverifying_updates_verified_attempt_to_the_newer_one(
+        self, mock_verify, mock_transfer
+    ):
+        first = initiate_penny_drop(self.bank_details)
+        confirm_penny_drop(first, first.dropped_amount)
+        self.bank_details.refresh_from_db()
+        self.assertEqual(self.bank_details.verified_attempt_id, first.pk)
+
+        second = initiate_penny_drop(self.bank_details)
+        confirm_penny_drop(second, second.dropped_amount)
+        self.bank_details.refresh_from_db()
+        self.assertEqual(self.bank_details.verified_attempt_id, second.pk)
+
+    @patch(_TRANSFER_TARGET, return_value=_RESOLVED_SUCCESS_TRANSFER)
+    @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
     def test_failed_attempt_can_still_be_verified_afterward(self, mock_verify, mock_transfer):
         attempt = initiate_penny_drop(self.bank_details)
         wrong = Decimal("1.99") if attempt.dropped_amount != Decimal("1.99") else Decimal("1.01")
@@ -335,6 +369,22 @@ class BankDetailsReverificationTests(TestCase):
         self.bank_details.save()
         self.bank_details.refresh_from_db()
         self.assertEqual(self.bank_details.verification_status, "PENDING")
+
+    def test_changing_account_number_clears_verified_attempt(self):
+        from company_onboarding.models import CompanyBankVerification
+
+        attempt = CompanyBankVerification.objects.create(
+            bank_details=self.bank_details,
+            dropped_amount=Decimal("1.23"),
+            drop_status=CompanyBankVerification.DropStatus.SUCCESS,
+        )
+        self.bank_details.verified_attempt = attempt
+        self.bank_details.save()
+
+        self.bank_details.account_number = "0987654321"
+        self.bank_details.save()
+        self.bank_details.refresh_from_db()
+        self.assertIsNone(self.bank_details.verified_attempt)
 
     def test_changing_bank_name_resets_to_pending(self):
         self.bank_details.bank_name = "New Bank"
