@@ -42,8 +42,18 @@ case "${SECRET_KEY:-}" in
     ;;
 esac
 
-# Run migrations
-python manage.py migrate --noinput
+# Run migrations.
+#
+# On ECS the pipeline runs migrations as a separate one-shot task BEFORE the
+# rollout, so every app container starts with MIGRATE_ON_START=0. Two reasons:
+#   * above one task, containers would race to migrate the same database
+#   * a failed migration should fail the deploy loudly, not crash-loop tasks
+# Local docker-compose leaves it unset, so `docker compose up` still just works.
+if [ "${MIGRATE_ON_START:-1}" = "1" ]; then
+  python manage.py migrate --noinput
+else
+  echo "MIGRATE_ON_START=0 — skipping migrations (handled by the deploy pipeline)."
+fi
 
 # Collect static files
 python manage.py collectstatic --noinput

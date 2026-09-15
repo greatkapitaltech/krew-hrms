@@ -210,10 +210,17 @@ if REDIS_URL:
             "LOCATION": REDIS_URL,
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                # Redis is a cache and nothing else, so losing it must degrade
+                # to "slower", never to a 500. Without this a Redis outage
+                # turns every cached page into an error and makes a disposable
+                # dependency a hard one.
+                "IGNORE_EXCEPTIONS": True,
             },
-            "KEY_PREFIX": "horilla",
+            "KEY_PREFIX": "krew",
         }
     }
+    # Report swallowed cache errors instead of failing silently.
+    DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
 
 # ========================================
 # STATIC & MEDIA FILES

@@ -66,20 +66,20 @@ docker/pgadmin/pgpass:
 	@chmod 600 $@
 	@echo "Created $@ from pgpass.example."
 
-dev-db: docker/pgadmin/pgpass ## Start local PostgreSQL + pgAdmin (detached)
+dev-db: docker/pgadmin/pgpass ## Start local PostgreSQL + pgAdmin + Redis (detached)
 	$(COMPOSE_DEV) up -d
-	@echo "PostgreSQL: localhost:5432/krew-dev-db   pgAdmin: http://localhost:5050"
+	@echo "PostgreSQL: localhost:5432/krew-dev-db   pgAdmin: http://localhost:5050   Redis: localhost:6379"
 
-dev-db-stop: ## Stop local PostgreSQL + pgAdmin (keeps data)
+dev-db-stop: ## Stop local PostgreSQL + pgAdmin + Redis (keeps data)
 	$(COMPOSE_DEV) stop
 
-dev-db-logs: ## Tail local PostgreSQL + pgAdmin logs
+dev-db-logs: ## Tail local PostgreSQL + pgAdmin + Redis logs
 	$(COMPOSE_DEV) logs -f
 
 dev-db-shell: ## psql shell into the local development database
 	$(COMPOSE_DEV) exec db psql -U horilla_user -d krew-dev-db
 
-dev-db-reset: ## Destroy local PostgreSQL + pgAdmin AND all their data
+dev-db-reset: ## Destroy local PostgreSQL + pgAdmin + Redis AND all their data
 	$(COMPOSE_DEV) down -v
 
 

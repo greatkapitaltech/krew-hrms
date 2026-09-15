@@ -16,6 +16,7 @@ Docker Compose stack — are covered at the end.
 | Django dev server | http://localhost:8000 |
 | pgAdmin | http://localhost:5050 |
 | PostgreSQL 16 | `localhost:5432`, database **`krew-dev-db`** |
+| Redis 7 (cache) | `localhost:6379` |
 
 ---
 
@@ -68,7 +69,7 @@ cd krew-hrms
 
 ---
 
-## 3. Start PostgreSQL and pgAdmin
+## 3. Start PostgreSQL, pgAdmin and Redis
 
 Both services are defined in `docker-compose.dev.yml`, so this is one command:
 
@@ -82,6 +83,7 @@ That starts:
 | --- | --- | --- |
 | PostgreSQL 16 | `krew-hrms-db` | `localhost:5432`, database `krew-dev-db` |
 | pgAdmin | `krew-hrms-pgadmin` | <http://localhost:5050> |
+| Redis 7 | `krew-hrms-redis` | `localhost:6379` |
 
 It also creates `docker/pgadmin/pgpass` from `pgpass.example` on first run —
 that file holds the database password so pgAdmin connects without prompting, and
@@ -97,8 +99,8 @@ make dev-db-shell    # psql into krew-dev-db
 make dev-db-reset    # destroy both containers AND all data
 ```
 
-**Port 5432 or 5050 already in use?** Set `LOCAL_DB_PORT=5433` /
-`PGADMIN_PORT=5051` in `.env` (step 5) and re-run `make dev-db`. If you change
+**Port 5432, 5050 or 6379 already in use?** Set `LOCAL_DB_PORT=5433` /
+`PGADMIN_PORT=5051` / `LOCAL_REDIS_PORT=6380` in `.env` (step 5) and re-run `make dev-db`. If you change
 the database port, update `DATABASE_URL` to match.
 
 Prefer plain Docker, or don't have `make`? The equivalent is:
