@@ -196,6 +196,12 @@ pipeline {
                     // Migrations run ONCE, here, against the new image — before any
                     // traffic-serving task starts. Containers boot with
                     // MIGRATE_ON_START=0 so they never race each other.
+                    //
+                    // They run as krew_owner, not the runtime role: krew_app owns
+                    // nothing so that RLS policies apply to it, which also means it
+                    // cannot create tables. ECS container overrides cannot inject
+                    // secrets, so DATABASE_URL_OWNER is declared on the task
+                    // definition and swapped in for this command only.
                     sh '''
                         set -euo pipefail
 
@@ -216,7 +222,7 @@ pipeline {
                         # {containerOverrides:[...]} , which is not valid JSON.
                         OVERRIDES=$(mktemp)
                         cat > "$OVERRIDES" <<JSON
-{"containerOverrides":[{"name":"$APP_CONTAINER","command":["python","manage.py","migrate","--noinput"],"environment":[{"name":"MIGRATE_ON_START","value":"0"}]}]}
+{"containerOverrides":[{"name":"$APP_CONTAINER","command":["sh","-c","DATABASE_URL=\"$DATABASE_URL_OWNER\" exec python manage.py migrate --noinput"],"environment":[{"name":"MIGRATE_ON_START","value":"0"}]}]}
 JSON
                         jq -e . "$OVERRIDES" >/dev/null || { echo "ERROR: overrides JSON is malformed" >&2; exit 1; }
 
