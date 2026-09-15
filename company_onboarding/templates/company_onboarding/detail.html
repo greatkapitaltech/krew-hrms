@@ -14,6 +14,16 @@
                 <a href="{% url 'company-onboarding-step1' company_id=company.pk %}" class="oh-btn oh-btn--light-bkg">
                     <ion-icon name="create-outline" class="me-1"></ion-icon>{% trans "Edit" %}
                 </a>
+            {% elif perms.company_onboarding.add_companydocument or perms.company_onboarding.add_companybrandedtemplate %}
+                {% comment %}
+                Ventura HR can't reach Step 1/2 (base.change_company-gated,
+                core compliance data) but CAN upload branded templates/
+                documents -- Step 3 is the only place that form lives, and
+                without this link there was no way to reach it from here.
+                {% endcomment %}
+                <a href="{% url 'company-onboarding-step3' company_id=company.pk %}" class="oh-btn oh-btn--secondary">
+                    <ion-icon name="folder-open-outline" class="me-1"></ion-icon>{% trans "Manage Documents" %}
+                </a>
             {% endif %}
         </div>
     </section>
