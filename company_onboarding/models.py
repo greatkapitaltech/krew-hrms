@@ -323,6 +323,17 @@ class CompanyBankVerification(HorillaModel):
         blank=True,
         verbose_name=_("Cashfree Reference ID"),
     )
+    # Cashfree's own status_description/status_code for why the transfer
+    # itself didn't go through (e.g. "beneficiary bank offline") -- set
+    # only when drop_status resolves to FAILED, null for SUCCESS/PENDING.
+    # Distinct from a wrong-amount confirmation, which is a mismatch on
+    # our side, not something Cashfree reports a reason for.
+    failure_reason = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name=_("Failure Reason"),
+    )
 
     objects = models.Manager()
 

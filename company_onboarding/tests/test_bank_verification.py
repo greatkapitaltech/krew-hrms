@@ -142,12 +142,25 @@ class PennyDropServiceTests(TestCase):
         self.bank_details.refresh_from_db()
         self.assertEqual(self.bank_details.verification_status, "PENDING")
 
+    @patch(_TRANSFER_TARGET, return_value=_RESOLVED_FAILED_TRANSFER)
+    @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
+    def test_initiate_records_cashfrees_failure_reason(self, mock_verify, mock_transfer):
+        attempt = initiate_penny_drop(self.bank_details)
+        self.assertEqual(attempt.failure_reason, "BENEFICIARY_BANK_OFFLINE")
+
+    @patch(_TRANSFER_TARGET, return_value=_RESOLVED_SUCCESS_TRANSFER)
+    @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
+    def test_initiate_records_no_failure_reason_on_success(self, mock_verify, mock_transfer):
+        attempt = initiate_penny_drop(self.bank_details)
+        self.assertIsNone(attempt.failure_reason)
+
     @patch(_TRANSFER_TARGET, return_value=_UNRESOLVED_TRANSFER)
     @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
     def test_initiate_records_an_unresolved_transfer_as_pending(self, mock_verify, mock_transfer):
         attempt = initiate_penny_drop(self.bank_details)
         self.assertEqual(attempt.drop_status, "PENDING")
         self.assertEqual(attempt.cashfree_reference_id, "pdtest789")
+        self.assertIsNone(attempt.failure_reason)
 
     @patch(_TRANSFER_TARGET)
     @patch(_VERIFY_TARGET, return_value=_INVALID_ACCOUNT)
@@ -197,6 +210,28 @@ class PennyDropServiceTests(TestCase):
         attempt = initiate_penny_drop(self.bank_details)
         resolved = check_penny_drop_status(attempt)
         self.assertEqual(resolved.drop_status, "PENDING")
+
+    @patch(_STATUS_TARGET, return_value={"resolved": True, "success": False, "reference_id": "pdtest789", "message": "BENEFICIARY_BANK_OFFLINE", "http_status": 200, "response_payload": {"status": "FAILED"}})
+    @patch(_TRANSFER_TARGET, return_value=_UNRESOLVED_TRANSFER)
+    @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
+    def test_check_status_records_failure_reason_when_it_resolves_to_failed(
+        self, mock_verify, mock_transfer, mock_status
+    ):
+        attempt = initiate_penny_drop(self.bank_details)
+        resolved = check_penny_drop_status(attempt)
+        self.assertEqual(resolved.drop_status, "FAILED")
+        self.assertEqual(resolved.failure_reason, "BENEFICIARY_BANK_OFFLINE")
+
+    @patch(_STATUS_TARGET, return_value={"resolved": True, "success": True, "reference_id": "pdtest789", "message": "", "http_status": 200, "response_payload": {"status": "SUCCESS"}})
+    @patch(_TRANSFER_TARGET, return_value=_UNRESOLVED_TRANSFER)
+    @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)
+    def test_check_status_clears_failure_reason_when_it_resolves_to_success(
+        self, mock_verify, mock_transfer, mock_status
+    ):
+        attempt = initiate_penny_drop(self.bank_details)
+        resolved = check_penny_drop_status(attempt)
+        self.assertEqual(resolved.drop_status, "SUCCESS")
+        self.assertIsNone(resolved.failure_reason)
 
     @patch(_TRANSFER_TARGET, return_value=_RESOLVED_SUCCESS_TRANSFER)
     @patch(_VERIFY_TARGET, return_value=_VALID_ACCOUNT)

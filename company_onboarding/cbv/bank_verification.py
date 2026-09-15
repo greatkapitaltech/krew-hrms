@@ -43,6 +43,13 @@ class InitiatePennyDropView(View):
                         "Penny drop initiated — Cashfree is still processing it, "
                         "check status shortly.",
                     )
+                elif attempt.drop_status == attempt.DropStatus.FAILED:
+                    messages.error(
+                        request,
+                        f"Transfer failed: {attempt.failure_reason}."
+                        if attempt.failure_reason
+                        else "Transfer failed. You can re-initiate.",
+                    )
                 else:
                     messages.success(request, "Penny drop initiated.")
         return redirect("company-onboarding-step1", company_id=company.pk)
@@ -69,7 +76,12 @@ class CheckPennyDropStatusView(View):
             elif attempt.drop_status == attempt.DropStatus.SUCCESS:
                 messages.success(request, "Transfer completed — enter the amount received.")
             else:
-                messages.error(request, "Transfer failed. You can re-initiate.")
+                messages.error(
+                    request,
+                    f"Transfer failed: {attempt.failure_reason}."
+                    if attempt.failure_reason
+                    else "Transfer failed. You can re-initiate.",
+                )
         return redirect("company-onboarding-step1", company_id=company.pk)
 
 

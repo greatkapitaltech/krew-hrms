@@ -117,6 +117,11 @@ def initiate_penny_drop(bank_details: CompanyBankDetails) -> CompanyBankVerifica
         dropped_amount=amount,
         drop_status=drop_status,
         cashfree_reference_id=result["transfer_id"],
+        failure_reason=(
+            result["message"]
+            if drop_status == CompanyBankVerification.DropStatus.FAILED
+            else None
+        ),
     )
     CashfreeApiLog.objects.create(
         bank_details=bank_details,
@@ -161,7 +166,10 @@ def check_penny_drop_status(attempt: CompanyBankVerification) -> CompanyBankVeri
             if result["success"]
             else CompanyBankVerification.DropStatus.FAILED
         )
-        attempt.save(update_fields=["drop_status"])
+        attempt.failure_reason = (
+            None if result["success"] else (result["message"] or None)
+        )
+        attempt.save(update_fields=["drop_status", "failure_reason"])
     return attempt
 
 
