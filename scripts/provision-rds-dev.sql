@@ -21,20 +21,38 @@
 --   krew_owner  owns the schema, runs migrations. Never serves traffic.
 --   krew_app    runtime role. Owns nothing, so policies actually apply.
 
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'krew_owner') THEN
-        EXECUTE format('CREATE ROLE krew_owner LOGIN PASSWORD %L', :owner_pw);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'krew_app') THEN
-        EXECUTE format('CREATE ROLE krew_app LOGIN PASSWORD %L', :app_pw);
-    END IF;
-END
-$$;
+-- psql does not substitute :variables inside dollar-quoted bodies, so role
+-- creation is driven through \gexec instead of a DO block. :'name' interpolates
+-- the value as a correctly quoted SQL literal.
+SELECT format('CREATE ROLE krew_owner LOGIN PASSWORD %L', :'owner_pw')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'krew_owner')
+\gexec
 
--- Neither role may sidestep policy.
-ALTER ROLE krew_owner NOSUPERUSER NOBYPASSRLS NOCREATEDB;
-ALTER ROLE krew_app   NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+SELECT format('CREATE ROLE krew_app LOGIN PASSWORD %L', :'app_pw')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'krew_app')
+\gexec
+
+-- Neither role may sidestep policy. SUPERUSER and BYPASSRLS can only be changed
+-- by a real superuser, which the RDS master user is not — but roles are created
+-- without either attribute, so the correct move is to VERIFY rather than set.
+-- This aborts the script if a role could bypass the policies we are about to add.
+ALTER ROLE krew_owner NOCREATEDB;
+ALTER ROLE krew_app   NOCREATEDB NOCREATEROLE;
+
+DO $verify$
+DECLARE bad text;
+BEGIN
+    SELECT string_agg(rolname, ', ') INTO bad
+    FROM pg_roles
+    WHERE rolname IN ('krew_owner', 'krew_app')
+      AND (rolsuper OR rolbypassrls);
+    IF bad IS NOT NULL THEN
+        RAISE EXCEPTION
+            'Role(s) % can bypass row-level security. Fix before proceeding.', bad;
+    END IF;
+    RAISE NOTICE 'Verified: krew_owner and krew_app cannot bypass row-level security.';
+END
+$verify$;
 
 -- On RDS the master user is not a true superuser, so it must be a member of
 -- krew_owner to create a database owned by it.

@@ -1,0 +1,100 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<!--
+  Jenkins job definition for krew-hrms deployment.
+
+  Create it without filling in a form, using either the Jenkins CLI
+  (create-job) or a POST to /createItem?name=krew-hrms with this file as the
+  XML body. Both need a Jenkins user and API token.
+
+  The pipeline itself lives in the repository (Jenkinsfile), so changing the
+  deploy steps is a pull request, not a Jenkins UI edit.
+
+  Credentials referenced here already exist and are shared with the other
+  services: GITHUB_CREDENTIALS_ID, DEV_ECS_CLUSTER_NAME, DEV_AWS_ECS_ACCESS_KEY,
+  DEV_AWS_ECS_SECRET_KEY, DEV_DEPLOYMENT_AWS_ACCOUNT_NO,
+  DEV_DEPLOYMENT_AWS_ACCOUNT_REGION. No new credentials are needed.
+
+  The agent must have docker, jq and the AWS CLI available.
+-->
+<flow-definition plugin="workflow-job">
+  <actions/>
+  <description>Build and deploy krew-hrms to ECS Fargate. Anyone may deploy their own branch by setting BRANCH_NAME.</description>
+  <keepDependencies>false</keepDependencies>
+
+  <properties>
+    <!-- Job-level environment. These are configuration, not secrets. -->
+    <EnvInjectJobProperty plugin="envinject">
+      <info>
+        <propertiesContent>ENV_VAR_PREFIX=DEV
+ENV_VAR_REPO_NAME=https://github.com/greatkapitaltech/krew-hrms.git
+ENV_VAR_ECR_REPO_NAME=service-krew-hrms
+ENV_VAR_ECR_CPU_VALUE=1024
+ENV_VAR_ECR_MEMORY_VALUE=2048</propertiesContent>
+        <loadFilesFromMaster>false</loadFilesFromMaster>
+      </info>
+      <on>true</on>
+      <keepJenkinsSystemVariables>true</keepJenkinsSystemVariables>
+      <keepBuildVariables>true</keepBuildVariables>
+      <overrideBuildParameters>false</overrideBuildParameters>
+    </EnvInjectJobProperty>
+
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.StringParameterDefinition>
+          <name>BRANCH_NAME</name>
+          <description>Branch to build and deploy. Anyone can deploy their own branch here.</description>
+          <defaultValue>dev</defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>TAG_NAME</name>
+          <description>Git tag to deploy instead of a branch. Takes precedence over BRANCH_NAME.</description>
+          <defaultValue></defaultValue>
+          <trim>true</trim>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>RUN_MIGRATIONS</name>
+          <description>Run database migrations as a one-shot task before the rollout. Untick to deploy code without schema changes.</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+
+    <jenkins.model.BuildDiscarderProperty>
+      <strategy class="hudson.tasks.LogRotator">
+        <daysToKeep>-1</daysToKeep>
+        <numToKeep>30</numToKeep>
+        <artifactDaysToKeep>-1</artifactDaysToKeep>
+        <artifactNumToKeep>-1</artifactNumToKeep>
+      </strategy>
+    </jenkins.model.BuildDiscarderProperty>
+
+    <org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty/>
+  </properties>
+
+  <!-- The pipeline is read from the repository, not stored in Jenkins. -->
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition" plugin="workflow-cps">
+    <scm class="hudson.plugins.git.GitSCM" plugin="git">
+      <configVersion>2</configVersion>
+      <userRemoteConfigs>
+        <hudson.plugins.git.UserRemoteConfig>
+          <url>https://github.com/greatkapitaltech/krew-hrms.git</url>
+          <credentialsId>GITHUB_CREDENTIALS_ID</credentialsId>
+        </hudson.plugins.git.UserRemoteConfig>
+      </userRemoteConfigs>
+      <branches>
+        <hudson.plugins.git.BranchSpec>
+          <name>*/dev</name>
+        </hudson.plugins.git.BranchSpec>
+      </branches>
+      <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+      <submoduleCfg class="empty-list"/>
+      <extensions/>
+    </scm>
+    <scriptPath>Jenkinsfile</scriptPath>
+    <lightweight>true</lightweight>
+  </definition>
+
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>
