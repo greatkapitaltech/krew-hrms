@@ -40,12 +40,23 @@ ENV_VAR_ECR_MEMORY_VALUE=2048</propertiesContent>
 
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
-        <hudson.model.StringParameterDefinition>
+        <!-- Live dropdown of branches read from the repository, so nobody has to
+             remember or correctly spell a branch name. -->
+        <net.uaznia.lukanus.hudson.plugins.gitparameter.GitParameterDefinition plugin="git-parameter">
           <name>BRANCH_NAME</name>
-          <description>Branch to build and deploy. Anyone can deploy their own branch here.</description>
+          <description>Branch to build and deploy. Pick your own branch here.</description>
+          <uuid>7c1f9a2e-4b6d-4a11-9f3c-krew0001brnc</uuid>
+          <type>PT_BRANCH</type>
+          <branch></branch>
+          <tagFilter>*</tagFilter>
+          <branchFilter>origin/(.*)</branchFilter>
+          <useRepository></useRepository>
+          <quickFilterEnabled>true</quickFilterEnabled>
+          <selectedValue>DEFAULT</selectedValue>
+          <sortMode>ASCENDING_SMART</sortMode>
           <defaultValue>dev</defaultValue>
-          <trim>true</trim>
-        </hudson.model.StringParameterDefinition>
+          <listSize>15</listSize>
+        </net.uaznia.lukanus.hudson.plugins.gitparameter.GitParameterDefinition>
         <hudson.model.StringParameterDefinition>
           <name>TAG_NAME</name>
           <description>Git tag to deploy instead of a branch. Takes precedence over BRANCH_NAME.</description>

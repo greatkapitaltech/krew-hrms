@@ -211,15 +211,25 @@ pipeline {
                         [ -n "$SUBNETS" ] && [ "$SUBNETS" != "null" ] \
                             || { echo "ERROR: could not read network config from service" >&2; exit 1; }
 
+                        # Build the overrides as a file. Inlining the JSON means the
+                        # shell strips the inner double quotes and the AWS CLI receives
+                        # {containerOverrides:[...]} , which is not valid JSON.
+                        OVERRIDES=$(mktemp)
+                        cat > "$OVERRIDES" <<JSON
+{"containerOverrides":[{"name":"$APP_CONTAINER","command":["python","manage.py","migrate","--noinput"],"environment":[{"name":"MIGRATE_ON_START","value":"0"}]}]}
+JSON
+                        jq -e . "$OVERRIDES" >/dev/null || { echo "ERROR: overrides JSON is malformed" >&2; exit 1; }
+
                         TASK_ARN=$(aws ecs run-task \
                             --cluster "$ECS_CLUSTER_NAME" \
                             --task-definition "$TASK_DEF_ARN" \
                             --launch-type FARGATE \
                             --count 1 \
                             --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SGS],assignPublicIp=DISABLED}" \
-                            --overrides "{\"containerOverrides\":[{\"name\":\"$APP_CONTAINER\",\"command\":[\"python\",\"manage.py\",\"migrate\",\"--noinput\"],\"environment\":[{\"name\":\"MIGRATE_ON_START\",\"value\":\"0\"}]}]}" \
+                            --overrides "file://$OVERRIDES" \
                             --region "$DEPLOYMENT_AWS_ACCOUNT_REGION" \
                             --query 'tasks[0].taskArn' --output text)
+                        rm -f "$OVERRIDES"
 
                         echo "Migration task: $TASK_ARN"
                         aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER_NAME" \
