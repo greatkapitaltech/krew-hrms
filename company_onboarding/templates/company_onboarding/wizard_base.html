@@ -56,12 +56,6 @@
         </ul>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="oh-alert oh-alert--animated {{ message.tags }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {% block step_content %}{% endblock step_content %}

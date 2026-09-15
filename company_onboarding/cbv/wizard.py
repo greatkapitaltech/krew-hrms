@@ -13,6 +13,8 @@ see wizard_utils.discover_row_indices for how the row count is recovered
 from POST on submit.
 """
 
+from datetime import timedelta
+
 from django.contrib import messages
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -42,6 +44,8 @@ from company_onboarding.models import (
     CompanyStateRegistration,
 )
 from company_onboarding.wizard_utils import (
+    CONTRACT_TERM_FIELDS,
+    contract_terms_changed,
     discover_row_indices,
     get_bank_details,
     validate_for_active,
@@ -176,6 +180,14 @@ class Step1View(View):
             strict=strict,
         )
         active_contract = company.contracts.filter(status="ACTIVE").first()
+        amending_active_contract = company.status == "ACTIVE" and active_contract is not None
+        
+        old_contract_values = (
+            {field: getattr(active_contract, field) for field in CONTRACT_TERM_FIELDS}
+            if active_contract
+            else None
+        )
+        old_msa_document = active_contract.msa_document if active_contract else None
         contract_form = CompanyContractForm(
             request.POST,
             request.FILES,
@@ -204,6 +216,69 @@ class Step1View(View):
             and all(f.is_valid() for f in poc_row_forms)
         )
 
+        # A real amendment (contract terms actually changing on an
+        # already-Active company) has its own hard requirements, regardless
+        # of Draft/Next -- unlike the relaxed-on-Draft checks below, these
+        # aren't "a field is incomplete", they're "the action being
+        # attempted isn't valid without this". Checked here, before any
+        # section saves, so they abort the whole request the same way
+        # tax_country_locked does above -- otherwise an error would only
+        # show as a toast while Next silently carried on to Step 2 anyway.
+        is_real_amendment = (
+            amending_active_contract
+            and contract_form.is_valid()
+            and any(contract_form.cleaned_data.values())
+            and contract_terms_changed(
+                old_contract_values,
+                contract_form.cleaned_data,
+                new_file_uploaded=bool(request.FILES.get("msa_document")),
+            )
+        )
+
+        amendment_errors = []
+        if is_real_amendment and not request.FILES.get("msa_document"):
+            amendment_errors.append(
+                "Amending an active contract requires uploading the new "
+                "MSA document."
+            )
+
+        # If the outgoing contract already has a defined end date, the new
+        # one must start the very next day -- no gap, no overlap. (If it
+        # doesn't have one yet, the save step below back-fills it to
+        # exactly the day before the new contract's start date, so the
+        # invariant always holds either way -- nothing to validate in that
+        # case since there's nothing to conflict with.)
+        if is_real_amendment and old_contract_values["end_date"]:
+            expected_start = old_contract_values["end_date"] + timedelta(days=1)
+            if contract_form.cleaned_data.get("start_date") != expected_start:
+                amendment_errors.append(
+                    "The new contract must start the day after the "
+                    "current one ends, with no gap or overlap — expected "
+                    f"start date {expected_start:%Y-%m-%d}."
+                )
+        elif (
+            is_real_amendment
+            and old_contract_values["start_date"]
+            and contract_form.cleaned_data.get("start_date")
+            and contract_form.cleaned_data["start_date"] <= old_contract_values["start_date"]
+        ):
+            # No end date to anchor to (back-filled below instead) -- but
+            # a new start date on or before the CURRENT contract's own
+            # start date can't be turned into a valid "day before" end
+            # date for it, and doesn't make chronological sense anyway.
+            amendment_errors.append(
+                "The new contract's start date must be after the current "
+                "contract's start date "
+                f"({old_contract_values['start_date']:%Y-%m-%d})."
+            )
+
+        if amendment_errors:
+            for error in amendment_errors:
+                contract_form.add_error(None, error)
+                messages.error(request, error)
+            context = self._build_context(company, contract_form=contract_form)
+            return render(request, self.template_name, context)
+
         if strict and (not forms_valid or extra_errors):
             for error in extra_errors:
                 messages.error(request, error)
@@ -224,7 +299,73 @@ class Step1View(View):
         if bank_form.is_valid() and any(bank_form.cleaned_data.values()):
             bank_form.save()
         if contract_form.is_valid() and any(contract_form.cleaned_data.values()):
-            contract_form.save()
+            new_msa_document = request.FILES.get("msa_document")
+            if is_real_amendment:
+                # amendment_errors (above) already aborted the whole
+                # request if new_msa_document were missing or the dates
+                # didn't line up, so both are guaranteed valid by this
+                # point.
+                #
+                # contract_form.is_valid() (in forms_valid, above) already
+                # ran construct_instance() on active_contract (since
+                # contract_form is bound to it as `instance=`, needed so
+                # the model's own "one active contract per company"
+                # clean() check correctly excludes itself via
+                # instance.pk) -- that mutates active_contract's Python
+                # attributes to the NEWLY SUBMITTED values in place, even
+                # though nothing has been saved yet. Explicitly restore
+                # the true pre-edit values before saving it as
+                # TERMINATED, so the persisted history row reflects what
+                # was actually in effect, not what's about to replace it.
+                for field, value in old_contract_values.items():
+                    setattr(active_contract, field, value)
+                active_contract.msa_document = old_msa_document
+
+                new_start_date = contract_form.cleaned_data.get("start_date")
+                if not old_contract_values["end_date"]:
+                    # No defined end date to preserve or validate against
+                    # (checked above) -- back-fill it to exactly the day
+                    # before the new contract starts, so the two contracts
+                    # connect with no gap and no overlap by construction.
+                    active_contract.end_date = new_start_date - timedelta(days=1)
+
+                new_msa_ref = contract_form.cleaned_data.get("msa_reference_number")
+                if (
+                    old_contract_values["msa_reference_number"]
+                    and new_msa_ref == old_contract_values["msa_reference_number"]
+                ):
+                    # msa_reference_number is globally unique even across
+                    # TERMINATED rows (see CompanyContractTests.
+                    # test_msa_reference_number_unique_across_companies) --
+                    # the amendment normally keeps the same real-world MSA
+                    # number, which would otherwise collide the instant the
+                    # new row saves it. Free it up by tagging the outgoing
+                    # row distinctly (its own pk is unique, so this can
+                    # never collide with a sibling termination) rather than
+                    # losing the reference entirely.
+                    max_len = CompanyContract._meta.get_field(
+                        "msa_reference_number"
+                    ).max_length
+                    active_contract.msa_reference_number = (
+                        f"{old_contract_values['msa_reference_number']} "
+                        f"[superseded #{active_contract.pk}]"
+                    )[:max_len]
+                active_contract.status = CompanyContract.Status.TERMINATED
+                active_contract.save()
+
+                new_contract = CompanyContract(
+                    company=company,
+                    status=CompanyContract.Status.ACTIVE,
+                    msa_reference_number=new_msa_ref,
+                    start_date=new_start_date,
+                    end_date=contract_form.cleaned_data.get("end_date"),
+                    billing_model=contract_form.cleaned_data.get("billing_model"),
+                    billing_value=contract_form.cleaned_data.get("billing_value"),
+                    msa_document=new_msa_document,
+                )
+                new_contract.save()
+            elif not amending_active_contract:
+                contract_form.save()
         for form in state_row_forms:
             if form.is_valid() and form.cleaned_data.get("state"):
                 row = form.save(commit=False)
@@ -258,8 +399,16 @@ class Step1View(View):
         active_contract = (
             company.contracts.filter(status="ACTIVE").first() if company else None
         )
+        # Once the company is Active and a contract already exists, editing
+        # is an amendment (see contract_terms_changed() in post()), not an
+        # in-place edit -- the form should start BLANK for the admin to
+        # enter the new terms, not pre-filled with the current ones (which
+        # are shown read-only instead, gated behind an explicit "Add New
+        # Contract" toggle in the template). Before Active, there's nothing
+        # live yet to amend, so pre-filling/editing in place is correct.
+        amending_active_contract = bool(company and company.status == "ACTIVE" and active_contract)
         contract_form = overrides.get("contract_form") or CompanyContractForm(
-            instance=active_contract
+            instance=CompanyContract(company=company) if amending_active_contract else active_contract
         )
         state_row_forms = overrides.get("state_row_forms") or (
             _build_state_row_forms(company) if company else []
@@ -274,6 +423,8 @@ class Step1View(View):
             "compliance_form": compliance_form,
             "bank_form": bank_form,
             "contract_form": contract_form,
+            "active_contract": active_contract,
+            "amending_active_contract": amending_active_contract,
             "state_row_forms": state_row_forms,
             "poc_row_forms": poc_row_forms,
             "next_state_index": len(state_row_forms),

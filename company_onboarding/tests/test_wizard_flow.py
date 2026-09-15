@@ -1,3 +1,6 @@
+from datetime import date
+from decimal import Decimal
+
 from django.test import TestCase
 
 from horilla.horilla_middlewares import _thread_locals
@@ -170,6 +173,416 @@ class WizardFlowTests(CompanyFilterTestMixin, TestCase):
 
         company = Company.objects.get(pk=company_id)
         self.assertEqual(company.status, "ACTIVE")
+
+    def _activate_company(
+        self,
+        company_id,
+        *,
+        msa_reference_number="MSA-001",
+        billing_value="500",
+        msa_document=None,
+        end_date=None,
+    ):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        pdf = msa_document or SimpleUploadedFile(
+            "msa.pdf", b"%PDF-1.4 fake", content_type="application/pdf"
+        )
+        payload = {
+            **self._identity_payload(),
+            "legal_name": "Acme Pvt Ltd",
+            "tax_country": "INDIA",
+            "pan": "ABCDE1234F",
+            "invoice_cycle": "MONTHLY",
+            "account_number": "1234567890",
+            "bank_name": "Test Bank",
+            "ifsc_swift": "TEST0001234",
+            "currency": "INR",
+            "msa_reference_number": msa_reference_number,
+            "start_date": "2026-01-01",
+            "billing_model": "PER_HEAD",
+            "billing_value": billing_value,
+            "msa_document": pdf,
+            "state1-row_id": "",
+            "state1-state": str(self.maharashtra_state.pk),
+            "state1-gstin": "",
+            "poc1-row_id": "",
+            "poc1-designation": "HR Head",
+            "poc1-name": "Jane Doe",
+            "poc1-email": "jane@acme.test",
+            "poc1-mobile": "9999999999",
+            "action": "next",
+        }
+        if end_date is not None:
+            payload["end_date"] = end_date
+        self.client.post(f"/company-onboarding/{company_id}/step-1/", payload)
+        self.client.post(
+            f"/company-onboarding/{company_id}/step-2/",
+            {
+                "signatory1-row_id": "",
+                "signatory1-signatory_type": "VENTURA",
+                "signatory1-name": "Som Naskar",
+                "signatory1-designation": "Director",
+                "signatory1-email": "som@ventura.test",
+                "signatory1-is_enabled": "on",
+                "action": "next",
+            },
+        )
+        self.client.post(
+            f"/company-onboarding/{company_id}/step-3/", {"action": "mark_active"}
+        )
+
+    def _amend_contract(
+        self,
+        company_id,
+        *,
+        msa_reference_number="MSA-001",
+        billing_value="500",
+        msa_document=None,
+        action="draft",
+        start_date="2026-02-01",
+    ):
+        """
+        Re-submits Step 1 with new contract terms for an already-Active
+        company -- everything else stays as the identity payload requires,
+        since Step1View re-validates the whole step even on a Draft save.
+        msa_document is omitted by default -- amending an active contract's
+        terms REQUIRES a freshly uploaded document (see Step1View.post()),
+        so tests exercising a real amendment must pass one explicitly.
+        start_date defaults to a month after _activate_company()'s
+        hardcoded 2026-01-01 -- amending with the SAME start date as the
+        current contract is itself invalid (a new contract can't start on
+        or before the one it's replacing), so tests that don't care about
+        exact date-continuity behavior still need a later date here.
+        """
+        payload = {
+            **self._identity_payload(),
+            "legal_name": "Acme Pvt Ltd",
+            "tax_country": "INDIA",
+            "pan": "ABCDE1234F",
+            "invoice_cycle": "MONTHLY",
+            "msa_reference_number": msa_reference_number,
+            "start_date": start_date,
+            "billing_model": "PER_HEAD",
+            "billing_value": billing_value,
+            "action": action,
+        }
+        if msa_document is not None:
+            payload["msa_document"] = msa_document
+        return self.client.post(f"/company-onboarding/{company_id}/step-1/", payload)
+
+    def _amendment_document(self, name="amendment.pdf"):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        return SimpleUploadedFile(name, b"%PDF-1.4 fake amendment", content_type="application/pdf")
+
+    def test_amending_an_active_contract_terminates_old_and_creates_new(self):
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(company_id, billing_value="500")
+
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+        self._amend_contract(
+            company_id, billing_value="750", msa_document=self._amendment_document()
+        )
+
+        original.refresh_from_db()
+        self.assertEqual(original.status, "TERMINATED")
+        self.assertEqual(
+            CompanyContract.objects.filter(company_id=company_id).count(), 2
+        )
+        new_active = CompanyContract.objects.get(
+            company_id=company_id, status="ACTIVE"
+        )
+        self.assertNotEqual(new_active.pk, original.pk)
+        self.assertEqual(new_active.billing_value, Decimal("750.00"))
+
+    def test_amending_with_same_msa_reference_number_renames_the_terminated_row(self):
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(
+            company_id, msa_reference_number="MSA-001", billing_value="500"
+        )
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+
+        # Amendment resubmits the SAME reference number -- msa_reference_
+        # number is globally unique even across TERMINATED rows, so this
+        # would collide with the outgoing row unless it gets renamed.
+        self._amend_contract(
+            company_id,
+            msa_reference_number="MSA-001",
+            billing_value="750",
+            msa_document=self._amendment_document(),
+        )
+
+        original.refresh_from_db()
+        self.assertNotEqual(original.msa_reference_number, "MSA-001")
+        self.assertIn(f"#{original.pk}", original.msa_reference_number)
+        new_active = CompanyContract.objects.get(
+            company_id=company_id, status="ACTIVE"
+        )
+        self.assertEqual(new_active.msa_reference_number, "MSA-001")
+
+    def test_amending_with_a_new_msa_reference_number_leaves_the_old_one_untouched(
+        self,
+    ):
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(
+            company_id, msa_reference_number="MSA-001", billing_value="500"
+        )
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+
+        self._amend_contract(
+            company_id,
+            msa_reference_number="MSA-002",
+            billing_value="750",
+            msa_document=self._amendment_document(),
+        )
+
+        original.refresh_from_db()
+        self.assertEqual(original.msa_reference_number, "MSA-001")
+        self.assertEqual(original.status, "TERMINATED")
+
+    def test_resubmitting_unchanged_contract_terms_does_not_create_a_new_row(self):
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(
+            company_id, msa_reference_number="MSA-001", billing_value="500"
+        )
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+
+        # Same terms as activation, no document re-uploaded either -- the
+        # wizard resubmits this whole section on every save even when
+        # nothing changed. Since terms are unchanged, the missing-document
+        # requirement never even applies here.
+        self._amend_contract(
+            company_id, msa_reference_number="MSA-001", billing_value="500"
+        )
+
+        self.assertEqual(
+            CompanyContract.objects.filter(company_id=company_id).count(), 1
+        )
+        original.refresh_from_db()
+        self.assertEqual(original.status, "ACTIVE")
+
+    def test_amending_without_a_new_document_is_blocked(self):
+        from django.contrib.messages import get_messages
+
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(company_id, billing_value="500")
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+        original_document_name = original.msa_document.name
+
+        # Real term change (500 -> 750) but no msa_document attached.
+        resp = self._amend_contract(company_id, billing_value="750")
+
+        # This is a hard block (like tax_country_locked), not a relaxed-on-
+        # Draft check -- it aborts the request immediately by re-rendering
+        # Step 1 (200), same as every other request-level validation
+        # failure in this view. It must NOT redirect forward/onward
+        # regardless of action, which is exactly the bug being guarded
+        # against here.
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "requires uploading")
+        messages = [str(m) for m in get_messages(resp.wsgi_request)]
+        self.assertTrue(any("requires uploading" in m for m in messages))
+        self.assertEqual(
+            CompanyContract.objects.filter(company_id=company_id).count(), 1
+        )
+        original.refresh_from_db()
+        self.assertEqual(original.status, "ACTIVE")
+        self.assertEqual(original.billing_value, Decimal("500.00"))
+        self.assertEqual(original.msa_document.name, original_document_name)
+
+    def test_clicking_next_with_a_blocked_amendment_does_not_advance_to_step2(self):
+        """
+        Regression test: the missing-document block previously only queued
+        a messages.error() toast with no effect on control flow, so
+        clicking Next silently redirected to Step 2 anyway despite the
+        error being shown.
+        """
+        company_id = self._create_company_via_draft()
+        self._activate_company(company_id, billing_value="500")
+
+        resp = self._amend_contract(company_id, billing_value="750", action="next")
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotEqual(resp.get("Location"), f"/company-onboarding/{company_id}/step-2/")
+        self.assertContains(resp, "requires uploading")
+
+    def test_amending_with_a_new_document_replaces_the_old_one(self):
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(company_id, billing_value="500")
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+        original_document_name = original.msa_document.name
+
+        self._amend_contract(
+            company_id, billing_value="750", msa_document=self._amendment_document()
+        )
+
+        new_active = CompanyContract.objects.get(
+            company_id=company_id, status="ACTIVE"
+        )
+        self.assertTrue(new_active.msa_document)
+        self.assertNotEqual(new_active.msa_document.name, original_document_name)
+
+    def test_amending_backfills_old_contracts_end_date_when_not_set(self):
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        # end_date deliberately left unset.
+        self._activate_company(company_id, billing_value="500")
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+        self.assertIsNone(original.end_date)
+
+        self._amend_contract(
+            company_id,
+            billing_value="750",
+            start_date="2026-03-15",
+            msa_document=self._amendment_document(),
+        )
+
+        original.refresh_from_db()
+        self.assertEqual(original.end_date, date(2026, 3, 14))
+
+    def test_amending_rejects_a_start_date_that_leaves_a_gap_after_old_end_date(self):
+        from django.contrib.messages import get_messages
+
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(
+            company_id, billing_value="500", end_date="2026-01-31"
+        )
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+
+        # Old contract ends 2026-01-31 -> new one must start 2026-02-01.
+        # This leaves a gap by starting a week later instead.
+        resp = self._amend_contract(
+            company_id,
+            billing_value="750",
+            start_date="2026-02-08",
+            msa_document=self._amendment_document(),
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        messages = [str(m) for m in get_messages(resp.wsgi_request)]
+        self.assertTrue(any("2026-02-01" in m for m in messages))
+        original.refresh_from_db()
+        self.assertEqual(original.status, "ACTIVE")
+        self.assertEqual(
+            CompanyContract.objects.filter(company_id=company_id).count(), 1
+        )
+
+    def test_amending_rejects_a_start_date_that_overlaps_old_end_date(self):
+        from django.contrib.messages import get_messages
+
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(
+            company_id, billing_value="500", end_date="2026-01-31"
+        )
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+
+        # Starting ON the old end date overlaps it by a day.
+        resp = self._amend_contract(
+            company_id,
+            billing_value="750",
+            start_date="2026-01-31",
+            msa_document=self._amendment_document(),
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        messages = [str(m) for m in get_messages(resp.wsgi_request)]
+        self.assertTrue(any("2026-02-01" in m for m in messages))
+        original.refresh_from_db()
+        self.assertEqual(original.status, "ACTIVE")
+
+    def test_amending_succeeds_when_start_date_exactly_follows_old_end_date(self):
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        self._activate_company(
+            company_id, billing_value="500", end_date="2026-01-31"
+        )
+        original = CompanyContract.objects.get(company_id=company_id, status="ACTIVE")
+
+        self._amend_contract(
+            company_id,
+            billing_value="750",
+            start_date="2026-02-01",
+            msa_document=self._amendment_document(),
+        )
+
+        original.refresh_from_db()
+        self.assertEqual(original.status, "TERMINATED")
+        self.assertEqual(original.end_date, date(2026, 1, 31))  # untouched
+        new_active = CompanyContract.objects.get(
+            company_id=company_id, status="ACTIVE"
+        )
+        self.assertEqual(new_active.start_date, date(2026, 2, 1))
+
+    def test_amending_rejects_a_start_date_on_or_before_the_old_contracts_own_start(
+        self,
+    ):
+        from django.contrib.messages import get_messages
+
+        from company_onboarding.models import CompanyContract
+
+        company_id = self._create_company_via_draft()
+        # end_date deliberately left unset -- the current contract started
+        # 2026-01-01 (see _activate_company()).
+        self._activate_company(company_id, billing_value="500")
+
+        resp = self._amend_contract(
+            company_id,
+            billing_value="750",
+            start_date="2026-01-01",
+            msa_document=self._amendment_document(),
+        )
+
+        self.assertEqual(resp.status_code, 200)
+        messages = [str(m) for m in get_messages(resp.wsgi_request)]
+        self.assertTrue(any("must be after" in m for m in messages))
+        self.assertEqual(
+            CompanyContract.objects.filter(company_id=company_id).count(), 1
+        )
+
+    def test_step1_get_shows_active_contract_readonly_with_a_blank_amendment_form(
+        self,
+    ):
+        """
+        Once the company is Active and a contract exists, GET /step-1/
+        must NOT pre-fill the contract form with the current contract's
+        values -- editing it directly (instead of via the "Add New
+        Contract" toggle) would look like an in-place edit, but a real
+        submission actually creates a new row (see Step1View.post()).
+        """
+        company_id = self._create_company_via_draft()
+        self._activate_company(
+            company_id, msa_reference_number="MSA-001", billing_value="500"
+        )
+
+        resp = self.client.get(f"/company-onboarding/{company_id}/step-1/")
+
+        self.assertTrue(resp.context["amending_active_contract"])
+        self.assertEqual(
+            resp.context["active_contract"].msa_reference_number, "MSA-001"
+        )
+        contract_form = resp.context["contract_form"]
+        self.assertIsNone(contract_form.initial.get("msa_reference_number"))
+        self.assertContains(resp, "MSA-001")  # shown in the read-only summary
+        self.assertContains(resp, "Add New Contract")
 
     def test_mark_active_reblocks_when_a_required_field_is_cleared_after_next(self):
         """

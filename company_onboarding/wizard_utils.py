@@ -50,6 +50,40 @@ def get_bank_details(company):
     return CompanyBankDetails.objects.filter(company=company).first()
 
 
+CONTRACT_TERM_FIELDS = (
+    "msa_reference_number",
+    "start_date",
+    "end_date",
+    "billing_model",
+    "billing_value",
+)
+
+
+def contract_terms_changed(old_values, cleaned_data, new_file_uploaded):
+    """
+    True if a CompanyContractForm submission actually differs from the
+    contract's PRE-edit values -- used to decide whether a post-Active
+    contract edit is a real amendment (worth preserving as history) or a
+    no-op resave (the wizard resubmits the whole form on every Draft/Next,
+    even when nothing in this section changed).
+
+    `old_values` must be a plain dict snapshot (field -> value) taken
+    BEFORE the form was constructed -- NOT read live off the model
+    instance after the fact. A bound ModelForm mutates its `instance` in
+    place (via `construct_instance()`) the moment `.is_valid()` /
+    `.cleaned_data` / `.errors` is touched, even before `.save()` is ever
+    called -- so if `instance` is the same live active_contract object,
+    reading its attributes afterward would just compare the NEW submitted
+    values against themselves.
+    """
+    if new_file_uploaded:
+        return True
+    return any(
+        cleaned_data.get(field) != old_values.get(field)
+        for field in CONTRACT_TERM_FIELDS
+    )
+
+
 def validate_for_active(company):
     """
     Independent, authoritative re-validation of every mandatory field
