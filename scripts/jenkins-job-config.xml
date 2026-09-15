@@ -45,7 +45,7 @@ ENV_VAR_ECR_MEMORY_VALUE=2048</propertiesContent>
         <net.uaznia.lukanus.hudson.plugins.gitparameter.GitParameterDefinition plugin="git-parameter">
           <name>BRANCH_NAME</name>
           <description>Branch to build and deploy. Pick your own branch here.</description>
-          <uuid>7c1f9a2e-4b6d-4a11-9f3c-krew0001brnc</uuid>
+          <uuid>57909927-05fc-51f7-97b1-eb73d0407b81</uuid>
           <type>PT_BRANCH</type>
           <branch></branch>
           <tagFilter>*</tagFilter>

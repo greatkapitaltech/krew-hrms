@@ -3,6 +3,20 @@ set -e
 
 echo "Starting Horilla HR..."
 
+# Where is the database? docker-compose sets DB_HOST=db; ECS passes a single
+# DATABASE_URL instead, so derive host and port from it rather than waiting on a
+# compose service name that does not exist outside compose.
+if [ -z "${DB_HOST:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
+  _hostport="${DATABASE_URL#*://}"   # strip scheme
+  _hostport="${_hostport##*@}"       # strip credentials (last @, passwords may contain @)
+  _hostport="${_hostport%%/*}"       # strip /dbname and anything after
+  _hostport="${_hostport%%\?*}"      # strip ?query
+  DB_HOST="${_hostport%%:*}"
+  case "$_hostport" in
+    *:*) DB_PORT="${_hostport##*:}" ;;
+  esac
+fi
+
 DB_HOST="${DB_HOST:-db}"
 DB_PORT="${DB_PORT:-5432}"
 
