@@ -694,6 +694,24 @@ class WizardFlowTests(CompanyFilterTestMixin, TestCase):
         self.assertContains(resp, "MSA-001")  # shown in the read-only summary
         self.assertContains(resp, "Add New Contract")
 
+    def test_step1_get_hides_penny_drop_controls_once_bank_account_is_verified(self):
+        """
+        Regression test: the "Initiate Penny Drop" button and the "Amount
+        credited" confirmation input are only meaningful before
+        verification -- once verification_status is VERIFIED, neither
+        should still render (they previously kept showing regardless,
+        since that block only checked the latest attempt's own
+        drop_status, never the account's overall verification_status).
+        """
+        company_id = self._create_company_via_draft()
+        self._activate_company(company_id)  # sets verification_status=VERIFIED
+
+        resp = self.client.get(f"/company-onboarding/{company_id}/step-1/")
+
+        self.assertContains(resp, "Bank account verified.")
+        self.assertNotContains(resp, "Initiate Penny Drop")
+        self.assertNotContains(resp, "Amount credited")
+
     def test_mark_active_reblocks_when_a_required_field_is_cleared_after_next(self):
         """
         Mark-as-Active is an independent re-check, not a "Next already

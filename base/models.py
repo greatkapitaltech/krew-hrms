@@ -17,6 +17,8 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from base.horilla_company_manager import HorillaCompanyManager
+from company_onboarding.encryption import hash_value
+from company_onboarding.model_fields import EncryptedCharField
 from company_onboarding.validators import pan_validator
 from horilla import horilla_middlewares
 from horilla.horilla_middlewares import _thread_locals
@@ -149,12 +151,25 @@ class Company(HorillaModel):
     ldc_applied = models.BooleanField(
         default=False, verbose_name=_("Lower Deduction Certificate (LDC) Applied")
     )
-    pan = models.CharField(
-        max_length=10,
+    # Stored encrypted at rest (see company_onboarding/encryption.py) -- the
+    # DB column is widened for ciphertext, plain_max_length is the real
+    # 10-character limit enforced on the form. pan_hash (below) is a
+    # deterministic "blind index" used purely for the uniqueness
+    # constraint/lookups, since Fernet ciphertext is never the same twice
+    # for the same plaintext and so can't be compared/indexed directly.
+    pan = EncryptedCharField(
+        plain_max_length=10,
         null=True,
         blank=True,
         validators=[pan_validator],
         verbose_name=_("PAN"),
+    )
+    pan_hash = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        editable=False,
+        verbose_name=_("PAN Hash"),
     )
     foreign_tax_id = models.CharField(
         max_length=50, null=True, blank=True, verbose_name=_("Foreign Tax ID")
@@ -200,8 +215,8 @@ class Company(HorillaModel):
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=["pan"],
-                condition=models.Q(pan__isnull=False),
+                fields=["pan_hash"],
+                condition=models.Q(pan_hash__isnull=False),
                 name="unique_company_pan",
             ),
             models.UniqueConstraint(
@@ -239,6 +254,18 @@ class Company(HorillaModel):
             raise ValidationError(
                 _("A company cannot have both a PAN and a Foreign Tax ID.")
             )
+        # Computed here too (not just in save(), below) so validate_unique()
+        # -- which full_clean() runs right after clean() and before save()
+        # -- checks the CURRENT pan against pan_hash, not a stale value.
+        self.pan_hash = hash_value(self.pan) if self.pan else None
+
+    def save(self, *args, **kwargs):
+        # Unconditional (not just in clean()) so pan_hash -- and therefore
+        # the DB-level uniqueness constraint -- stays correct even for a
+        # save() that didn't go through full_clean() first (e.g. a raw
+        # Company.objects.create(...) from a script or the ORM directly).
+        self.pan_hash = hash_value(self.pan) if self.pan else None
+        super().save(*args, **kwargs)
 
     def blocks_operations(self) -> bool:
         """

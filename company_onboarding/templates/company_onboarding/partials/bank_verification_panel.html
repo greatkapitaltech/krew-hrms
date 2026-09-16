@@ -6,13 +6,6 @@
         <p class="text-success d-flex align-items-center mb-2">
             <span class="oh-dot oh-dot--success me-2"></span>{% trans "Bank account verified." %}
         </p>
-        {% with verified=bank_form.instance.verified_attempt %}
-            {% if verified %}
-                <p class="text-muted small mb-2">
-                    {% blocktrans with amount=verified.dropped_amount date=verified.created_at ref=verified.cashfree_reference_id %}Confirmed against the ₹{{ amount }} transfer sent {{ date }} (Cashfree ref {{ ref }}).{% endblocktrans %}
-                </p>
-            {% endif %}
-        {% endwith %}
     {% elif latest.drop_status == "FAILED" %}
         <p class="text-danger d-flex align-items-center mb-2">
             <span class="oh-dot oh-dot--danger me-2"></span>
@@ -35,7 +28,9 @@
             <span class="oh-dot oh-dot--info me-2"></span>{% trans "Not yet verified." %}
         </p>
     {% endif %}
-    {% if company.pk %}
+    {% if not company.pk %}
+        <p class="text-muted">{% trans "Save the company first." %}</p>
+    {% elif bank_form.instance.verification_status != "VERIFIED" %}
         {% if latest.drop_status == "PENDING" %}
             <p class="text-muted d-flex align-items-center mb-2">
                 <span class="oh-dot oh-dot--warning me-2"></span>
@@ -80,8 +75,6 @@
                 </div>
             {% endif %}
         {% endif %}
-    {% else %}
-        <p class="text-muted">{% trans "Save the company first." %}</p>
     {% endif %}
     {% endwith %}
 </div>
