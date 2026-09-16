@@ -221,13 +221,15 @@ pipeline {
                         # shell strips the inner double quotes and the AWS CLI receives
                         # {containerOverrides:[...]} , which is not valid JSON.
                         OVERRIDES=$(mktemp)
-                        # Built with jq, not a heredoc. $DATABASE_URL_OWNER must reach
-                        # the container as a literal — an unquoted heredoc would have
-                        # the agent's shell expand it, and under `set -u` that aborts
-                        # the build with "unbound variable". Inside a jq string literal
-                        # it stays literal, and jq emits correctly escaped JSON.
-                        jq -n --arg name "$APP_CONTAINER" \
-                          '{containerOverrides:[{name:$name,command:["sh","-c","DATABASE_URL=\"$DATABASE_URL_OWNER\" exec python manage.py migrate --noinput"],environment:[{name:"MIGRATE_ON_START",value:"0"}]}]}' \
+                        # Both the container name and the whole command are passed as
+                        # jq --arg values, so the jq program itself contains no quotes
+                        # needing escapes. Groovy's triple-quoted strings consume
+                        # backslash escapes, so an escaped quote written here would reach the
+                        # shell as a bare " and break the JSON.
+                        MIGRATE_CMD='DATABASE_URL="$DATABASE_URL_OWNER" exec python manage.py migrate --noinput'
+
+                        jq -n --arg name "$APP_CONTAINER" --arg cmd "$MIGRATE_CMD" \
+                          '{containerOverrides:[{name:$name,command:["sh","-c",$cmd],environment:[{name:"MIGRATE_ON_START",value:"0"}]}]}' \
                           > "$OVERRIDES"
                         jq -e . "$OVERRIDES" >/dev/null || { echo "ERROR: overrides JSON is malformed" >&2; exit 1; }
 
