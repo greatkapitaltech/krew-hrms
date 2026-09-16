@@ -69,8 +69,15 @@ else
   echo "MIGRATE_ON_START=0 — skipping migrations (handled by the deploy pipeline)."
 fi
 
-# Collect static files
-python manage.py collectstatic --noinput
+# Static files are baked into the image at build time. Only collect here if the
+# target is actually empty — which happens with docker-compose, where a named
+# volume is mounted over /app/staticfiles and starts out empty on first run.
+if [ -n "$(ls -A staticfiles 2>/dev/null)" ]; then
+  echo "Static files already present ($(ls staticfiles | wc -l) entries) — skipping collectstatic."
+else
+  echo "staticfiles is empty — collecting."
+  python manage.py collectstatic --noinput
+fi
 
 echo "Starting server..."
 exec "$@"

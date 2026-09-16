@@ -74,6 +74,18 @@ RUN chmod +x /entrypoint.sh
 RUN mkdir -p staticfiles media \
     && chown -R appuser:appuser /app
 
+# Collect static files at BUILD time, not on every container start.
+# 5,300+ files took ~60-90s off every single deploy when done at boot.
+#
+# No database is reachable during a build, so DATABASE_URL is deliberately left
+# unset here: horilla/settings/base.py then falls back to SQLite, which is
+# enough for collectstatic to import the app registry. The throwaway database
+# is removed in the same layer so it is never shipped.
+RUN SECRET_KEY=build-time-only-not-a-secret \
+    DB_NAME=/tmp/build-collectstatic.sqlite3 \
+    python manage.py collectstatic --noinput \
+ && rm -f /tmp/build-collectstatic.sqlite3
+
 USER appuser
 
 EXPOSE 8000
