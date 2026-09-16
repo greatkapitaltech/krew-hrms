@@ -221,9 +221,14 @@ pipeline {
                         # shell strips the inner double quotes and the AWS CLI receives
                         # {containerOverrides:[...]} , which is not valid JSON.
                         OVERRIDES=$(mktemp)
-                        cat > "$OVERRIDES" <<JSON
-{"containerOverrides":[{"name":"$APP_CONTAINER","command":["sh","-c","DATABASE_URL=\"$DATABASE_URL_OWNER\" exec python manage.py migrate --noinput"],"environment":[{"name":"MIGRATE_ON_START","value":"0"}]}]}
-JSON
+                        # Built with jq, not a heredoc. $DATABASE_URL_OWNER must reach
+                        # the container as a literal — an unquoted heredoc would have
+                        # the agent's shell expand it, and under `set -u` that aborts
+                        # the build with "unbound variable". Inside a jq string literal
+                        # it stays literal, and jq emits correctly escaped JSON.
+                        jq -n --arg name "$APP_CONTAINER" \
+                          '{containerOverrides:[{name:$name,command:["sh","-c","DATABASE_URL=\"$DATABASE_URL_OWNER\" exec python manage.py migrate --noinput"],environment:[{name:"MIGRATE_ON_START",value:"0"}]}]}' \
+                          > "$OVERRIDES"
                         jq -e . "$OVERRIDES" >/dev/null || { echo "ERROR: overrides JSON is malformed" >&2; exit 1; }
 
                         TASK_ARN=$(aws ecs run-task \
