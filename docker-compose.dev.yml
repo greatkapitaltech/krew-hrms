@@ -67,6 +67,21 @@ services:
       - ./docker/pgadmin/pgpass:/pgpass:ro
       - pgadmin:/var/lib/pgadmin
 
+  redis:
+    image: redis:7-alpine
+    container_name: krew-hrms-redis
+    restart: unless-stopped
+    # Pure cache: evicting anything is safe by design. Revisit this policy if
+    # Redis is ever given something that is not disposable (see docs/redis-and-rls.md).
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
+    ports:
+      - "${LOCAL_REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   pgdata:
     name: krew_hrms_pgdata

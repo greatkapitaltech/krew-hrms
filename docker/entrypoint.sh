@@ -3,6 +3,20 @@ set -e
 
 echo "Starting Horilla HR..."
 
+# Where is the database? docker-compose sets DB_HOST=db; ECS passes a single
+# DATABASE_URL instead, so derive host and port from it rather than waiting on a
+# compose service name that does not exist outside compose.
+if [ -z "${DB_HOST:-}" ] && [ -n "${DATABASE_URL:-}" ]; then
+  _hostport="${DATABASE_URL#*://}"   # strip scheme
+  _hostport="${_hostport##*@}"       # strip credentials (last @, passwords may contain @)
+  _hostport="${_hostport%%/*}"       # strip /dbname and anything after
+  _hostport="${_hostport%%\?*}"      # strip ?query
+  DB_HOST="${_hostport%%:*}"
+  case "$_hostport" in
+    *:*) DB_PORT="${_hostport##*:}" ;;
+  esac
+fi
+
 DB_HOST="${DB_HOST:-db}"
 DB_PORT="${DB_PORT:-5432}"
 
@@ -42,8 +56,18 @@ case "${SECRET_KEY:-}" in
     ;;
 esac
 
-# Run migrations
-python manage.py migrate --noinput
+# Run migrations.
+#
+# On ECS the pipeline runs migrations as a separate one-shot task BEFORE the
+# rollout, so every app container starts with MIGRATE_ON_START=0. Two reasons:
+#   * above one task, containers would race to migrate the same database
+#   * a failed migration should fail the deploy loudly, not crash-loop tasks
+# Local docker-compose leaves it unset, so `docker compose up` still just works.
+if [ "${MIGRATE_ON_START:-1}" = "1" ]; then
+  python manage.py migrate --noinput
+else
+  echo "MIGRATE_ON_START=0 — skipping migrations (handled by the deploy pipeline)."
+fi
 
 # Collect static files
 python manage.py collectstatic --noinput
