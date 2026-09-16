@@ -8,7 +8,21 @@ in local_settings.py (imported after this module) — do not import them here.
 
 import os
 
-from .base import BASE_DIR, INSTALLED_APPS, MEDIA_ROOT, MEDIA_URL, STORAGES, env
+from django.core.exceptions import ImproperlyConfigured
+
+from .base import BASE_DIR, INSTALLED_APPS, IS_PRODUCTION, MEDIA_ROOT, MEDIA_URL, STORAGES, env
+
+# Production must never silently fall back to local disk for document
+# storage: ECS (and most container platforms) use an ephemeral filesystem,
+# so a file saved locally is lost the moment the task restarts or redeploys
+# -- a real data-loss bug, not just a config nicety. Same fail-closed
+# pattern as security.py's validate_production_secrets(): DEBUG=True local
+# dev and CI (which have no AWS credentials at all) are unaffected.
+if IS_PRODUCTION and not env("AWS_ACCESS_KEY_ID", default=None):
+    raise ImproperlyConfigured(
+        "Document storage is not configured for production. Contact your "
+        "administrator before starting this service."
+    )
 
 if env("AWS_ACCESS_KEY_ID", default=None):
     AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
