@@ -23,23 +23,15 @@
 pipeline {
     agent any
 
-    parameters {
-        string(
-            name: 'BRANCH_NAME',
-            defaultValue: 'dev',
-            description: 'Branch to build and deploy. Anyone can deploy their own branch here.'
-        )
-        string(
-            name: 'TAG_NAME',
-            defaultValue: '',
-            description: 'Git tag to deploy instead of a branch. Takes precedence over BRANCH_NAME.'
-        )
-        booleanParam(
-            name: 'RUN_MIGRATIONS',
-            defaultValue: true,
-            description: 'Container entrypoint runs manage.py migrate on start. Untick to deploy without schema changes.'
-        )
-    }
+    // NOTE: no parameters{} block here, deliberately.
+    //
+    // Declarative Pipeline rewrites the job's parameter definitions from this
+    // block on every build. That silently replaced the BRANCH_NAME branch
+    // dropdown (git-parameter) with a plain text box each time a build ran.
+    //
+    // The three parameters — BRANCH_NAME (git-parameter dropdown), TAG_NAME and
+    // RUN_MIGRATIONS — are defined in the job configuration instead, which is
+    // version controlled at scripts/jenkins-job-config.xml.
 
     environment {
         GIT_CHECKOUT_TYPE   = "${params.TAG_NAME ? 'TAG' : 'BRANCH'}"
