@@ -90,6 +90,80 @@ class WizardFlowTests(CompanyFilterTestMixin, TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, "Place of Work")
 
+    def _next_payload_with_state_and_poc(self, **overrides):
+        """
+        A Next submission with the state/POC rows already present, so tests
+        can isolate whichever OTHER mandatory field they're checking
+        without also tripping the "at least one state/contact" errors.
+        """
+        payload = {
+            **self._identity_payload(),
+            "legal_name": "Acme Pvt Ltd",
+            "state1-row_id": "",
+            "state1-state": str(self.maharashtra_state.pk),
+            "state1-gstin": "",
+            "poc1-row_id": "",
+            "poc1-designation": "HR Head",
+            "poc1-name": "Jane Doe",
+            "poc1-email": "jane@acme.test",
+            "poc1-mobile": "9999999999",
+            "action": "next",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_next_blocks_on_missing_pan_for_domestic_tax_country(self):
+        resp = self.client.post(
+            "/company-onboarding/create/",
+            self._next_payload_with_state_and_poc(tax_country="INDIA"),  # no pan
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "PAN is required")
+
+    def test_next_blocks_on_missing_foreign_tax_id_for_foreign_tax_country(self):
+        resp = self.client.post(
+            "/company-onboarding/create/",
+            self._next_payload_with_state_and_poc(tax_country="FOREIGN"),  # no foreign_tax_id
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Foreign Tax ID is required")
+
+    def test_next_blocks_on_incomplete_bank_details(self):
+        resp = self.client.post(
+            "/company-onboarding/create/",
+            self._next_payload_with_state_and_poc(
+                tax_country="INDIA",
+                pan="ABCDE1234F",
+                account_number="1234567890",
+                bank_name="Test Bank",
+                currency="INR",
+                # ifsc_swift / account_holder_name / contact_number omitted
+            ),
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Bank details are required")
+
+    def test_next_blocks_on_missing_contract_document(self):
+        resp = self.client.post(
+            "/company-onboarding/create/",
+            self._next_payload_with_state_and_poc(
+                tax_country="INDIA",
+                pan="ABCDE1234F",
+                account_number="1234567890",
+                bank_name="Test Bank",
+                ifsc_swift="TEST0001234",
+                account_holder_name="Jane Doe",
+                contact_number="9999999999",
+                msa_reference_number="MSA-001",
+                start_date="2026-01-01",
+                billing_model="PER_HEAD",
+                billing_value="500",
+                # msa_document deliberately omitted
+            ),
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "MSA/Contract")
+
     def _create_company_via_draft(self):
         resp = self.client.post(
             "/company-onboarding/create/",
@@ -127,6 +201,8 @@ class WizardFlowTests(CompanyFilterTestMixin, TestCase):
                 "account_number": "1234567890",
                 "bank_name": "Test Bank",
                 "ifsc_swift": "TEST0001234",
+                "account_holder_name": "Jane Doe",
+                "contact_number": "9999999999",
                 "currency": "INR",
                 "msa_reference_number": "MSA-001",
                 "start_date": "2026-01-01",
@@ -162,6 +238,25 @@ class WizardFlowTests(CompanyFilterTestMixin, TestCase):
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp["Location"], f"/company-onboarding/{company_id}/step-3/")
 
+        from base.models import Company
+
+        # Bank details are filled in but not yet VERIFIED -- Mark-as-Active
+        # must still block (this is the actual, previously-missing gate).
+        resp = self.client.post(
+            f"/company-onboarding/{company_id}/step-3/", {"action": "mark_active"}
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "verified")
+        company = Company.objects.get(pk=company_id)
+        self.assertNotEqual(company.status, "ACTIVE")
+
+        from company_onboarding.models import CompanyBankDetails
+        from company_onboarding.wizard_utils import get_bank_details
+
+        bank_details = get_bank_details(company)
+        bank_details.verification_status = CompanyBankDetails.VerificationStatus.VERIFIED
+        bank_details.save(update_fields=["verification_status"])
+
         # Step 3 completeness (documents/branding) explicitly not required
         # for Active.
         resp = self.client.post(
@@ -169,9 +264,7 @@ class WizardFlowTests(CompanyFilterTestMixin, TestCase):
         )
         self.assertEqual(resp.status_code, 302)
 
-        from base.models import Company
-
-        company = Company.objects.get(pk=company_id)
+        company.refresh_from_db()
         self.assertEqual(company.status, "ACTIVE")
 
     def _activate_company(
@@ -197,6 +290,8 @@ class WizardFlowTests(CompanyFilterTestMixin, TestCase):
             "account_number": "1234567890",
             "bank_name": "Test Bank",
             "ifsc_swift": "TEST0001234",
+            "account_holder_name": "Jane Doe",
+            "contact_number": "9999999999",
             "currency": "INR",
             "msa_reference_number": msa_reference_number,
             "start_date": "2026-01-01",
@@ -216,6 +311,21 @@ class WizardFlowTests(CompanyFilterTestMixin, TestCase):
         if end_date is not None:
             payload["end_date"] = end_date
         self.client.post(f"/company-onboarding/{company_id}/step-1/", payload)
+
+        # Mark-as-Active requires the bank account to be VERIFIED, not just
+        # filled in (see wizard_utils.validate_for_active()) -- this helper
+        # is shared by tests that don't care about the Cashfree flow itself,
+        # so it sets the outcome directly via the ORM rather than mocking
+        # verify_bank_account()/initiate_bank_transfer() end-to-end here.
+        # Dedicated bank-verification tests exercise that flow separately.
+        from company_onboarding.models import CompanyBankDetails
+        from company_onboarding.wizard_utils import get_bank_details
+        from base.models import Company
+
+        bank_details = get_bank_details(Company.objects.get(pk=company_id))
+        bank_details.verification_status = CompanyBankDetails.VerificationStatus.VERIFIED
+        bank_details.save(update_fields=["verification_status"])
+
         self.client.post(
             f"/company-onboarding/{company_id}/step-2/",
             {

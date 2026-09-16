@@ -208,6 +208,53 @@ class Step1View(View):
         ):
             extra_errors.append("At least one point of contact is required.")
 
+        if strict:
+            # Mirrors wizard_utils.validate_for_active()'s field-presence
+            # rules -- everything except the bank-verification-STATUS check,
+            # which stays Active-only (you can't have verified a bank
+            # account before you've even finished typing it in on this same
+            # page). Checked against each form's own cleaned_data, not the
+            # DB -- these rows/fields haven't been saved yet at this point
+            # in the request, so validate_for_active() itself (which reads
+            # straight from the DB) would incorrectly see stale state here.
+            if compliance_form.is_valid():
+                tax_country = compliance_form.cleaned_data.get("tax_country")
+                if not tax_country:
+                    extra_errors.append("Tax & Registration Country is required.")
+                elif tax_country == "INDIA" and not compliance_form.cleaned_data.get("pan"):
+                    extra_errors.append("PAN is required for domestic clients.")
+                elif tax_country == "FOREIGN" and not compliance_form.cleaned_data.get(
+                    "foreign_tax_id"
+                ):
+                    extra_errors.append("Foreign Tax ID is required for foreign clients.")
+
+            if bank_form.is_valid() and not all(
+                bank_form.cleaned_data.get(field)
+                for field in (
+                    "account_number",
+                    "bank_name",
+                    "ifsc_swift",
+                    "account_holder_name",
+                    "contact_number",
+                )
+            ):
+                extra_errors.append("Bank details are required.")
+
+            if contract_form.is_valid():
+                cd = contract_form.cleaned_data
+                contract_complete = (
+                    cd.get("msa_reference_number")
+                    and cd.get("start_date")
+                    and cd.get("billing_model")
+                    and cd.get("billing_value") is not None
+                    and cd.get("msa_document")
+                )
+                if not contract_complete:
+                    extra_errors.append(
+                        "An MSA/Contract with all its fields (including the MSA "
+                        "document) is required."
+                    )
+
         forms_valid = (
             compliance_form.is_valid()
             and bank_form.is_valid()

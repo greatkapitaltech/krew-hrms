@@ -115,11 +115,29 @@ def validate_for_active(company):
     if not company.poc_contacts.exists():
         blockers.append(_("At least one point of contact is required."))
 
+    from company_onboarding.models import CompanyBankDetails
+
     bank_details = get_bank_details(company)
-    if not bank_details or not all(
-        [bank_details.account_number, bank_details.bank_name, bank_details.ifsc_swift]
-    ):
+    bank_fields_complete = bank_details and all(
+        [
+            bank_details.account_number,
+            bank_details.bank_name,
+            bank_details.ifsc_swift,
+            bank_details.account_holder_name,
+            bank_details.contact_number,
+        ]
+    )
+    if not bank_fields_complete:
         blockers.append(_("Bank details are required."))
+    elif bank_details.verification_status != CompanyBankDetails.VerificationStatus.VERIFIED:
+        # Filled-in details only prove the account was TYPED correctly, not
+        # that it's real -- Mark-as-Active requires the penny-drop
+        # verification to have actually succeeded (see
+        # company_onboarding/services/bank_verification.py), not just that
+        # the form was completed.
+        blockers.append(
+            _("Bank account must be verified before the company can be marked Active.")
+        )
 
     active_contract = company.contracts.filter(status="ACTIVE").first()
     if not active_contract or not all(
