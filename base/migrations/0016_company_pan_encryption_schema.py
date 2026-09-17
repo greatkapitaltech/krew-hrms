@@ -12,7 +12,7 @@
 import django.core.validators
 from django.db import migrations, models
 
-import company_onboarding.model_fields
+import krew_company_onboarding.model_fields
 
 
 class Migration(migrations.Migration):
@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='company',
             name='pan',
-            field=company_onboarding.model_fields.EncryptedCharField(
+            field=krew_company_onboarding.model_fields.EncryptedCharField(
                 blank=True,
                 max_length=500,
                 null=True,

@@ -140,7 +140,7 @@ class CompanyNavView(HorillaNavView):
         self.search_url = reverse("company-list")
         if self.request.user.has_perm("base.add_company"):
             # Client-company creation now goes through the Company Setup
-            # wizard (company_onboarding), not this quick-create modal —
+            # wizard (krew_company_onboarding), not this quick-create modal —
             # keeps compliance data from being bypassed by a bare Company
             # row with none of it. A plain href, not the old
             # hx-get/data-toggle modal attrs, since the wizard is a full

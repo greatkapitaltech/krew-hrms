@@ -178,6 +178,80 @@ pipeline {
             }
         }
 
+        // One-time fixup for the company_onboarding -> krew_company_onboarding
+        // app rename: django_content_type/django_migrations still carry the
+        // old app label on any environment that had this app's tables before
+        // the rename. Must run BEFORE "Run migrations" below -- Django
+        // computes its whole migration plan up front using whatever's
+        // already in django_migrations, so a fix applied from inside a
+        // migration would run too late to matter (see
+        // base/management/commands/rename_app_label.py's docstring).
+        // Idempotent (a re-run after the rename has already landed just
+        // prints "Nothing to do"), so safe to leave in every deploy for now
+        // -- remove this stage once this has been confirmed applied here.
+        stage('Rename company_onboarding app label') {
+            steps {
+                withCredentials([
+                    string(credentialsId: "${env.ENV_VAR_PREFIX}_AWS_ECS_ACCESS_KEY", variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: "${env.ENV_VAR_PREFIX}_AWS_ECS_SECRET_KEY", variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        set -euo pipefail
+
+                        NETCFG=$(aws ecs describe-services \
+                            --cluster "$ECS_CLUSTER_NAME" --services "$ENV_VAR_ECR_REPO_NAME" \
+                            --region "$DEPLOYMENT_AWS_ACCOUNT_REGION" \
+                            --query 'services[0].networkConfiguration.awsvpcConfiguration' --output json)
+                        SUBNETS=$(echo "$NETCFG" | jq -r '.subnets | join(",")')
+                        SGS=$(echo "$NETCFG"     | jq -r '.securityGroups | join(",")')
+                        [ -n "$SUBNETS" ] && [ "$SUBNETS" != "null" ] \
+                            || { echo "ERROR: could not read network config from service" >&2; exit 1; }
+
+                        OVERRIDES=$(mktemp)
+                        # Same reasoning as "Run migrations" below: this writes to
+                        # django_migrations/django_content_type, core schema
+                        # bookkeeping, not routine application traffic -- runs as
+                        # krew_owner via DATABASE_URL_OWNER, not the restricted
+                        # runtime role.
+                        RENAME_CMD='DATABASE_URL="$DATABASE_URL_OWNER" exec python manage.py rename_app_label company_onboarding krew_company_onboarding'
+
+                        jq -n --arg name "$APP_CONTAINER" --arg cmd "$RENAME_CMD" \
+                          '{containerOverrides:[{name:$name,command:["sh","-c",$cmd],environment:[{name:"MIGRATE_ON_START",value:"0"}]}]}' \
+                          > "$OVERRIDES"
+                        jq -e . "$OVERRIDES" >/dev/null || { echo "ERROR: overrides JSON is malformed" >&2; exit 1; }
+
+                        TASK_ARN=$(aws ecs run-task \
+                            --cluster "$ECS_CLUSTER_NAME" \
+                            --task-definition "$TASK_DEF_ARN" \
+                            --launch-type FARGATE \
+                            --count 1 \
+                            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SGS],assignPublicIp=DISABLED}" \
+                            --overrides "file://$OVERRIDES" \
+                            --region "$DEPLOYMENT_AWS_ACCOUNT_REGION" \
+                            --query 'tasks[0].taskArn' --output text)
+                        rm -f "$OVERRIDES"
+
+                        echo "Rename task: $TASK_ARN"
+                        aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER_NAME" \
+                            --tasks "$TASK_ARN" --region "$DEPLOYMENT_AWS_ACCOUNT_REGION"
+
+                        EXIT_CODE=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER_NAME" \
+                            --tasks "$TASK_ARN" --region "$DEPLOYMENT_AWS_ACCOUNT_REGION" \
+                            --query "tasks[0].containers[?name=='$APP_CONTAINER'].exitCode | [0]" --output text)
+                        REASON=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER_NAME" \
+                            --tasks "$TASK_ARN" --region "$DEPLOYMENT_AWS_ACCOUNT_REGION" \
+                            --query 'tasks[0].stoppedReason' --output text)
+
+                        echo "Rename task exit code: $EXIT_CODE ($REASON)"
+                        if [ "$EXIT_CODE" != "0" ]; then
+                            echo "App label rename FAILED — not migrating. See log group /ecs/$ENV_VAR_ECR_REPO_NAME-task" >&2
+                            exit 1
+                        fi
+                    '''
+                }
+            }
+        }
+
         stage('Run migrations') {
             when { expression { params.RUN_MIGRATIONS } }
             steps {

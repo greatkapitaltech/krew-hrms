@@ -11,12 +11,12 @@ def encrypt_existing_pans(apps, schema_editor):
     # -- its get_prep_value() transparently encrypts on save(), and its
     # from_db_value() falls back to returning the raw DB value unchanged
     # when it isn't valid Fernet ciphertext yet (see
-    # company_onboarding/encryption.py's decrypt_value()). So reading
+    # krew_company_onboarding/encryption.py's decrypt_value()). So reading
     # company.pan here already gives the true plaintext (nothing to decrypt
     # yet) -- computing pan_hash from it and then just re-saving the SAME
     # field is enough; save() encrypts it exactly once. Manually calling
     # encrypt_value() here too would double-encrypt it.
-    from company_onboarding.encryption import hash_value
+    from krew_company_onboarding.encryption import hash_value
 
     Company = apps.get_model("base", "Company")
     for company in Company.objects.exclude(pan__isnull=True).exclude(pan=""):

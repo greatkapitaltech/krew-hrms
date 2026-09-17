@@ -1,0 +1,70 @@
+"""
+krew_company_onboarding/signals.py
+
+Grants the fine-grained permission slices that base/signals.py's
+_DEFAULT_HRMS_GROUPS helper can't express, since that helper only grants
+permissions at whole-app granularity:
+
+- "Ventura Admin" needs base.view_company/add_company/change_company/
+  change_status_company — Company lives inside `base`, a huge app with
+  dozens of unrelated models, so granting via _DEFAULT_HRMS_GROUPS would
+  mean either all of base's permissions (far too broad) or none.
+  base.view_company specifically is also what the "Company Setup" sidebar
+  entry checks (krew_company_onboarding/sidebar.py's menu_accessibility) --
+  without it the whole module is invisible in the nav even though the
+  underlying views would otherwise be reachable.
+- "Ventura HR" needs base.view_company too (same sidebar-visibility
+  reason -- HR is read-only on company data but still needs to see the
+  menu to get to it), plus add/change on just
+  CompanyBrandedTemplate/CompanyDocument within krew_company_onboarding itself
+  -- _DEFAULT_HRMS_GROUPS' app_actions is also app-level, not model-level,
+  so it can't isolate to just these two models either.
+
+Both groups otherwise get their baseline krew_company_onboarding grants normally
+through base/signals.py's _DEFAULT_HRMS_GROUPS ("Ventura Admin": "__all__",
+"Ventura HR": view-only) — this module only adds the slices that helper
+structurally cannot express.
+"""
+
+from django.contrib.auth.models import Group, Permission
+from django.db.models.signals import post_migrate
+from django.dispatch import receiver
+
+
+@receiver(post_migrate)
+def grant_ventura_admin_company_perms(sender, **kwargs):
+    if getattr(sender, "label", None) != "krew_company_onboarding":
+        return
+    group, _created = Group.objects.get_or_create(name="Ventura Admin")
+    perms = Permission.objects.filter(
+        content_type__app_label="base",
+        content_type__model="company",
+        codename__in=[
+            "view_company",
+            "add_company",
+            "change_company",
+            "change_status_company",
+        ],
+    )
+    group.permissions.add(*perms)
+
+
+@receiver(post_migrate)
+def grant_ventura_hr_branding_perms(sender, **kwargs):
+    if getattr(sender, "label", None) != "krew_company_onboarding":
+        return
+    group, _created = Group.objects.get_or_create(name="Ventura HR")
+    perms = Permission.objects.filter(
+        content_type__app_label="base",
+        content_type__model="company",
+        codename="view_company",
+    ) | Permission.objects.filter(
+        content_type__app_label="krew_company_onboarding",
+        content_type__model__in=("companybrandedtemplate", "companydocument"),
+        codename__startswith="add_",
+    ) | Permission.objects.filter(
+        content_type__app_label="krew_company_onboarding",
+        content_type__model__in=("companybrandedtemplate", "companydocument"),
+        codename__startswith="change_",
+    )
+    group.permissions.add(*perms)

@@ -54,8 +54,8 @@ if env("AWS_ACCESS_KEY_ID", default=None) and "storages" in INSTALLED_APPS:
     MEDIA_ROOT = f"{env('MEDIA_ROOT', default=MEDIA_ROOT)}/{namespace}/"
 
 # Cashfree Payouts V2 + Bank Account Verification
-# (company_onboarding's bank verification / penny drop -- see
-# company_onboarding/services/cashfree_client.py). CASHFREE_ENV picks the
+# (krew_company_onboarding's bank verification / penny drop -- see
+# krew_company_onboarding/services/cashfree_client.py). CASHFREE_ENV picks the
 # base URL: "sandbox" (default, test-mode, no real money moves) or
 # "production" (real transfers).
 if env("CASHFREE_CLIENT_ID", default=None):
@@ -80,7 +80,7 @@ if env("CASHFREE_CLIENT_ID", default=None):
     # if a deployment genuinely needs the key stored somewhere else.
     _cashfree_key_path = env(
         "CASHFREE_SIGNATURE_PUBLIC_KEY_PATH",
-        default="company_onboarding/keys/cashfree_signature_public_key.pem",
+        default="krew_company_onboarding/keys/cashfree_signature_public_key.pem",
     )
     if _cashfree_key_path:
         CASHFREE_SIGNATURE_PUBLIC_KEY_PATH = (
