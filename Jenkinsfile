@@ -218,7 +218,13 @@ pipeline {
                         # needing escapes. Groovy's triple-quoted strings consume
                         # backslash escapes, so an escaped quote written here would reach the
                         # shell as a bare " and break the JSON.
-                        MIGRATE_CMD='DATABASE_URL="$DATABASE_URL_OWNER" exec python manage.py migrate --noinput'
+                        # rename_app_label must run BEFORE migrate, never as a migration:
+                        # migrate computes its whole plan up front from django_migrations,
+                        # so a stale app_label makes it treat already-applied migrations as
+                        # pending and re-run CreateModel against existing tables.
+                        # It is idempotent (a no-op once nothing matches the old label) and
+                        # is skipped entirely on branches that do not ship the command.
+                        MIGRATE_CMD='export DATABASE_URL="$DATABASE_URL_OWNER"; if python manage.py help rename_app_label >/dev/null 2>&1; then python manage.py rename_app_label company_onboarding krew_company_onboarding || exit 1; fi; exec python manage.py migrate --noinput'
 
                         jq -n --arg name "$APP_CONTAINER" --arg cmd "$MIGRATE_CMD" \
                           '{containerOverrides:[{name:$name,command:["sh","-c",$cmd],environment:[{name:"MIGRATE_ON_START",value:"0"}]}]}' \
