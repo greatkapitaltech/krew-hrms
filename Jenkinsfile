@@ -243,10 +243,29 @@ pipeline {
                             --query 'tasks[0].stoppedReason' --output text)
 
                         echo "Rename task exit code: $EXIT_CODE ($REASON)"
+
+                        # Pull the container's own stdout (the management command's
+                        # "Renamed N row(s)..." / "Nothing to do" message) straight into
+                        # the Jenkins console -- it only lands in CloudWatch otherwise,
+                        # so without this the only way to see what the command actually
+                        # did is a manual CloudWatch export.
+                        TASK_ID="${TASK_ARN##*/}"
+                        LOG_GROUP="/ecs/${ENV_VAR_ECR_REPO_NAME}-task"
+                        LOG_STREAM="app/${APP_CONTAINER}/${TASK_ID}"
+                        echo "---- rename_app_label output ($LOG_GROUP/$LOG_STREAM) ----"
+                        aws logs get-log-events \
+                            --log-group-name "$LOG_GROUP" \
+                            --log-stream-name "$LOG_STREAM" \
+                            --region "$DEPLOYMENT_AWS_ACCOUNT_REGION" \
+                            --query 'events[*].message' --output text \
+                            || echo "WARN: could not fetch rename task logs from CloudWatch"
+                        echo "---- end rename_app_label output ----"
+
                         if [ "$EXIT_CODE" != "0" ]; then
-                            echo "App label rename FAILED — not migrating. See log group /ecs/$ENV_VAR_ECR_REPO_NAME-task" >&2
+                            echo "RENAME_APP_LABEL_STAGE: FAILED (exit $EXIT_CODE, task $TASK_ARN) — not migrating. See log group $LOG_GROUP" >&2
                             exit 1
                         fi
+                        echo "RENAME_APP_LABEL_STAGE: SUCCESS (task $TASK_ARN)"
                     '''
                 }
             }
