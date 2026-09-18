@@ -1,0 +1,80 @@
+{% load i18n %}
+<div class="oh-card oh-card--no-shadow p-3 mt-2" style="background-color: rgba(0,0,0,0.015);">
+    <h6 class="fw-bold mb-2">{% trans "Penny Drop Verification" %}</h6>
+    {% with latest=verifications|first %}
+    {% if bank_form.instance.verification_status == "VERIFIED" %}
+        <p class="text-success d-flex align-items-center mb-2">
+            <span class="oh-dot oh-dot--success me-2"></span>{% trans "Bank account verified." %}
+        </p>
+    {% elif latest.drop_status == "FAILED" %}
+        <p class="text-danger d-flex align-items-center mb-2">
+            <span class="oh-dot oh-dot--danger me-2"></span>
+            {% if latest.failure_reason %}
+                {% blocktrans with reason=latest.failure_reason %}Transfer failed: {{ reason }}. You can re-initiate.{% endblocktrans %}
+            {% else %}
+                {% trans "Transfer failed. You can re-initiate." %}
+            {% endif %}
+        </p>
+    {% elif bank_form.instance.verification_status == "FAILED" %}
+        <p class="text-danger d-flex align-items-center mb-2">
+            <span class="oh-dot oh-dot--danger me-2"></span>{% trans "Last attempt failed — amount didn't match. You can try again." %}
+        </p>
+    {% elif bank_form.instance.verification_status == "PAYMENT_INITIATED" %}
+        <p class="text-muted d-flex align-items-center mb-2">
+            <span class="oh-dot oh-dot--warning me-2"></span>{% trans "Payment initiated — awaiting confirmation." %}
+        </p>
+    {% else %}
+        <p class="text-muted d-flex align-items-center mb-2">
+            <span class="oh-dot oh-dot--info me-2"></span>{% trans "Not yet verified." %}
+        </p>
+    {% endif %}
+    {% if not company.pk %}
+        <p class="text-muted">{% trans "Save the company first." %}</p>
+    {% elif bank_form.instance.verification_status != "VERIFIED" %}
+        {% if latest.drop_status == "PENDING" %}
+            <p class="text-muted d-flex align-items-center mb-2">
+                <span class="oh-dot oh-dot--warning me-2"></span>
+                {% trans "Transfer is still processing at Cashfree — check the bank statement once it completes." %}
+            </p>
+            <button
+                type="submit"
+                formaction="{% url 'company-onboarding-bank-verification-check-status' company_id=company.pk %}"
+                formmethod="post"
+                class="oh-btn oh-btn--secondary oh-btn--small"
+            >
+                {% trans "Check Status" %}
+            </button>
+        {% else %}
+            <button
+                type="submit"
+                formaction="{% url 'company-onboarding-bank-verification-initiate' company_id=company.pk %}"
+                formmethod="post"
+                class="oh-btn oh-btn--secondary oh-btn--small"
+            >
+                {% trans "Initiate Penny Drop" %}
+            </button>
+            {% if latest.drop_status == "SUCCESS" %}
+                <div class="pt-2 d-flex align-items-center" style="gap: 8px;">
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="1.00"
+                        max="1.99"
+                        name="entered_amount"
+                        class="oh-input"
+                        placeholder="{% trans 'Amount credited (₹)' %}"
+                    >
+                    <button
+                        type="submit"
+                        formaction="{% url 'company-onboarding-bank-verification-confirm' company_id=company.pk %}"
+                        formmethod="post"
+                        class="oh-btn oh-btn--primary oh-btn--small"
+                    >
+                        {% trans "Confirm Amount" %}
+                    </button>
+                </div>
+            {% endif %}
+        {% endif %}
+    {% endif %}
+    {% endwith %}
+</div>

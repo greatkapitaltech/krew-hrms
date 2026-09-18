@@ -187,6 +187,7 @@ _HRMS_GROUP_MIGRATE_APPS = {
     "pms",
     "biometric",
     "horilla_documents",
+    "krew_company_onboarding",
 }
 
 # name -> permission rules
@@ -275,6 +276,20 @@ _DEFAULT_HRMS_GROUPS = {
             "employee": ("view",),
         },
     },
+    # Company Setup module (Krew/Ventura client onboarding). Ventura Admin
+    # gets full `base` access (not just Company) plus full
+    # krew_company_onboarding. The CompanyBrandedTemplate/CompanyDocument-only
+    # grant for "Ventura HR" still can't be expressed through this app-level
+    # "apps"/"app_actions" config (it's model-level, not app-level) — that
+    # one is granted directly in krew_company_onboarding/signals.py instead.
+    "Ventura Admin": {
+        "apps": ("krew_company_onboarding", "base"),
+        "actions": "__all__",
+    },
+    "Ventura HR": {
+        "apps": ("krew_company_onboarding",),
+        "actions": ("view",),
+    },
 }
 
 _ALL_HRMS_APP_LABELS = (
@@ -296,6 +311,7 @@ _ALL_HRMS_APP_LABELS = (
     "horilla_automations",
     "horilla_audit",
     "accessibility",
+    "krew_company_onboarding",
 )
 
 
