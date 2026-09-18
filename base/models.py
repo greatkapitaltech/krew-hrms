@@ -17,9 +17,9 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 
 from base.horilla_company_manager import HorillaCompanyManager
-from krew_company_onboarding.encryption import hash_value
-from krew_company_onboarding.model_fields import EncryptedCharField
-from krew_company_onboarding.validators import pan_validator
+from base.encryption import hash_value
+from base.model_fields import EncryptedCharField
+from base.validators import pan_validator
 from horilla import horilla_middlewares
 from horilla.horilla_middlewares import _thread_locals
 from horilla.methods import get_horilla_model_class
@@ -151,7 +151,7 @@ class Company(HorillaModel):
     ldc_applied = models.BooleanField(
         default=False, verbose_name=_("Lower Deduction Certificate (LDC) Applied")
     )
-    # Stored encrypted at rest (see krew_company_onboarding/encryption.py) -- the
+    # Stored encrypted at rest (see base/encryption.py) -- the
     # DB column is widened for ciphertext, plain_max_length is the real
     # 10-character limit enforced on the form. pan_hash (below) is a
     # deterministic "blind index" used purely for the uniqueness

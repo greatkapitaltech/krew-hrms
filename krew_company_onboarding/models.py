@@ -31,14 +31,12 @@ from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from base.encryption import mask_value
+from base.model_fields import EncryptedCharField
 from base.models import Company
-from employee.models import phone_validator
+from base.validators import gstin_validator, phone_number_validator
 from horilla.models import HorillaModel, upload_path
 from horilla_auth.models import HorillaUser
-
-from krew_company_onboarding.encryption import mask_value
-from krew_company_onboarding.model_fields import EncryptedCharField
-from krew_company_onboarding.validators import gstin_validator
 
 
 class GSTStateConfig(HorillaModel):
@@ -132,10 +130,10 @@ class CompanyPOCContact(HorillaModel):
     )
     email = models.EmailField(null=True, blank=True, verbose_name=_("Email"))
     mobile = models.CharField(
-        max_length=20,
+        max_length=10,
         null=True,
         blank=True,
-        validators=[phone_validator],
+        validators=[phone_number_validator],
         verbose_name=_("Mobile"),
     )
     is_payroll_approver = models.BooleanField(
@@ -229,10 +227,10 @@ class CompanyBankDetails(HorillaModel):
         help_text=_("Used as the Cashfree beneficiary name for bank verification."),
     )
     contact_number = models.CharField(
-        max_length=20,
+        max_length=10,
         null=True,
         blank=True,
-        validators=[phone_validator],
+        validators=[phone_number_validator],
         verbose_name=_("Contact Number"),
         help_text=_("Used as the Cashfree beneficiary phone for bank verification."),
     )
