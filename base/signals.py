@@ -276,14 +276,14 @@ _DEFAULT_HRMS_GROUPS = {
             "employee": ("view",),
         },
     },
-    # Company Setup module (Krew/Ventura client onboarding). Company itself
-    # lives in `base`, so the base.add_company/change_company/
-    # change_status_company grants for "Ventura Admin", and the
-    # CompanyBrandedTemplate/CompanyDocument-only grant for "Ventura HR",
-    # can't be expressed through this app-level "apps"/"app_actions" config
-    # — they're granted directly in krew_company_onboarding/signals.py instead.
+    # Company Setup module (Krew/Ventura client onboarding). Ventura Admin
+    # gets full `base` access (not just Company) plus full
+    # krew_company_onboarding. The CompanyBrandedTemplate/CompanyDocument-only
+    # grant for "Ventura HR" still can't be expressed through this app-level
+    # "apps"/"app_actions" config (it's model-level, not app-level) — that
+    # one is granted directly in krew_company_onboarding/signals.py instead.
     "Ventura Admin": {
-        "apps": ("krew_company_onboarding",),
+        "apps": ("krew_company_onboarding", "base"),
         "actions": "__all__",
     },
     "Ventura HR": {
