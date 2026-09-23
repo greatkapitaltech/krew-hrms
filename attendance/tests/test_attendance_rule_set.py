@@ -226,7 +226,7 @@ class PendingConfigChangeTests(TestCase):
         change = PendingConfigChange.schedule(
             self.rule_set, {"late_grace_minutes": 20},
         )
-        from attendance.config_tiers import next_month_first
+        from base.config_tiers import next_month_first
 
         self.assertEqual(change.effective_date, next_month_first())
         self.assertEqual(change.status, PendingConfigChange.STATUS_PENDING)
@@ -306,17 +306,17 @@ class PendingConfigChangeTests(TestCase):
 
 class NextMonthFirstTests(TestCase):
     def test_returns_next_month_even_when_called_on_the_first(self):
-        from attendance.config_tiers import next_month_first
+        from base.config_tiers import next_month_first
 
         self.assertEqual(next_month_first(date(2026, 3, 1)), date(2026, 4, 1))
 
     def test_mid_month(self):
-        from attendance.config_tiers import next_month_first
+        from base.config_tiers import next_month_first
 
         self.assertEqual(next_month_first(date(2026, 3, 15)), date(2026, 4, 1))
 
     def test_december_rolls_into_next_year(self):
-        from attendance.config_tiers import next_month_first
+        from base.config_tiers import next_month_first
 
         self.assertEqual(next_month_first(date(2026, 12, 10)), date(2027, 1, 1))
 

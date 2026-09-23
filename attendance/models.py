@@ -22,17 +22,6 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from attendance.config_tiers import (
-    TIER_CHOICES,
-    TIER_COMPANY,
-    TIER_DEPARTMENT,
-    TIER_EMPLOYEE_TYPE,
-    TieredConfigResolutionMixin,
-    config_override_applied,
-    config_override_cancelled,
-    config_override_requested,
-    next_month_first,
-)
 from attendance.methods.utils import (
     MONTH_MAPPING,
     attendance_date_validate,
@@ -42,6 +31,17 @@ from attendance.methods.utils import (
     validate_hh_mm_ss_format,
     validate_time_format,
     validate_time_in_minutes,
+)
+from base.config_tiers import (
+    TIER_CHOICES,
+    TIER_COMPANY,
+    TIER_DEPARTMENT,
+    TIER_EMPLOYEE_TYPE,
+    TieredConfigResolutionMixin,
+    config_override_applied,
+    config_override_cancelled,
+    config_override_requested,
+    next_month_first,
 )
 from base.horilla_company_manager import HorillaCompanyManager
 from base.methods import is_company_leave, is_holiday
@@ -97,6 +97,22 @@ class AttendanceActivity(HorillaModel):
     clock_out_date = models.DateField(null=True, verbose_name=_("Out Date"))
     out_datetime = models.DateTimeField(null=True)
     clock_out = models.TimeField(null=True, verbose_name=_("Check Out"))
+    # Geo-tag: a passive GPS stamp recorded with every mobile punch (never
+    # set for a web punch). Separate pairs for in vs out -- one clock-in
+    # and one clock-out can legitimately happen at different locations,
+    # and this one row already represents both halves of a session.
+    clock_in_latitude = models.FloatField(
+        null=True, blank=True, verbose_name=_("Clock-In Latitude")
+    )
+    clock_in_longitude = models.FloatField(
+        null=True, blank=True, verbose_name=_("Clock-In Longitude")
+    )
+    clock_out_latitude = models.FloatField(
+        null=True, blank=True, verbose_name=_("Clock-Out Latitude")
+    )
+    clock_out_longitude = models.FloatField(
+        null=True, blank=True, verbose_name=_("Clock-Out Longitude")
+    )
     objects = HorillaCompanyManager(
         related_company_field="employee_id__employee_work_info__company_id"
     )
@@ -320,6 +336,28 @@ class Attendance(HorillaModel):
     )
     attendance_validated = models.BooleanField(
         default=False, verbose_name=_("Attendance Validate")
+    )
+    # Purpose-specific Geo-location flags (not a generic catch-all field --
+    # see the Validation feature's design decision: several independent
+    # reasons for attention need to be representable at once). Set at
+    # clock-in/clock-out via clock_in_out.py, OR'd onto whatever value is
+    # already here rather than overwritten, so a flag raised earlier in
+    # the day is never silently cleared by a later, clean punch.
+    geo_fence_violation = models.BooleanField(
+        default=False,
+        verbose_name=_("Geo-fence Violation"),
+        help_text=_(
+            "A punch was confirmed outside the configured boundary and "
+            "the boundary's enforcement mode is Flag, not Reject."
+        ),
+    )
+    geo_fence_unverified = models.BooleanField(
+        default=False,
+        verbose_name=_("Geo-fence Unverified"),
+        help_text=_(
+            "A punch's location could not be checked against the "
+            "configured boundary (not the same as a confirmed violation)."
+        ),
     )
     at_work_second = models.IntegerField(null=True, blank=True)
     overtime_second = models.IntegerField(

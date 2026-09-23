@@ -70,16 +70,21 @@ class ClockInAPIView(APIView):
 
     def post(self, request):
         if not request.user.employee_get.check_online():
-            try:
-                if request.user.employee_get.get_company().geo_fencing.start:
-                    from geofencing.views import GeoFencingEmployeeLocationCheckAPIView
+            from geofencing.methods import check_geo_fence
 
-                    location_api_view = GeoFencingEmployeeLocationCheckAPIView()
-                    response = location_api_view.post(request)
-                    if response.status_code != 200:
-                        return response
-            except:
-                pass
+            latitude = request.data.get("latitude")
+            longitude = request.data.get("longitude")
+            geo_result = check_geo_fence(
+                request.user.employee_get, latitude, longitude
+            )
+            if not geo_result.allowed:
+                message = (
+                    _("Unable to verify your location for check-in.")
+                    if geo_result.reason == "missing_location"
+                    else _("You are outside the allowed check-in location.")
+                )
+                return Response({"error": message}, status=400)
+
             employee, work_info = employee_exists(request)
             datetime_now = datetime.now()
             if request.__dict__.get("datetime"):
@@ -128,6 +133,10 @@ class ClockInAPIView(APIView):
                     start_time=start_time_sec,
                     end_time=end_time_sec,
                     in_datetime=datetime_now,
+                    latitude=latitude,
+                    longitude=longitude,
+                    geo_fence_violation=geo_result.violation,
+                    geo_fence_unverified=geo_result.unverified,
                 )
                 return Response({"message": "Clocked-In"}, status=200)
             return Response(
@@ -151,17 +160,19 @@ class ClockOutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from geofencing.methods import check_geo_fence
 
-        try:
-            if request.user.employee_get.get_company().geo_fencing.start:
-                from geofencing.views import GeoFencingEmployeeLocationCheckAPIView
+        latitude = request.data.get("latitude")
+        longitude = request.data.get("longitude")
+        geo_result = check_geo_fence(request.user.employee_get, latitude, longitude)
+        if not geo_result.allowed:
+            message = (
+                _("Unable to verify your location for check-out.")
+                if geo_result.reason == "missing_location"
+                else _("You are outside the allowed check-out location.")
+            )
+            return Response({"error": message}, status=400)
 
-                location_api_view = GeoFencingEmployeeLocationCheckAPIView()
-                response = location_api_view.post(request)
-                if response.status_code != 200:
-                    return response
-        except:
-            pass
         if request.user.employee_get.check_online():
             current_date = date.today()
             current_time = datetime.now().time()
@@ -174,6 +185,10 @@ class ClockOutAPIView(APIView):
                         date=current_date,
                         time=current_time,
                         datetime=current_datetime,
+                        latitude=latitude,
+                        longitude=longitude,
+                        geo_fence_violation=geo_result.violation,
+                        geo_fence_unverified=geo_result.unverified,
                     )
                 )
                 return Response({"message": "Clocked-Out"}, status=200)

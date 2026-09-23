@@ -130,6 +130,10 @@ def clock_in_attendance_and_activity(
     start_time,
     end_time,
     in_datetime,
+    latitude=None,
+    longitude=None,
+    geo_fence_violation=False,
+    geo_fence_unverified=False,
 ):
     """
     This method is used to create attendance activity or attendance when an employee clocks-in
@@ -143,6 +147,15 @@ def clock_in_attendance_and_activity(
         minimum_hour    : minimum hour in shift schedule
         start_time      : start time in shift schedule
         end_time        : end time in shift schedule
+        latitude, longitude       : Geo-tag coordinates from a mobile punch
+                                     (None for a web punch -- never required
+                                     there)
+        geo_fence_violation,
+        geo_fence_unverified       : this punch's Geo-mark check outcome,
+                                      already decided by the caller (see
+                                      geofencing.methods.check_geo_fence) --
+                                      OR'd onto the Attendance row, never
+                                      overwriting an existing True with False
     """
 
     # attendance activity create
@@ -166,6 +179,8 @@ def clock_in_attendance_and_activity(
         shift_day=day,
         clock_in=in_datetime,
         in_datetime=in_datetime,
+        clock_in_latitude=latitude,
+        clock_in_longitude=longitude,
     )
     # create attendance if not exist
     attendance = Attendance.objects.filter(
@@ -188,6 +203,8 @@ def clock_in_attendance_and_activity(
         attendance.attendance_rule_set = AttendanceRuleSet.resolve_for_employee(
             employee
         )
+        attendance.geo_fence_violation = geo_fence_violation
+        attendance.geo_fence_unverified = geo_fence_unverified
         attendance.save()
         # check here late come or not
 
@@ -205,6 +222,15 @@ def clock_in_attendance_and_activity(
         attendance = attendance[0]
         attendance.attendance_clock_out = None
         attendance.attendance_clock_out_date = None
+        # OR'd, never overwritten with False -- a flag raised earlier
+        # today (e.g. this morning's clock-in) must survive a later,
+        # clean re-clock-in.
+        attendance.geo_fence_violation = (
+            attendance.geo_fence_violation or geo_fence_violation
+        )
+        attendance.geo_fence_unverified = (
+            attendance.geo_fence_unverified or geo_fence_unverified
+        )
         attendance.save()
         # delete if the attendance marked the early out
         early_out_instance = attendance.late_come_early_out.filter(type="early_out")
@@ -343,13 +369,27 @@ def clock_in(request):
         return HorillaRedirect(request)
 
 
-def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=None):
+def clock_out_attendance_and_activity(
+    employee,
+    date_today,
+    now,
+    out_datetime=None,
+    latitude=None,
+    longitude=None,
+    geo_fence_violation=False,
+    geo_fence_unverified=False,
+):
     """
     Clock out the attendance and activity
     args:
         employee    : employee instance
         date_today  : today date
         now         : now
+        latitude, longitude        : Geo-tag coordinates from a mobile
+                                      punch (None for a web punch)
+        geo_fence_violation,
+        geo_fence_unverified        : this punch's Geo-mark check outcome
+                                       (see clock_in_attendance_and_activity)
     """
 
     attendance_activities = AttendanceActivity.objects.filter(
@@ -364,6 +404,8 @@ def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=No
         attendance_activity.clock_out = out_datetime
         attendance_activity.clock_out_date = date_today
         attendance_activity.out_datetime = out_datetime
+        attendance_activity.clock_out_latitude = latitude
+        attendance_activity.clock_out_longitude = longitude
         attendance_activity.save()
 
         attendance_activities = attendance_activities.filter(
@@ -392,6 +434,14 @@ def clock_out_attendance_and_activity(employee, date_today, now, out_datetime=No
 
         # Validate the attendance as per the condition
         attendance.attendance_validated = attendance_validate(attendance)
+        # OR'd, never overwritten with False -- see the matching comment
+        # in clock_in_attendance_and_activity().
+        attendance.geo_fence_violation = (
+            attendance.geo_fence_violation or geo_fence_violation
+        )
+        attendance.geo_fence_unverified = (
+            attendance.geo_fence_unverified or geo_fence_unverified
+        )
         attendance.save()
 
         return attendance
@@ -557,7 +607,14 @@ def clock_out(request):
             day=day, shift=shift
         )
         attendance = clock_out_attendance_and_activity(
-            employee=employee, date_today=date_today, now=now, out_datetime=datetime_now
+            employee=employee,
+            date_today=date_today,
+            now=now,
+            out_datetime=datetime_now,
+            latitude=request.__dict__.get("latitude"),
+            longitude=request.__dict__.get("longitude"),
+            geo_fence_violation=request.__dict__.get("geo_fence_violation", False),
+            geo_fence_unverified=request.__dict__.get("geo_fence_unverified", False),
         )
         if attendance:
             early_out_instance = attendance.late_come_early_out.filter(type="early_out")

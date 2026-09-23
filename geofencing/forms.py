@@ -11,4 +11,4 @@ class GeoFencingSetupForm(ModelForm):
 
     class Meta:
         model = GeoFencing
-        exclude = ["company_id"]
+        exclude = ["company"]
