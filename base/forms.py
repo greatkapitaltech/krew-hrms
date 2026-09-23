@@ -1556,7 +1556,7 @@ class EmployeeTypeForm(ModelForm):
     EmployeeType form
     """
 
-    cols = {"employee_type": 12, "company_id": 12}
+    cols = {"employee_type": 12, "collar_category": 12, "company_id": 12}
 
     class Meta:
         """
@@ -1566,6 +1566,14 @@ class EmployeeTypeForm(ModelForm):
         model = EmployeeType
         fields = "__all__"
         exclude = ["is_active"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Nullable at the DB level (safe for any pre-existing rows from
+        # before this field existed), but every type created or edited
+        # through this form must map to one of the three fixed
+        # categories -- see EmployeeType.collar_category's field comment.
+        self.fields["collar_category"].required = True
 
 
 class EmployeeShiftForm(ModelForm):

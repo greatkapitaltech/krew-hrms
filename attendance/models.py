@@ -12,13 +12,27 @@ from datetime import date, datetime, timedelta
 
 import pandas as pd
 from django.apps import apps
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models, transaction
 from django.db.models import F, Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from attendance.config_tiers import (
+    TIER_CHOICES,
+    TIER_COMPANY,
+    TIER_DEPARTMENT,
+    TIER_EMPLOYEE_TYPE,
+    TieredConfigResolutionMixin,
+    config_override_applied,
+    config_override_cancelled,
+    config_override_requested,
+    next_month_first,
+)
 from attendance.methods.utils import (
     MONTH_MAPPING,
     attendance_date_validate,
@@ -31,13 +45,21 @@ from attendance.methods.utils import (
 )
 from base.horilla_company_manager import HorillaCompanyManager
 from base.methods import is_company_leave, is_holiday
-from base.models import Company, EmployeeShift, EmployeeShiftDay, WorkType
+from base.models import (
+    COLLAR_CATEGORY_CHOICES,
+    Company,
+    Department,
+    EmployeeShift,
+    EmployeeShiftDay,
+    WorkType,
+)
 from employee.models import Employee
 
 # Create your models here.
 from horilla.methods import get_horilla_model_class
 from horilla.models import HorillaModel, upload_path
 from horilla_audit.models import HorillaAuditInfo, HorillaAuditLog
+from horilla_auth.models import HorillaUser
 from horilla_views.cbv_methods import render_template
 
 # to skip the migration issue with the old migrations
@@ -238,6 +260,23 @@ class Attendance(HorillaModel):
         null=True,
         verbose_name=_("Attendance day"),
     )
+    # Snapshot of which AttendanceRuleSet row governed this day, resolved
+    # once at the first clock-in and never re-resolved afterward -- so a
+    # mode switch that takes effect mid-session (e.g. a night shift
+    # spanning the 1st of the month) never changes an already-open day's
+    # behavior. String reference: AttendanceRuleSet is defined later in
+    # this same module. SET_NULL (not PROTECT) so deleting an old
+    # Department/Employee-Type (which cascades to its AttendanceRuleSet
+    # rows) is never blocked by historical attendance records.
+    attendance_rule_set = models.ForeignKey(
+        "attendance.AttendanceRuleSet",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="attendances",
+        verbose_name=_("Attendance Rule Set (snapshot)"),
+    )
     attendance_clock_in_date = models.DateField(
         null=True, verbose_name=_("Check-In Date")
     )
@@ -396,6 +435,30 @@ class Attendance(HorillaModel):
         if not schedule:
             return False
         return schedule.is_night_shift
+
+    def get_attendance_mode(self):
+        """
+        The Attendance Type mode (Shift-based/Flexible) snapshotted for
+        this day at the first clock-in -- never re-resolved live, so a
+        mode switch that takes effect mid-session never changes an
+        already-open day's behavior (see attendance_rule_set's field
+        comment). Falls back to Shift-based -- the PRD's default for
+        companies with no AttendanceRuleSet configured yet -- for rows
+        created before this feature existed, or a company that never set
+        one up.
+        """
+        if self.attendance_rule_set_id:
+            return self.attendance_rule_set.mode
+        return AttendanceRuleSet.MODE_SHIFT_BASED
+
+    def is_flexible_mode(self):
+        """
+        True if this day is governed by Flexible mode. Used to gate
+        Shift-based-only behavior -- e.g. late-come/early-out detection
+        doesn't apply under Flexible mode, since there's no shift to be
+        late against.
+        """
+        return self.get_attendance_mode() == AttendanceRuleSet.MODE_FLEXIBLE
 
     def __str__(self) -> str:
         return f"{self.employee_id.employee_first_name} \
@@ -1583,6 +1646,29 @@ class AttendanceGeneralSetting(HorillaModel):
             "Enabling this feature allows employees to record their attendance using the Check-In/Check-Out button."
         ),
     )
+    # Company-wide master switch. Default True so existing per-shift
+    # auto-punch-out behavior is unchanged unless an admin explicitly
+    # turns it off -- when off, nothing here ever auto-closes a session
+    # for this company (shift-based, Flexible-mode, or no-shift alike).
+    auto_punch_out_enabled = models.BooleanField(
+        default=True,
+        verbose_name=_("Enable Auto Punch-out"),
+        help_text=_(
+            "Company-wide switch for Auto Punch-out. Turning this off "
+            "overrides every other Auto Punch-out setting for this company."
+        ),
+    )
+    # Flat cutoff for an employee with no shift assigned at all -- the
+    # only case none of the tiered/shift-based settings can cover, since
+    # both key off a shift schedule that doesn't exist for this employee.
+    no_shift_auto_punch_out_time = models.TimeField(
+        default=dt.time(23, 59),
+        verbose_name=_("No-Shift Auto Punch-out Time"),
+        help_text=_(
+            "Cutoff time used to auto-close an open session for an "
+            "employee with no shift assigned at all."
+        ),
+    )
     company_id = models.ForeignKey(Company, on_delete=models.CASCADE, null=True)
     objects = HorillaCompanyManager()
 
@@ -1815,3 +1901,298 @@ class AttendanceDailyHours(HorillaModel):
     def __str__(self):
         h, m = self.hours_second // 3600, (self.hours_second % 3600) // 60
         return f"{self.employee_id} {self.date}: {h}h{m:02d}m"
+
+
+class PendingConfigChange(HorillaModel):
+    """
+    A scheduled-but-not-yet-applied change to a tiered config row (e.g. an
+    AttendanceRuleSet). Every config change in this app -- editing an
+    existing row or activating a brand-new one -- goes through this,
+    never a direct field edit, so "changes apply from the 1st of next
+    month" is one mechanism reused everywhere instead of being
+    reimplemented per feature. See attendance/config_tiers.py's module
+    docstring for the fuller design rationale.
+    """
+
+    STATUS_PENDING = "PENDING"
+    STATUS_APPLIED = "APPLIED"
+    STATUS_CANCELLED = "CANCELLED"
+    STATUS_CHOICES = (
+        (STATUS_PENDING, _("Pending")),
+        (STATUS_APPLIED, _("Applied")),
+        (STATUS_CANCELLED, _("Cancelled")),
+    )
+
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    target = GenericForeignKey("content_type", "object_id")
+
+    tier = models.CharField(max_length=15, choices=TIER_CHOICES)
+    # {field_name: new_value} / {field_name: old_value}. DjangoJSONEncoder
+    # so Decimal/date/time/datetime values on the target don't raise at
+    # save time -- they come back as plain strings on read, which is fine
+    # for setattr()-then-save() in apply() below, just not round-trip
+    # type-perfect.
+    changes = models.JSONField(encoder=DjangoJSONEncoder)
+    previous_values = models.JSONField(encoder=DjangoJSONEncoder)
+
+    requested_by = models.ForeignKey(
+        HorillaUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name=_("Requested By"),
+    )
+    effective_date = models.DateField(db_index=True, verbose_name=_("Effective Date"))
+
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
+    applied_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        indexes = [models.Index(fields=["status", "effective_date"])]
+        verbose_name = _("Pending Config Change")
+        verbose_name_plural = _("Pending Config Changes")
+
+    def __str__(self):
+        return f"{self.target} — pending change effective {self.effective_date}"
+
+    @classmethod
+    def schedule(cls, target, changes, requested_by=None, effective_date=None):
+        """
+        Create the pending change that will apply `changes` (a dict of
+        field_name -> new_value) onto `target` on `effective_date`
+        (defaults to the 1st of next month). If `target` already has a
+        pending change, it's cancelled first -- last-write-wins, never
+        stacked.
+        """
+        content_type = ContentType.objects.get_for_model(type(target))
+        cls.objects.filter(
+            content_type=content_type,
+            object_id=target.pk,
+            status=cls.STATUS_PENDING,
+        ).update(status=cls.STATUS_CANCELLED)
+
+        previous_values = {field: getattr(target, field) for field in changes}
+        instance = cls.objects.create(
+            content_type=content_type,
+            object_id=target.pk,
+            tier=getattr(target, "tier", ""),
+            changes=changes,
+            previous_values=previous_values,
+            requested_by=requested_by,
+            effective_date=effective_date or next_month_first(),
+        )
+        config_override_requested.send(sender=cls, instance=instance)
+        return instance
+
+    def apply(self):
+        """
+        Apply `changes` onto the target row and mark this change applied.
+        Only called by the scheduler (attendance/scheduler.py); a no-op if
+        already applied/cancelled, so re-running the scheduler is safe.
+        """
+        if self.status != self.STATUS_PENDING:
+            return
+        with transaction.atomic():
+            target = self.target
+            for field, value in self.changes.items():
+                setattr(target, field, value)
+            target.save()
+            self.status = self.STATUS_APPLIED
+            self.applied_at = timezone.now()
+            self.save(update_fields=["status", "applied_at"])
+        config_override_applied.send(sender=type(self), instance=self)
+
+    def cancel(self):
+        """Mark this change cancelled without applying it."""
+        if self.status != self.STATUS_PENDING:
+            return
+        self.status = self.STATUS_CANCELLED
+        self.save(update_fields=["status"])
+        config_override_cancelled.send(sender=type(self), instance=self)
+
+
+class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
+    """
+    "This company's (or this department's, or this employee-type's)
+    complete attendance rule set" -- the combined config record for
+    Attendance Type, following the three-tier model (Company Default /
+    Employee-Type Override / Department Override) in
+    attendance/config_tiers.py.
+
+    Deliberately one combined model, not one table per feature: the PRD
+    describes Attendance Type, Validation Threshold, the Overtime cluster,
+    and Regularization's enable/cap as configured and saved together, as
+    one unit, at the same tiers -- so they share one record. Only
+    Attendance Type's own fields are on this model for now; Validation/
+    Overtime/Regularization fields land here via later migrations as
+    those features are built, not as separate tables.
+    """
+
+    MODE_SHIFT_BASED = "SHIFT_BASED"
+    MODE_FLEXIBLE = "FLEXIBLE"
+    MODE_CHOICES = (
+        (MODE_SHIFT_BASED, _("Shift-based")),
+        (MODE_FLEXIBLE, _("Flexible")),
+    )
+
+    # Rule fields an Employee-Type override leaves blank to inherit from
+    # the Company Default row -- per the PRD, an Employee-Type override
+    # only ever picks the mode, never its own rule values.
+    RULE_FIELDS = (
+        "mode",
+        "late_grace_minutes",
+        "flexible_ot_threshold_hours",
+        "auto_punch_out_cutoff_time",
+        "total_work_hours_reference",
+    )
+    INHERITED_FIELDS = (
+        "late_grace_minutes",
+        "flexible_ot_threshold_hours",
+        "auto_punch_out_cutoff_time",
+        "total_work_hours_reference",
+    )
+
+    tier = models.CharField(
+        max_length=15,
+        choices=TIER_CHOICES,
+        default=TIER_COMPANY,
+        verbose_name=_("Tier"),
+    )
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.CASCADE,
+        related_name="attendance_rule_sets",
+        verbose_name=_("Company"),
+    )
+    # Not a FK to a specific EmployeeType row -- EmployeeType names stay
+    # free-form (a company can still have arbitrarily many, e.g. "Machine
+    # Operator"), but the PRD's Employee-Type tier only ever has three
+    # possible overrides. This resolves against EmployeeType.collar_category
+    # instead (see TieredConfigResolutionMixin.resolve_for_employee()), so
+    # every arbitrarily-named type still maps onto one of the three tiers.
+    employee_type_category = models.CharField(
+        max_length=15,
+        choices=COLLAR_CATEGORY_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name=_("Employee Type"),
+    )
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="attendance_rule_sets",
+        verbose_name=_("Department"),
+    )
+    # False on a brand-new override until its first PendingConfigChange
+    # applies -- new overrides go through the same prospective-effective-
+    # date delay as edits, one code path for both (see PendingConfigChange
+    # .apply(), which flips this True as part of `changes`).
+    is_active = models.BooleanField(default=True, verbose_name=_("Is Active"))
+
+    mode = models.CharField(
+        max_length=15,
+        choices=MODE_CHOICES,
+        default=MODE_SHIFT_BASED,
+        verbose_name=_("Attendance Type"),
+    )
+
+    # Shift-based rules. Nullable (not default=0) even on Company Default
+    # rows -- an INHERITED_FIELDS entry has to be able to genuinely store
+    # "unset" so a non-Company-Default row can fall through to inherit it;
+    # 0 is a legitimate real value for this field (no grace at all), so it
+    # can't double as the "not set" sentinel.
+    late_grace_minutes = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name=_("Late-Mark Grace (minutes)")
+    )
+
+    # Flexible rules
+    flexible_ot_threshold_hours = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Flexible OT Threshold (hours/day)"),
+    )
+    auto_punch_out_cutoff_time = models.TimeField(
+        null=True, blank=True, verbose_name=_("Flexible Auto Punch-out Cutoff")
+    )
+    total_work_hours_reference = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name=_("Total Work Hours Reference"),
+    )
+
+    objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company"],
+                condition=Q(tier=TIER_COMPANY),
+                name="uniq_attendanceruleset_company_tier",
+            ),
+            models.UniqueConstraint(
+                fields=["company", "employee_type_category"],
+                condition=Q(tier=TIER_EMPLOYEE_TYPE),
+                name="uniq_attendanceruleset_employee_type_tier",
+            ),
+            models.UniqueConstraint(
+                fields=["company", "department"],
+                condition=Q(tier=TIER_DEPARTMENT),
+                name="uniq_attendanceruleset_department_tier",
+            ),
+        ]
+        verbose_name = _("Attendance Rule Set")
+        verbose_name_plural = _("Attendance Rule Sets")
+
+    def clean(self):
+        super().clean()
+        if self.tier == TIER_COMPANY:
+            if self.employee_type_category or self.department_id:
+                raise ValidationError(
+                    _(
+                        "A Company Default row cannot have an employee type "
+                        "or department set."
+                    )
+                )
+        elif self.tier == TIER_EMPLOYEE_TYPE:
+            if not self.employee_type_category or self.department_id:
+                raise ValidationError(
+                    _(
+                        "An Employee-Type override must set an employee type "
+                        "and leave department blank."
+                    )
+                )
+        elif self.tier == TIER_DEPARTMENT:
+            if not self.department_id or self.employee_type_category:
+                raise ValidationError(
+                    _(
+                        "A Department override must set a department and "
+                        "leave employee type blank."
+                    )
+                )
+            if (
+                self.company_id
+                and self.department_id
+                and not self.department.company_id.filter(pk=self.company_id).exists()
+            ):
+                raise ValidationError(
+                    _("This department is not assigned to this company.")
+                )
+
+    def __str__(self):
+        if self.tier == TIER_COMPANY:
+            return f"{self.company} — Company Default"
+        if self.tier == TIER_EMPLOYEE_TYPE:
+            return f"{self.company} — {self.get_employee_type_category_display()} override"
+        return f"{self.company} — {self.department} override"

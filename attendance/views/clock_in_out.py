@@ -33,6 +33,7 @@ from attendance.models import (
     AttendanceActivity,
     AttendanceGeneralSetting,
     AttendanceLateComeEarlyOut,
+    AttendanceRuleSet,
     GraceTime,
 )
 from attendance.views.views import attendance_validate
@@ -180,13 +181,26 @@ def clock_in_attendance_and_activity(
         attendance.attendance_clock_in = now
         attendance.attendance_clock_in_date = date_today
         attendance.minimum_hour = minimum_hour
+        # Resolved and snapshotted once, here, at the first clock-in of the
+        # day -- never re-resolved afterward, so a mode switch that takes
+        # effect mid-session doesn't change this day's already-decided
+        # behavior. See Attendance.attendance_rule_set's field comment.
+        attendance.attendance_rule_set = AttendanceRuleSet.resolve_for_employee(
+            employee
+        )
         attendance.save()
         # check here late come or not
 
         attendance = Attendance.find(attendance.id)
-        late_come(
-            attendance=attendance, start_time=start_time, end_time=end_time, shift=shift
-        )
+        # Late-come detection doesn't apply under Flexible mode -- there's
+        # no shift to be late against.
+        if not attendance.is_flexible_mode():
+            late_come(
+                attendance=attendance,
+                start_time=start_time,
+                end_time=end_time,
+                shift=shift,
+            )
     else:
         attendance = attendance[0]
         attendance.attendance_clock_out = None
@@ -549,7 +563,11 @@ def clock_out(request):
             early_out_instance = attendance.late_come_early_out.filter(type="early_out")
             is_night_shift = attendance.is_night_shift()
             next_date = attendance.attendance_date + timedelta(days=1)
-            if not early_out_instance.exists():
+            # Early-out detection doesn't apply under Flexible mode -- same
+            # reasoning as late-come at clock-in: no shift to be early
+            # against. Uses the mode snapshotted at this day's first
+            # clock-in, not a fresh resolution.
+            if not early_out_instance.exists() and not attendance.is_flexible_mode():
                 if is_night_shift:
                     now_sec = strtime_seconds(now)
                     mid_sec = strtime_seconds("12:00")

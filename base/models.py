@@ -869,12 +869,44 @@ class RotatingWorkTypeAssign(HorillaModel):
         )
 
 
+# The Attendance PRD resolves its Employee-Type tier against exactly
+# three fixed classifications -- White/Blue/Grey Collar -- but the
+# EmployeeType *name* itself stays free-form, same as before (a company
+# can still create "Software Engineer", "Machine Operator", etc). Every
+# EmployeeType row is instead required to map onto one of these three via
+# `collar_category`, which is what Attendance's tiered rule resolution
+# actually keys off -- see AttendanceRuleSet.employee_type_category in
+# attendance/models.py.
+COLLAR_WHITE = "WHITE_COLLAR"
+COLLAR_BLUE = "BLUE_COLLAR"
+COLLAR_GREY = "GREY_COLLAR"
+COLLAR_CATEGORY_CHOICES = (
+    (COLLAR_WHITE, _("White Collar")),
+    (COLLAR_BLUE, _("Blue Collar")),
+    (COLLAR_GREY, _("Grey Collar")),
+)
+
+
 class EmployeeType(HorillaModel):
     """
     EmployeeType model
+
+    `employee_type` is a free-form name, same as always -- no restriction
+    on what a company calls its own types. `collar_category` is new: every
+    row must map onto exactly one of the three fixed classifications the
+    Attendance PRD resolves rules against (White/Blue/Grey Collar), so an
+    arbitrarily-named type ("Machine Operator") still resolves to a real
+    tier ("Blue Collar") for Attendance purposes.
     """
 
     employee_type = models.CharField(max_length=50, verbose_name=_("Employee Type"))
+    collar_category = models.CharField(
+        max_length=15,
+        choices=COLLAR_CATEGORY_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name=_("Collar Category"),
+    )
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
     objects = HorillaCompanyManager()
