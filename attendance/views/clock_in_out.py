@@ -13,6 +13,7 @@ from horilla.http.response import HorillaRedirect
 
 logger = logging.getLogger(__name__)
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 from django.contrib import messages
 from django.db.models import Q
@@ -239,10 +240,15 @@ def clock_in_attendance_and_activity(
             attendance.geo_fence_unverified or geo_fence_unverified
         )
         attendance.save()
-        # delete if the attendance marked the early out
-        early_out_instance = attendance.late_come_early_out.filter(type="early_out")
-        if early_out_instance.exists():
-            early_out_instance[0].delete()
+        # delete if the attendance marked the early out or a Flexible-
+        # mode shortfall -- both are based on an earlier, partial-day
+        # clock-out; re-clocking in means more hours are still coming,
+        # so a stale marker here would misrepresent the full day once
+        # it's actually finished. The next real clock-out re-evaluates
+        # correctly with the fuller picture either way.
+        attendance.late_come_early_out.filter(
+            type__in=["early_out", "flexible_shortfall"]
+        ).delete()
     return attendance
 
 
@@ -528,6 +534,56 @@ def early_out(attendance, start_time, end_time, shift):
     return
 
 
+def flexible_shortfall_create(attendance):
+    """
+    Used to create a Flexible-mode hours-shortfall irregularity report --
+    the same AttendanceLateComeEarlyOut mechanism used for late-come/
+    early-out, one more category rather than a new record type.
+    args:
+        attendance : attendance obj
+    """
+    if AttendanceLateComeEarlyOut.objects.filter(
+        type="flexible_shortfall", attendance_id=attendance
+    ).exists():
+        record = AttendanceLateComeEarlyOut.objects.filter(
+            type="flexible_shortfall", attendance_id=attendance
+        ).first()
+    else:
+        record = AttendanceLateComeEarlyOut()
+    record.type = "flexible_shortfall"
+    record.attendance_id = attendance
+    record.employee_id = attendance.employee_id
+    record.save()
+    return record
+
+
+def flexible_shortfall(attendance):
+    """
+    Irregularities' Flexible-mode half: records a shortfall if this
+    day's worked hours fell short of the resolved total_work_hours_
+    reference. Purely informational, same as late-come/early-out --
+    Irregularities is a visibility-only screen for MVP (no approval
+    action), a different lens from Validation: a record can be fully
+    validated and still show up here, since this is about timing
+    patterns, not whether the record itself is trustworthy. Opt-in via
+    irregularities_enabled, same convention as every other new setting
+    this feature set introduced.
+    args:
+        attendance : attendance obj
+    """
+    resolve = AttendanceRuleSet.resolve_effective_value
+    snapshot = attendance.attendance_rule_set_snapshot
+    if not resolve(snapshot, "irregularities_enabled"):
+        return
+    reference_hours = resolve(snapshot, "total_work_hours_reference")
+    if reference_hours in (None, ""):
+        return
+    reference_seconds = int(Decimal(reference_hours) * 3600)
+    worked_seconds = strtime_seconds(attendance.attendance_worked_hour)
+    if worked_seconds < reference_seconds:
+        flexible_shortfall_create(attendance)
+
+
 @login_required
 @hx_request_required
 def clock_out(request):
@@ -624,36 +680,43 @@ def clock_out(request):
             geo_fence_unverified=request.__dict__.get("geo_fence_unverified", False),
         )
         if attendance:
-            early_out_instance = attendance.late_come_early_out.filter(type="early_out")
-            is_night_shift = attendance.is_night_shift()
-            next_date = attendance.attendance_date + timedelta(days=1)
-            # Early-out detection doesn't apply under Flexible mode -- same
-            # reasoning as late-come at clock-in: no shift to be early
-            # against. Uses the mode snapshotted at this day's first
-            # clock-in, not a fresh resolution.
-            if not early_out_instance.exists() and not attendance.is_flexible_mode():
-                if is_night_shift:
-                    now_sec = strtime_seconds(now)
-                    mid_sec = strtime_seconds("12:00")
+            # Early-out detection doesn't apply under Flexible mode --
+            # there's no shift to be early against; the Irregularities
+            # counterpart there is a worked-hours shortfall check
+            # instead (see flexible_shortfall()). Uses the mode
+            # snapshotted at this day's first clock-in, not a fresh
+            # resolution.
+            if attendance.is_flexible_mode():
+                flexible_shortfall(attendance)
+            else:
+                early_out_instance = attendance.late_come_early_out.filter(
+                    type="early_out"
+                )
+                is_night_shift = attendance.is_night_shift()
+                next_date = attendance.attendance_date + timedelta(days=1)
+                if not early_out_instance.exists():
+                    if is_night_shift:
+                        now_sec = strtime_seconds(now)
+                        mid_sec = strtime_seconds("12:00")
 
-                    if (attendance.attendance_date == date_today) or (
-                        # check is next day mid
-                        mid_sec >= now_sec
-                        and date_today == next_date
-                    ):
+                        if (attendance.attendance_date == date_today) or (
+                            # check is next day mid
+                            mid_sec >= now_sec
+                            and date_today == next_date
+                        ):
+                            early_out(
+                                attendance=attendance,
+                                start_time=start_time_sec,
+                                end_time=end_time_sec,
+                                shift=shift,
+                            )
+                    elif attendance.attendance_date == date_today:
                         early_out(
                             attendance=attendance,
                             start_time=start_time_sec,
                             end_time=end_time_sec,
                             shift=shift,
                         )
-                elif attendance.attendance_date == date_today:
-                    early_out(
-                        attendance=attendance,
-                        start_time=start_time_sec,
-                        end_time=end_time_sec,
-                        shift=shift,
-                    )
 
         # Refresh employee from DB so template re-evaluates is_clocked_in correctly
         employee.refresh_from_db()

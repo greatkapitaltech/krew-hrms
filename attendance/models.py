@@ -1513,6 +1513,13 @@ class AttendanceLateComeEarlyOut(HorillaModel):
     choices = [
         ("late_come", _("Late Arrival")),
         ("early_out", _("Early Departure")),
+        # Irregularities' Flexible-mode half: worked hours fell short of
+        # AttendanceRuleSet.total_work_hours_reference. Lowercase to
+        # match the two existing values in this same field, not the
+        # newer "new choice fields are uppercase" convention -- that
+        # rule is about brand-new fields, and one field mixing case
+        # across its own values would be its own kind of inconsistency.
+        ("flexible_shortfall", _("Flexible Hours Shortfall")),
     ]
 
     attendance_id = models.ForeignKey(
@@ -1558,11 +1565,7 @@ class AttendanceLateComeEarlyOut(HorillaModel):
         """
         Display work type
         """
-        choices = [
-            ("late_come", _("Late Arrival")),
-            ("early_out", _("Early Departure")),
-        ]
-        return dict(choices).get(self.type)
+        return dict(self.choices).get(self.type)
 
     def penalities_column(self):
         """
@@ -2246,6 +2249,7 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         "flexible_ot_auto_approve_buffer_hours",
         "regularization_enabled",
         "regularization_monthly_cap",
+        "irregularities_enabled",
     )
     INHERITED_FIELDS = (
         "late_grace_minutes",
@@ -2258,6 +2262,7 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         "flexible_ot_auto_approve_buffer_hours",
         "regularization_enabled",
         "regularization_monthly_cap",
+        "irregularities_enabled",
     )
 
     tier = models.CharField(
@@ -2394,6 +2399,19 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
     )
     regularization_monthly_cap = models.PositiveIntegerField(
         null=True, blank=True, verbose_name=_("Regularization Monthly Cap")
+    )
+
+    # Irregularities: on/off switch for the Flexible-mode hours-shortfall
+    # check (see flexible_shortfall() in attendance/views/clock_in_out.py).
+    # The shift-based half (late arrivals/early departures) is pre-
+    # existing, always-on behavior, unrelated to this flag -- this only
+    # gates the new category being added. The PRD doesn't actually say
+    # where this switch belongs on-screen; folding it into this combined
+    # rule-set record matches the pattern everything else here follows,
+    # but that's an assumption, not a confirmed placement -- see the
+    # plan doc's open items.
+    irregularities_enabled = models.BooleanField(
+        null=True, blank=True, verbose_name=_("Enable Irregularities")
     )
 
     objects = models.Manager()
