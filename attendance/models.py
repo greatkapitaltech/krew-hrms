@@ -2244,6 +2244,8 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         "ot_threshold_hours",
         "shift_ot_auto_approve_buffer_minutes",
         "flexible_ot_auto_approve_buffer_hours",
+        "regularization_enabled",
+        "regularization_monthly_cap",
     )
     INHERITED_FIELDS = (
         "late_grace_minutes",
@@ -2254,6 +2256,8 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         "ot_threshold_hours",
         "shift_ot_auto_approve_buffer_minutes",
         "flexible_ot_auto_approve_buffer_hours",
+        "regularization_enabled",
+        "regularization_monthly_cap",
     )
 
     tier = models.CharField(
@@ -2378,6 +2382,18 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
     flexible_ot_auto_approve_buffer_hours = models.DecimalField(
         max_digits=4, decimal_places=2, null=True, blank=True,
         verbose_name=_("Flexible OT Auto-Approve Buffer (hours)"),
+    )
+
+    # Regularization: whether an employee may raise a dispute at all for
+    # this tier (opt-in, like track_overtime above), and how many they
+    # may raise per calendar month -- counting every request raised,
+    # rejected ones included, since RegularizationRequest never resets
+    # once created (unlike the older, flag-based correction workflow).
+    regularization_enabled = models.BooleanField(
+        null=True, blank=True, verbose_name=_("Enable Regularization")
+    )
+    regularization_monthly_cap = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name=_("Regularization Monthly Cap")
     )
 
     objects = models.Manager()
@@ -2524,3 +2540,349 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
             return own_value
         company_default_values = snapshot.get("company_default") or {}
         return company_default_values.get(field_name)
+
+
+class RegularizationRequest(HorillaModel):
+    """
+    An employee's durable dispute over a flagged/closed attendance day --
+    a corrected time, an auto-close, a geo-location flag, or a denied
+    overtime decision -- routed to their manager (or an approval
+    delegate, see ApprovalDelegate below) for a final approve/reject.
+
+    Deliberately separate from the older is_validate_request/
+    requested_data flag-based workflow on Attendance itself: that flag
+    resets to blank the moment it's resolved (approve OR reject), even
+    deleting the whole Attendance row for a rejected create_request --
+    see cancel_attendance_request() in attendance/views/requests.py. That
+    makes it structurally unable to do two things this feature needs:
+    count every request raised toward a monthly cap (rejected ones
+    included, so they have to survive resolution), and cover dispute
+    types (auto-close, geo-flag, OT denial) that flag was never designed
+    to represent at all. The old workflow stays exactly as-is for
+    ordinary attendance edits -- this is additive, not a replacement.
+    """
+
+    REASON_TIME_CORRECTION = "TIME_CORRECTION"
+    REASON_AUTO_CLOSE_DISPUTE = "AUTO_CLOSE_DISPUTE"
+    REASON_GEO_VIOLATION_DISPUTE = "GEO_VIOLATION_DISPUTE"
+    REASON_OVERTIME_DENIAL_DISPUTE = "OVERTIME_DENIAL_DISPUTE"
+    REASON_CHOICES = (
+        (REASON_TIME_CORRECTION, _("Time Correction")),
+        (REASON_AUTO_CLOSE_DISPUTE, _("Auto Punch-out Dispute")),
+        (REASON_GEO_VIOLATION_DISPUTE, _("Geo-location Dispute")),
+        (REASON_OVERTIME_DENIAL_DISPUTE, _("Overtime Decision Dispute")),
+    )
+
+    STATUS_PENDING = "PENDING"
+    STATUS_APPROVED = "APPROVED"
+    STATUS_REJECTED = "REJECTED"
+    STATUS_CHOICES = (
+        (STATUS_PENDING, _("Pending")),
+        (STATUS_APPROVED, _("Approved")),
+        (STATUS_REJECTED, _("Rejected")),
+    )
+
+    # Independent of `status` above -- only meaningful when this dispute
+    # involves overtime. Same "two independent decisions" shape as the
+    # Overtime feature itself (Attendance.attendance_overtime_approve is
+    # its own decision, separate from attendance_validated) -- approving
+    # the main request and approving its overtime piece are genuinely
+    # separate outcomes, not one flag wearing two hats.
+    OT_DECISION_PENDING = "PENDING"
+    OT_DECISION_APPROVED = "APPROVED"
+    OT_DECISION_DENIED = "DENIED"
+    OT_DECISION_CHOICES = (
+        (OT_DECISION_PENDING, _("Pending")),
+        (OT_DECISION_APPROVED, _("Approved")),
+        (OT_DECISION_DENIED, _("Denied")),
+    )
+
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name="regularization_requests", verbose_name=_("Employee"),
+    )
+    attendance = models.ForeignKey(
+        "attendance.Attendance", on_delete=models.CASCADE,
+        related_name="regularization_requests", verbose_name=_("Attendance"),
+    )
+    reason_code = models.CharField(
+        max_length=25, choices=REASON_CHOICES, verbose_name=_("Reason")
+    )
+    reason = models.TextField(verbose_name=_("Explanation"))
+
+    # Only meaningful for reason_code=TIME_CORRECTION.
+    corrected_clock_in = models.TimeField(null=True, blank=True)
+    corrected_clock_in_date = models.DateField(null=True, blank=True)
+    corrected_clock_out = models.TimeField(null=True, blank=True)
+    corrected_clock_out_date = models.DateField(null=True, blank=True)
+
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING,
+    )
+    overtime_decision = models.CharField(
+        max_length=10, choices=OT_DECISION_CHOICES, null=True, blank=True,
+    )
+
+    resolved_by = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", verbose_name=_("Resolved By"),
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_note = models.TextField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        verbose_name = _("Regularization Request")
+        verbose_name_plural = _("Regularization Requests")
+
+    def __str__(self):
+        return (
+            f"{self.employee} — {self.get_reason_code_display()} "
+            f"({self.attendance.attendance_date})"
+        )
+
+    def clean(self):
+        super().clean()
+        if (
+            self.reason_code == self.REASON_TIME_CORRECTION
+            and not self.corrected_clock_in
+            and not self.corrected_clock_out
+        ):
+            raise ValidationError(
+                _(
+                    "A time correction request must set a corrected "
+                    "clock-in and/or clock-out."
+                )
+            )
+
+    @classmethod
+    def monthly_count(cls, employee, month, year):
+        """
+        Every request raised in that calendar month, regardless of
+        status -- rejected ones count too, unlike the old flag-based
+        workflow this replaces for Regularization's own scope. Counted
+        by when the request was *raised* (created_at), not the date of
+        the attendance it disputes.
+        """
+        return cls.objects.filter(
+            employee=employee, created_at__year=year, created_at__month=month,
+        ).count()
+
+    @classmethod
+    def can_raise(cls, employee):
+        """
+        (allowed, reason_if_not) -- whether `employee` may raise a new
+        request right now. Opt-in like track_overtime: a tier that never
+        configured regularization_enabled is treated as disabled, not
+        open by default.
+        """
+        rule_set = AttendanceRuleSet.resolve_for_employee(employee)
+        effective = rule_set.get_effective_values() if rule_set is not None else {}
+        if not effective.get("regularization_enabled"):
+            return False, _("Regularization is not enabled for you.")
+        cap = effective.get("regularization_monthly_cap")
+        if cap is not None:
+            today = date.today()
+            if cls.monthly_count(employee, today.month, today.year) >= cap:
+                return False, _(
+                    "You have reached your monthly regularization request limit."
+                )
+        return True, None
+
+    def approve(self, resolved_by, resolution_note=""):
+        """
+        Resolves the dispute in the employee's favor. What that actually
+        changes on the underlying Attendance day depends on reason_code
+        -- a no-op if already resolved, so this is safe to call from a
+        retried request.
+        """
+        if self.status != self.STATUS_PENDING:
+            return
+        with transaction.atomic():
+            if self.reason_code == self.REASON_TIME_CORRECTION:
+                self._apply_time_correction()
+            elif self.reason_code == self.REASON_GEO_VIOLATION_DISPUTE:
+                self.attendance.geo_fence_violation = False
+                self.attendance.geo_fence_unverified = False
+                self.attendance.save()
+            elif self.reason_code == self.REASON_OVERTIME_DENIAL_DISPUTE:
+                self.attendance.attendance_overtime_approve = True
+                self.attendance.save()
+                self.overtime_decision = self.OT_DECISION_APPROVED
+            # REASON_AUTO_CLOSE_DISPUTE: no dedicated flag exists on
+            # Attendance yet to clear (Auto Punch-out doesn't record one
+            # today) -- approving is still recorded here for visibility/
+            # history, it just has no further automated side effect yet.
+
+            self.status = self.STATUS_APPROVED
+            self.resolved_by = resolved_by
+            self.resolved_at = timezone.now()
+            self.resolution_note = resolution_note
+            self.save()
+
+    def reject(self, resolved_by, resolution_note=""):
+        """
+        A no-op if already resolved. Rejecting the main request forces
+        any overtime piece to denied too, regardless of what it might
+        otherwise have been on its way to -- the two decisions are
+        independent, but a rejected dispute can't leave its overtime
+        half dangling as still-pending.
+        """
+        if self.status != self.STATUS_PENDING:
+            return
+        self.status = self.STATUS_REJECTED
+        if self.reason_code == self.REASON_OVERTIME_DENIAL_DISPUTE:
+            self.overtime_decision = self.OT_DECISION_DENIED
+        self.resolved_by = resolved_by
+        self.resolved_at = timezone.now()
+        self.resolution_note = resolution_note
+        self.save()
+
+    def _apply_time_correction(self):
+        attendance = self.attendance
+        if self.corrected_clock_in:
+            attendance.attendance_clock_in = self.corrected_clock_in
+        if self.corrected_clock_in_date:
+            attendance.attendance_clock_in_date = self.corrected_clock_in_date
+        if self.corrected_clock_out:
+            attendance.attendance_clock_out = self.corrected_clock_out
+        if self.corrected_clock_out_date:
+            attendance.attendance_clock_out_date = self.corrected_clock_out_date
+        if self.corrected_clock_in and self.corrected_clock_out:
+            in_dt = datetime.combine(
+                self.corrected_clock_in_date or attendance.attendance_date,
+                self.corrected_clock_in,
+            )
+            out_dt = datetime.combine(
+                self.corrected_clock_out_date or attendance.attendance_date,
+                self.corrected_clock_out,
+            )
+            worked_seconds = max(0, int((out_dt - in_dt).total_seconds()))
+            attendance.attendance_worked_hour = format_time(worked_seconds)
+        attendance.save()
+
+
+class ApprovalDelegate(HorillaModel):
+    """
+    A manager handing off Validation/Overtime/Regularization approval
+    authority to someone else -- shared infrastructure across all three
+    approval flows, not specific to Regularization even though that's
+    the feature that surfaced the need for it. Either a whole date range
+    (e.g. covering the manager's own leave) or one specific request, not
+    both -- see clean(). Only an employee holding the dedicated
+    attendance.can_be_delegate permission (separate from ordinary
+    approval rights like attendance.change_attendance) may be picked.
+    """
+
+    delegator = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name="delegations_given", verbose_name=_("Delegator"),
+    )
+    delegate = models.ForeignKey(
+        Employee, on_delete=models.CASCADE,
+        related_name="delegations_received", verbose_name=_("Delegate"),
+    )
+
+    start_date = models.DateField(null=True, blank=True, verbose_name=_("Start Date"))
+    end_date = models.DateField(null=True, blank=True, verbose_name=_("End Date"))
+
+    # Narrows this delegation to exactly one request instead of a date
+    # range. Generic, not a plain FK to RegularizationRequest, since the
+    # same delegation mechanism is meant to cover Validation and
+    # Overtime approval targets too, without this model needing to know
+    # about those apps' specific target types.
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, null=True, blank=True,
+    )
+    object_id = models.PositiveIntegerField(null=True, blank=True)
+    target = GenericForeignKey("content_type", "object_id")
+
+    is_active = models.BooleanField(default=True, verbose_name=_("Is Active"))
+
+    objects = models.Manager()
+
+    class Meta:
+        verbose_name = _("Approval Delegate")
+        verbose_name_plural = _("Approval Delegates")
+        permissions = [
+            ("can_be_delegate", "Can be selected as an approval delegate"),
+        ]
+
+    def __str__(self):
+        if self.object_id:
+            return f"{self.delegator} → {self.delegate} (one request)"
+        return f"{self.delegator} → {self.delegate} ({self.start_date}–{self.end_date})"
+
+    def clean(self):
+        super().clean()
+        if self.delegator_id and self.delegate_id and self.delegator_id == self.delegate_id:
+            raise ValidationError(_("A manager cannot delegate to themselves."))
+        has_target = bool(self.object_id)
+        has_range = bool(self.start_date or self.end_date)
+        if not has_target and not has_range:
+            raise ValidationError(
+                _("Set either a specific request or a start/end date range.")
+            )
+        if has_target and has_range:
+            raise ValidationError(
+                _("Set either a specific request or a date range, not both.")
+            )
+        if has_range and not (self.start_date and self.end_date):
+            raise ValidationError(_("A date-range delegation needs both dates set."))
+        if has_range and self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValidationError(_("Start date must be before end date."))
+        if self.delegate_id:
+            user = getattr(self.delegate, "employee_user_id", None)
+            if user is None or not user.has_perm("attendance.can_be_delegate"):
+                raise ValidationError(
+                    _("This employee is not permitted to act as a delegate.")
+                )
+
+    def covers(self, on_date=None, target=None):
+        """
+        True if this delegation currently authorizes approving `target`
+        (a specific model instance), or, for a date-range delegation,
+        covers `on_date` (defaults to today).
+        """
+        if not self.is_active:
+            return False
+        if self.object_id is not None:
+            if target is None:
+                return False
+            return (
+                ContentType.objects.get_for_model(type(target)) == self.content_type
+                and target.pk == self.object_id
+            )
+        on_date = on_date or date.today()
+        return self.start_date <= on_date <= self.end_date
+
+    @classmethod
+    def is_delegate_for(cls, delegate_employee, delegator_employee, on_date=None, target=None):
+        """
+        True if `delegate_employee` currently stands in for
+        `delegator_employee`'s approval authority, for `target` (a
+        specific request) or `on_date` (defaults to today).
+        """
+        candidates = cls.objects.filter(
+            delegator=delegator_employee, delegate=delegate_employee, is_active=True,
+        )
+        return any(d.covers(on_date=on_date, target=target) for d in candidates)
+
+    @classmethod
+    def can_approve(cls, approver, target_employee, on_date=None, target=None):
+        """
+        True if `approver` may approve/reject something belonging to
+        `target_employee` -- either as their direct reporting manager,
+        or as an active delegate standing in for that manager.
+        """
+        if approver == target_employee:
+            return False
+        reporting_manager = target_employee.get_reporting_manager()
+        if reporting_manager is None:
+            return False
+        if reporting_manager == approver:
+            return True
+        return cls.is_delegate_for(
+            approver, reporting_manager, on_date=on_date, target=target,
+        )

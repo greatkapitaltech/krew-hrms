@@ -438,3 +438,79 @@ class ValidationAndOvertimeTogetherTests(TestCase):
         self.assertFalse(attendance.attendance_validated)  # over 08:30 threshold
         self.assertEqual(attendance.overtime_second, 20 * 60)  # 20 min past 19:30
         self.assertTrue(attendance.attendance_overtime_approve)  # within 30-min buffer
+
+
+class ManualOvertimeApprovalTests(TestCase):
+    """
+    Auto-approve-within-buffer is one path to attendance_overtime_approve
+    =True; the pre-existing manual approval endpoints (attendance/views/
+    views.py::approve_overtime()/approve_bulk_overtime()) are the other,
+    for exactly the overtime-beyond-the-buffer case auto-approve
+    deliberately leaves alone. Both just do `attendance.
+    attendance_overtime_approve = True; attendance.save()` on an
+    already-loaded instance -- confirm that still survives
+    update_attendance_overtime()/handle_overtime_conditions() running
+    again inside that save(), and that the ledger credits correctly.
+    """
+
+    def setUp(self):
+        self.company = make_company("Acme")
+        self.shift = EmployeeShift.objects.create(employee_shift="Day Shift")
+        self.shift.company_id.add(self.company)
+        self.day = EmployeeShiftDay.objects.create(day="monday")
+        EmployeeShiftSchedule.objects.create(
+            day=self.day, shift_id=self.shift,
+            minimum_working_hour="08:00",
+            start_time=time(10, 0), end_time=time(18, 0),
+        )
+        self.employee = make_employee(
+            company=self.company, email="manual1@test.horilla",
+            user=make_user("manual1"), shift=self.shift,
+        )
+        AttendanceRuleSet.objects.create(
+            tier="COMPANY", company=self.company,
+            mode=AttendanceRuleSet.MODE_SHIFT_BASED,
+            track_overtime=True,
+            ot_threshold_hours="1.50",  # shift ends 18:00 -> OT starts 19:30
+            shift_ot_auto_approve_buffer_minutes=30,
+        )
+        clock_in_attendance_and_activity(
+            employee=self.employee,
+            date_today=date(2026, 9, 21),  # a Monday
+            attendance_date=date(2026, 9, 21),
+            day=self.day,
+            now="10:00",
+            shift=self.shift,
+            minimum_hour="08:00",
+            start_time=36000,
+            end_time=64800,
+            in_datetime=timezone.make_aware(datetime(2026, 9, 21, 10, 0)),
+        )
+        self.attendance = clock_out_attendance_and_activity(
+            employee=self.employee,
+            date_today=date(2026, 9, 21),
+            now="20:15",
+            out_datetime=timezone.make_aware(datetime(2026, 9, 21, 20, 15)),
+        )
+
+    def test_beyond_buffer_overtime_is_not_auto_approved(self):
+        # Sanity check on the fixture: 45 min past 19:30 OT start,
+        # beyond the 30-min buffer -- confirms there's something to
+        # manually approve in the first place.
+        self.assertEqual(self.attendance.overtime_second, 45 * 60)
+        self.assertFalse(self.attendance.attendance_overtime_approve)
+
+    def test_manual_approval_survives_the_save_pipeline_and_credits_the_ledger(self):
+        from attendance.models import AttendanceOverTime
+
+        self.attendance.attendance_overtime_approve = True
+        self.attendance.save()
+
+        self.attendance.refresh_from_db()
+        self.assertTrue(self.attendance.attendance_overtime_approve)
+        self.assertEqual(self.attendance.approved_overtime_second, 45 * 60)
+
+        ledger = AttendanceOverTime.objects.get(
+            employee_id=self.employee, month="september", year=2026,
+        )
+        self.assertEqual(ledger.overtime_second, 45 * 60)
