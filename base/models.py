@@ -1111,7 +1111,6 @@ class EmployeeShiftSchedule(HorillaModel):
             "Time at which the horilla will automatically check out the employee attendance if they forget."
         ),
     )
-
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
     objects = HorillaCompanyManager()

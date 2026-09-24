@@ -9,6 +9,7 @@ import contextlib
 import datetime as dt
 import json
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 
 import pandas as pd
 from django.apps import apps
@@ -493,6 +494,23 @@ class Attendance(HorillaModel):
             return False
         return schedule.is_night_shift
 
+    def get_shift_end_time(self):
+        """
+        This day's actual EmployeeShiftSchedule.end_time -- the baseline
+        Shift-based overtime counts from, see update_attendance_overtime().
+        Read live (like is_night_shift() above and shift_schedule_today()
+        elsewhere), not snapshotted -- shift schedules aren't part of the
+        tiered-config/PendingConfigChange system, they already change
+        rarely and take effect immediately everywhere else too.
+        """
+        day = self.attendance_day
+        if day is None:
+            return None
+        schedule = day.day_schedule.filter(shift_id=self.shift_id).first()
+        if not schedule:
+            return None
+        return schedule.end_time
+
     def get_attendance_mode(self):
         """
         The Attendance Type mode (Shift-based/Flexible) snapshotted for
@@ -799,37 +817,128 @@ class Attendance(HorillaModel):
     def update_attendance_overtime(self):
         """
         Calculate and update attendance overtime and worked seconds.
+
+        Zero (and skipped entirely) if track_overtime doesn't resolve
+        True for this day's rule set -- overtime is opt-in, not computed
+        by default. Otherwise overtime starts at a mode-appropriate
+        baseline plus one shared company-level ot_threshold_hours (see
+        that field's comment for the worked examples):
+          Shift-based: this day's actual shift end time
+            (get_shift_end_time()) + ot_threshold_hours -- worked out
+            entirely in real datetimes (not bare clock-time subtraction)
+            so a late-ending shift crossing midnight still compares
+            correctly.
+          Flexible: total_work_hours_reference + ot_threshold_hours.
+        Both fall back to the pre-existing worked-hour-vs-minimum_hour
+        formula if the relevant settings aren't configured, or
+        (Shift-based specifically) this day hasn't been clocked out yet
+        -- there's no clock-out time yet to compare.
         """
-        self.attendance_overtime = format_time(
-            max(
-                0,
-                (
-                    strtime_seconds(self.attendance_worked_hour)
-                    - strtime_seconds(self.minimum_hour)
-                ),
-            )
-        )
+        resolve = AttendanceRuleSet.resolve_effective_value
+        snapshot = self.attendance_rule_set_snapshot
+        track_overtime = resolve(snapshot, "track_overtime")
+
         self.at_work_second = strtime_seconds(self.attendance_worked_hour)
+
+        if not track_overtime:
+            self.attendance_overtime = "00:00"
+            self.overtime_second = 0
+            return
+
+        threshold_hours = resolve(snapshot, "ot_threshold_hours")
+        overtime_seconds = None
+
+        if self.is_flexible_mode():
+            baseline_hours = resolve(snapshot, "total_work_hours_reference")
+            if baseline_hours not in (None, "") and threshold_hours not in (None, ""):
+                effective_threshold_seconds = int(
+                    (Decimal(baseline_hours) + Decimal(threshold_hours)) * 3600
+                )
+                overtime_seconds = max(
+                    0, self.at_work_second - effective_threshold_seconds
+                )
+        else:
+            shift_end_time = self.get_shift_end_time()
+            if (
+                shift_end_time
+                and threshold_hours not in (None, "")
+                and self.attendance_clock_out
+                and self.attendance_clock_out_date
+            ):
+                clock_out_time = self.attendance_clock_out
+                if isinstance(clock_out_time, str):
+                    # Not yet coerced to a real time object -- this runs
+                    # inside save(), and a caller (e.g.
+                    # clock_out_attendance_and_activity()) may have just
+                    # assigned a raw "HH:MM:SS" string moments earlier;
+                    # Django's TimeField only converts it on the way to
+                    # the database, not on plain attribute assignment.
+                    clock_out_time = dt.time.fromisoformat(clock_out_time)
+                clock_out_dt = datetime.combine(
+                    self.attendance_clock_out_date, clock_out_time
+                )
+                shift_end_dt = datetime.combine(
+                    self.attendance_clock_out_date, shift_end_time
+                )
+                ot_start_dt = shift_end_dt + timedelta(
+                    hours=float(Decimal(threshold_hours))
+                )
+                overtime_seconds = max(
+                    0, int((clock_out_dt - ot_start_dt).total_seconds())
+                )
+
+        if overtime_seconds is None:
+            overtime_seconds = max(
+                0, self.at_work_second - strtime_seconds(self.minimum_hour)
+            )
+
+        self.attendance_overtime = format_time(overtime_seconds)
         self.overtime_second = strtime_seconds(self.attendance_overtime)
 
     def handle_overtime_conditions(self):
-        condition = AttendanceValidationCondition.objects.first()
+        """
+        Auto-approve overtime only while it stays within the configured
+        buffer above the OT start point; anything beyond needs a
+        manager's decision. This is the inverted comparison the PRD
+        wants -- the previous AttendanceValidationCondition-based logic
+        auto-approved once overtime reached *at least* a threshold,
+        backwards from "auto-approve only while overtime stays small."
+        Only ever sets the flag True here, never False -- a manual
+        approve/reject decision made elsewhere must never be silently
+        overwritten by this running again on an unrelated save.
+        """
         if self.is_validate_request:
             self.is_validate_request_approved = self.attendance_validated = False
 
-        if condition:
-            # Handle overtime cutoff
-            if condition.overtime_cutoff:
-                cutoff_seconds = strtime_seconds(condition.overtime_cutoff)
-                if self.overtime_second > cutoff_seconds:
-                    self.overtime_second = cutoff_seconds
-                    self.attendance_overtime = format_time(cutoff_seconds)
+        resolve = AttendanceRuleSet.resolve_effective_value
+        snapshot = self.attendance_rule_set_snapshot
+        if not resolve(snapshot, "track_overtime"):
+            return
 
-            # Auto-approve overtime if conditions are met
-            if condition.auto_approve_ot and self.overtime_second >= strtime_seconds(
-                condition.minimum_overtime_to_approve
-            ):
-                self.attendance_overtime_approve = True
+        if self.is_flexible_mode():
+            buffer_hours = resolve(snapshot, "flexible_ot_auto_approve_buffer_hours")
+            buffer_seconds = (
+                int(Decimal(buffer_hours) * 3600)
+                if buffer_hours not in (None, "")
+                else 0
+            )
+        else:
+            buffer_minutes = resolve(snapshot, "shift_ot_auto_approve_buffer_minutes")
+            buffer_seconds = (
+                int(buffer_minutes) * 60 if buffer_minutes not in (None, "") else 0
+            )
+
+        # Strictly positive, not just "within buffer" -- this runs on
+        # every save, including the very first one at clock-in, when
+        # there's no clock-out yet and overtime is trivially 0. Since
+        # this method deliberately never resets the flag back to False
+        # (a real manual decision elsewhere must never be clobbered by
+        # this running again), auto-approving on that trivial 0 would
+        # permanently "stick" a false-positive approval that a later,
+        # genuinely-over-buffer overtime could never correct.
+        overtime_second = self.overtime_second or 0
+        if 0 < overtime_second <= buffer_seconds:
+            self.attendance_overtime_approve = True
 
     # def save(self, *args, **kwargs):
     #     self.update_attendance_overtime()
@@ -2128,17 +2237,23 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
     RULE_FIELDS = (
         "mode",
         "late_grace_minutes",
-        "flexible_ot_threshold_hours",
         "auto_punch_out_cutoff_time",
         "total_work_hours_reference",
         "validation_threshold",
+        "track_overtime",
+        "ot_threshold_hours",
+        "shift_ot_auto_approve_buffer_minutes",
+        "flexible_ot_auto_approve_buffer_hours",
     )
     INHERITED_FIELDS = (
         "late_grace_minutes",
-        "flexible_ot_threshold_hours",
         "auto_punch_out_cutoff_time",
         "total_work_hours_reference",
         "validation_threshold",
+        "track_overtime",
+        "ot_threshold_hours",
+        "shift_ot_auto_approve_buffer_minutes",
+        "flexible_ot_auto_approve_buffer_hours",
     )
 
     tier = models.CharField(
@@ -2204,14 +2319,6 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         null=True, blank=True, verbose_name=_("Late-Mark Grace (minutes)")
     )
 
-    # Flexible rules
-    flexible_ot_threshold_hours = models.DecimalField(
-        max_digits=4,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        verbose_name=_("Flexible OT Threshold (hours/day)"),
-    )
     auto_punch_out_cutoff_time = models.TimeField(
         null=True, blank=True, verbose_name=_("Flexible Auto Punch-out Cutoff")
     )
@@ -2236,6 +2343,41 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         blank=True,
         validators=[validate_time_format],
         verbose_name=_("Worked Hours Auto-Validate Till"),
+    )
+
+    # Overtime cluster. Whether OT is tracked/computed/approved at all
+    # for this tier -- nullable so it's inheritable the same way as
+    # everything else here; treated as "off" wherever it resolves blank,
+    # so overtime is opt-in, not on by default.
+    track_overtime = models.BooleanField(
+        null=True, blank=True, verbose_name=_("Track Overtime")
+    )
+    # One shared duration, added to a mode-appropriate baseline to find
+    # the point past which hours count as overtime (see Attendance.
+    # update_attendance_overtime()):
+    #   Shift-based: this day's actual shift end time (get_shift_end_
+    #     time()) + ot_threshold_hours. E.g. shift ends 18:00, threshold
+    #     1:30 -> overtime starts at 19:30.
+    #   Flexible: total_work_hours_reference + ot_threshold_hours. E.g.
+    #     reference 8 hours, threshold 1:30 -> overtime starts after
+    #     9:30 worked.
+    ot_threshold_hours = models.DecimalField(
+        max_digits=4, decimal_places=2, null=True, blank=True,
+        verbose_name=_("Overtime Threshold (hours)"),
+    )
+    # Auto-approve buffers, one per mode to match each mode's own OT-start
+    # representation (a duration added to a clock time vs. a duration
+    # added to a duration). Overtime within the buffer auto-approves
+    # itself; beyond it, needs a manager's decision -- the inverted
+    # comparison from what the pre-existing (now-replaced) auto-approve
+    # logic did, see Attendance.handle_overtime_conditions().
+    shift_ot_auto_approve_buffer_minutes = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name=_("Shift-based OT Auto-Approve Buffer (minutes)"),
+    )
+    flexible_ot_auto_approve_buffer_hours = models.DecimalField(
+        max_digits=4, decimal_places=2, null=True, blank=True,
+        verbose_name=_("Flexible OT Auto-Approve Buffer (hours)"),
     )
 
     objects = models.Manager()
