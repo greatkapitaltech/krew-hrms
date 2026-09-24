@@ -30,8 +30,8 @@ SUBMENUS = [
         "accessibility": "attendance.sidebar.attendances_accessibility",
     },
     {
-        "menu": _("Attendance Requests"),
-        "redirect": reverse_lazy("request-attendance-view"),
+        "menu": _("Regularization Requests"),
+        "redirect": reverse_lazy("regularization-request-view"),
     },
     {
         "menu": _("Daily Work Status"),

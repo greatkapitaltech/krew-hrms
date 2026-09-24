@@ -49,6 +49,7 @@ from attendance.models import (
     AttendanceValidationCondition,
     BatchAttendance,
     GraceTime,
+    RegularizationRequest,
     WorkRecords,
     attendance_date_validate,
     strtime_seconds,
@@ -1370,3 +1371,55 @@ class BatchAttendanceForm(BaseModelForm):
 
         if self.instance.pk:
             self.verbose_name = _("Update attendance batch")
+
+
+class RegularizationRequestForm(BaseModelForm):
+    """
+    The new correction-flow form (#8 Regularization) -- what an employee
+    fills in to raise a RegularizationRequest. AUTO_CLOSE_DISPUTE is left
+    out of reason_code's choices here (no backing flag exists yet for it,
+    see RegularizationRequest.approve()) though the model still keeps it
+    for later/programmatic use.
+    """
+
+    class Meta:
+        model = RegularizationRequest
+        fields = [
+            "attendance",
+            "reason_code",
+            "reason",
+            "corrected_clock_in",
+            "corrected_clock_in_date",
+            "corrected_clock_out",
+            "corrected_clock_out_date",
+        ]
+        widgets = {
+            "reason": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, employee=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["reason_code"].choices = [
+            choice
+            for choice in RegularizationRequest.REASON_CHOICES
+            if choice[0] != RegularizationRequest.REASON_AUTO_CLOSE_DISPUTE
+        ]
+        if employee is not None:
+            self.fields["attendance"].queryset = Attendance.objects.filter(
+                employee_id=employee
+            ).order_by("-attendance_date")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Meta.model.clean() (the TIME_CORRECTION-needs-a-corrected-time
+        # rule) only runs through full_clean() on the model instance --
+        # ModelForm.clean() doesn't call it automatically once fields are
+        # individually valid, so trigger it explicitly here.
+        instance = self.instance
+        for field_name in self.Meta.fields:
+            setattr(instance, field_name, cleaned_data.get(field_name))
+        try:
+            instance.clean()
+        except ValidationError as error:
+            raise forms.ValidationError(error.messages) from error
+        return cleaned_data

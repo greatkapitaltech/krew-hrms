@@ -22,6 +22,7 @@ from attendance.cbv import (
     ip_restriction,
     late_come_and_early_out,
     my_attendances,
+    regularization_request,
 )
 from attendance.views import clock_in_out
 from attendance.views import dashboard as attendance_dashboard
@@ -500,6 +501,36 @@ urlpatterns = [
         "update-attendance-request/<int:pk>/",
         attendance_request.UpdateAttendanceRequestFormView.as_view(),
         name="update-attendance-request",
+    ),
+    path(
+        "regularization-requests/",
+        regularization_request.RegularizationRequestPageView.as_view(),
+        name="regularization-request-view",
+    ),
+    path(
+        "regularization-requests/list/",
+        regularization_request.RegularizationRequestListView.as_view(),
+        name="regularization-request-list",
+    ),
+    path(
+        "regularization-requests/nav/",
+        regularization_request.RegularizationRequestNav.as_view(),
+        name="regularization-request-nav",
+    ),
+    path(
+        "regularization-requests/form/",
+        regularization_request.RegularizationRequestFormView.as_view(),
+        name="regularization-request-form",
+    ),
+    path(
+        "regularization-requests/<int:pk>/approve/",
+        regularization_request.approve_regularization_request,
+        name="approve-regularization-request",
+    ),
+    path(
+        "regularization-requests/<int:pk>/reject/",
+        regularization_request.reject_regularization_request,
+        name="reject-regularization-request",
     ),
     path(
         "create-batch-attendance/",

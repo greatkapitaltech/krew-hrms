@@ -41,22 +41,6 @@ class AttendanceTabView(HorillaTabView):
         context["instance"] = employee
         context["tabs"] = [
             {
-                "title": _("Requested Attendances"),
-                "url": f"{reverse('attendance-request-individual-tab',kwargs={'pk': pk})}",
-                "actions": [
-                    {
-                        "action": _("Create Attendance Request"),
-                        "accessibility": "attendance.cbv.accessibility.create_attendance_request_accessibility",
-                        "attrs": f"""
-                                hx-get="{reverse('request-new-attendance')}?emp_id={pk}",
-								hx-target="#genericModalBody"
-								data-toggle="oh-modal-toggle"
-								data-target="#genericModal"
-                      """,
-                    }
-                ],
-            },
-            {
                 "title": _("Validate Attendances"),
                 "url": f"{reverse('validate-attendance-individual-tab',kwargs={'pk': pk})}",
             },

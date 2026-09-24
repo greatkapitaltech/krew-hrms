@@ -3202,7 +3202,10 @@ def grace_time_view(request):
 @permission_required("attendance.view_attendancevalidationcondition")
 def grace_time_page_view(request):
     """
-    Time Policies sidebar page with Grace Time and Validation Condition tabs.
+    Time Policies sidebar page. Used to also surface the Validation
+    Condition tab (AttendanceValidationCondition) -- removed from UI now
+    that the combined AttendanceRuleSet replaces it (see AttendanceRuleSet's
+    docstring); the view/URL below stays reachable directly for now.
     """
     return render(request, "attendance/grace_time/grace_time.html")
 
@@ -3220,7 +3223,9 @@ def grace_time_list_tab(request):
 @permission_required("attendance.view_attendancevalidationcondition")
 def grace_time_validation_condition_tab(request):
     """
-    HTMX tab body for the Validation Condition tab.
+    HTMX tab body for the old Validation Condition tab -- no longer
+    linked from grace_time.html, kept reachable directly (see
+    grace_time_page_view's docstring).
     """
     condition = AttendanceValidationCondition.objects.first()
     return render(
