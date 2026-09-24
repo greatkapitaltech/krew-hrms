@@ -203,6 +203,13 @@ def clock_in_attendance_and_activity(
         attendance.attendance_rule_set = AttendanceRuleSet.resolve_for_employee(
             employee
         )
+        # Captured once, here, alongside the FK above -- this row's own
+        # raw values plus the Company Default's, for
+        # resolve_effective_value() to read from later without ever
+        # touching the live rows again. See the field's comment.
+        attendance.attendance_rule_set_snapshot = AttendanceRuleSet.capture_snapshot(
+            attendance.attendance_rule_set
+        )
         attendance.geo_fence_violation = geo_fence_violation
         attendance.geo_fence_unverified = geo_fence_unverified
         attendance.save()

@@ -119,20 +119,26 @@ def _auto_punch_out_flexible_and_no_shift():
     The two cases the shift-based sweep above structurally can't cover,
     since both key off a real EmployeeShiftSchedule that doesn't exist
     for these employees:
-      - Flexible mode: cutoff is AttendanceRuleSet.auto_punch_out_cutoff_time
-        (resolved through get_effective_values(), so an Employee-Type
-        override left blank still inherits the Company Default's cutoff).
+      - Flexible mode: cutoff is resolved from attendance_rule_set_
+        snapshot's "auto_punch_out_cutoff_time" -- frozen once at this
+        day's first clock-in (see clock_in_attendance_and_activity()) --
+        via AttendanceRuleSet.resolve_effective_value(), never by
+        calling get_effective_values() live here. That call can fall
+        through to a live Company Default lookup for an inherited field;
+        resolving from the frozen snapshot instead is what actually
+        keeps an open Flexible session's cutoff from drifting if the
+        Company Default gets superseded mid-session.
       - No shift at all: a flat cutoff from AttendanceGeneralSetting.
         no_shift_auto_punch_out_time.
     Deliberately skips any attendance with a real shift assigned (even one
     without is_auto_punch_out_enabled) -- that's the shift-based sweep's
     job to leave alone or not, this loop never overrides that choice.
     """
-    from attendance.models import Attendance, AttendanceGeneralSetting
+    from attendance.models import Attendance, AttendanceGeneralSetting, AttendanceRuleSet
 
     open_attendances = Attendance.objects.filter(
         attendance_clock_out=None, attendance_clock_out_date=None,
-    ).select_related("attendance_rule_set")
+    )
 
     for attendance in open_attendances:
         company = _auto_punch_out_company(attendance.employee_id)
@@ -140,14 +146,16 @@ def _auto_punch_out_flexible_and_no_shift():
             continue
 
         if attendance.is_flexible_mode():
-            rule_set = attendance.attendance_rule_set
-            cutoff_time = (
-                rule_set.get_effective_values().get("auto_punch_out_cutoff_time")
-                if rule_set is not None
-                else None
+            cutoff_time = AttendanceRuleSet.resolve_effective_value(
+                attendance.attendance_rule_set_snapshot, "auto_punch_out_cutoff_time"
             )
             if cutoff_time is None:
                 continue
+            if isinstance(cutoff_time, str):
+                # JSONField round-trips a TimeField value through
+                # DjangoJSONEncoder as an ISO string, not a real time
+                # object -- see the field's comment.
+                cutoff_time = datetime.time.fromisoformat(cutoff_time)
         elif attendance.shift_id is None:
             setting = AttendanceGeneralSetting.objects.filter(
                 company_id=company

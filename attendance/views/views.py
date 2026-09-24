@@ -93,6 +93,7 @@ from attendance.models import (
     AttendanceOverTime,
     AttendanceRequestComment,
     AttendanceRequestFile,
+    AttendanceRuleSet,
     AttendanceValidationCondition,
     BatchAttendance,
     GraceTime,
@@ -132,17 +133,31 @@ from notifications.signals import notify
 
 def attendance_validate(attendance):
     """
-    This method is is used to check condition for at work in AttendanceValidationCondition
-    model instance it return true if at work is smaller than condition
+    True if this attendance can auto-validate itself (worked hours are at
+    or under the threshold), False if it needs a manager's review.
+
+    Resolves the threshold purely from attendance.attendance_rule_set_
+    snapshot -- frozen once at this day's first clock-in (see
+    clock_in_attendance_and_activity()) -- via AttendanceRuleSet.
+    resolve_effective_value(), never by calling get_effective_values()
+    live on attendance_rule_set again. That call can fall through to a
+    live Company Default lookup for an inherited field, and a live
+    lookup isn't frozen just because the specific row is; resolving from
+    the already-captured snapshot instead is what actually keeps a
+    mid-day config change from changing an already-open day's validation
+    behavior. Falls back to the same 9:00 AM default as before for
+    attendance predating this feature, or a company that never
+    configured a rule set at all.
     args:
         attendance : attendance object
     """
 
-    conditions = AttendanceValidationCondition.objects.all()
-    # Set the default condition for 'at work' to 9:00 AM
     condition_for_at_work = strtime_seconds("09:00")
-    if conditions.exists():
-        condition_for_at_work = strtime_seconds(conditions[0].validation_at_work)
+    threshold = AttendanceRuleSet.resolve_effective_value(
+        attendance.attendance_rule_set_snapshot, "validation_threshold"
+    )
+    if threshold:
+        condition_for_at_work = strtime_seconds(threshold)
     at_work = strtime_seconds(attendance.attendance_worked_hour)
     return condition_for_at_work >= at_work
 

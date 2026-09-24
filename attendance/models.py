@@ -293,6 +293,25 @@ class Attendance(HorillaModel):
         related_name="attendances",
         verbose_name=_("Attendance Rule Set (snapshot)"),
     )
+    # The FK above freezes WHICH row governs this day, but that row can
+    # still be edited later (PendingConfigChange.apply() mutates it in
+    # place now -- its own edit history lives in AttendanceRuleSet.history
+    # instead, see that field's comment) -- so the FK alone doesn't
+    # protect an open session from seeing changed values mid-session.
+    # What actually does: this field, captured once at clock-in via
+    # AttendanceRuleSet.capture_snapshot() -- this row's own raw field
+    # values, plus the Company Default's raw values for anything left
+    # blank to inherit. Every later read (attendance_validate(), auto
+    # punch-out's Flexible cutoff, etc.) resolves purely from this frozen
+    # data via AttendanceRuleSet.resolve_effective_value(), never by
+    # calling get_effective_values() live on attendance_rule_set again.
+    attendance_rule_set_snapshot = models.JSONField(
+        null=True,
+        blank=True,
+        editable=False,
+        encoder=DjangoJSONEncoder,
+        verbose_name=_("Attendance Rule Set Snapshot"),
+    )
     attendance_clock_in_date = models.DateField(
         null=True, verbose_name=_("Check-In Date")
     )
@@ -479,12 +498,20 @@ class Attendance(HorillaModel):
         The Attendance Type mode (Shift-based/Flexible) snapshotted for
         this day at the first clock-in -- never re-resolved live, so a
         mode switch that takes effect mid-session never changes an
-        already-open day's behavior (see attendance_rule_set's field
-        comment). Falls back to Shift-based -- the PRD's default for
-        companies with no AttendanceRuleSet configured yet -- for rows
-        created before this feature existed, or a company that never set
-        one up.
+        already-open day's behavior. Resolved from
+        attendance_rule_set_snapshot (see that field's comment), the
+        single canonical source for every resolved rule-set value on
+        this row -- never by reading attendance_rule_set.mode off the
+        live row again. Falls back to the live FK's own field for rows
+        created before that snapshot existed, then to Shift-based -- the
+        PRD's default -- for a company that never configured a rule set
+        at all.
         """
+        mode = AttendanceRuleSet.resolve_effective_value(
+            self.attendance_rule_set_snapshot, "mode"
+        )
+        if mode:
+            return mode
         if self.attendance_rule_set_id:
             return self.attendance_rule_set.mode
         return AttendanceRuleSet.MODE_SHIFT_BASED
@@ -2031,13 +2058,29 @@ class PendingConfigChange(HorillaModel):
     def apply(self):
         """
         Apply `changes` onto the target row and mark this change applied.
-        Only called by the scheduler (attendance/scheduler.py); a no-op if
-        already applied/cancelled, so re-running the scheduler is safe.
+        Only called by the scheduler (attendance/scheduler.py); a no-op
+        if already applied/cancelled, so re-running the scheduler is safe.
+
+        Mutates the target row directly -- the row's own edit history
+        (what it looked like before this) is preserved separately by its
+        model's automatic history table (see AttendanceRuleSet.history,
+        a HorillaAuditLog/django-simple-history field that snapshots
+        every save() on its own), not by this method keeping old rows
+        around. An open Attendance's attendance_rule_set FK still points
+        at this same row after the edit -- what keeps an already-open
+        session from seeing the new values mid-session is
+        attendance_rule_set_snapshot, captured once at clock-in and never
+        re-read from the live row afterward (see that field's comment).
         """
         if self.status != self.STATUS_PENDING:
             return
         with transaction.atomic():
             target = self.target
+            if target is None:
+                # Target row was deleted before this change ever applied.
+                self.status = self.STATUS_CANCELLED
+                self.save(update_fields=["status"])
+                return
             for field, value in self.changes.items():
                 setattr(target, field, value)
             target.save()
@@ -2088,12 +2131,14 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         "flexible_ot_threshold_hours",
         "auto_punch_out_cutoff_time",
         "total_work_hours_reference",
+        "validation_threshold",
     )
     INHERITED_FIELDS = (
         "late_grace_minutes",
         "flexible_ot_threshold_hours",
         "auto_punch_out_cutoff_time",
         "total_work_hours_reference",
+        "validation_threshold",
     )
 
     tier = models.CharField(
@@ -2134,6 +2179,14 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
     # date delay as edits, one code path for both (see PendingConfigChange
     # .apply(), which flips this True as part of `changes`).
     is_active = models.BooleanField(default=True, verbose_name=_("Is Active"))
+    # Starts at 1 on creation, incremented on every update after that
+    # (see save() below) -- a quick, human-readable "which edit is this"
+    # number to pair with AttendanceRuleSet.history, which has the actual
+    # field-by-field detail for each of those versions but no single
+    # number of its own to point at one.
+    version = models.PositiveIntegerField(
+        default=1, editable=False, verbose_name=_("Version")
+    )
 
     mode = models.CharField(
         max_length=15,
@@ -2169,8 +2222,34 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         blank=True,
         verbose_name=_("Total Work Hours Reference"),
     )
+    # Validation: the worked-hours threshold that decides auto-validate vs
+    # needs-a-manager's-review. Same "HH:MM" string representation as the
+    # single-row AttendanceValidationCondition.validation_at_work field it
+    # replaces (see attendance_validate() in attendance/views/views.py),
+    # so the existing strtime_seconds()-based comparison ports over
+    # unchanged. Distinct from total_work_hours_reference above -- that
+    # one is Irregularities' purely-informational Flexible-mode shortfall
+    # reference; this one gates an actual manager decision.
+    validation_threshold = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        validators=[validate_time_format],
+        verbose_name=_("Worked Hours Auto-Validate Till"),
+    )
 
     objects = models.Manager()
+    # Automatic history table -- every save() (including PendingConfig
+    # Change.apply()'s in-place edits) is snapshotted here on its own,
+    # same pattern already used by Attendance/AttendanceActivity. This is
+    # what answers "what did this row used to say," so apply() doesn't
+    # need to keep old rows around itself.
+    history = HorillaAuditLog(
+        related_name="history_set",
+        bases=[
+            HorillaAuditInfo,
+        ],
+    )
 
     class Meta:
         constraints = [
@@ -2234,3 +2313,72 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         if self.tier == TIER_EMPLOYEE_TYPE:
             return f"{self.company} — {self.get_employee_type_category_display()} override"
         return f"{self.company} — {self.department} override"
+
+    def save(self, *args, **kwargs):
+        # self.pk is only set once this row already exists in the DB --
+        # None on the very first save (a genuine creation, version stays
+        # at its default of 1), set on every save after that (a real
+        # update, bump it). Checked before super().save() writes the row,
+        # not after, since that's the only point pk reliably tells the
+        # two cases apart without an extra query.
+        if self.pk is not None:
+            self.version += 1
+            # A partial save (update_fields=[...]) only ever writes the
+            # fields listed -- without adding "version" here too, the
+            # increment above would happen in memory and never reach the
+            # database.
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = set(update_fields) | {"version"}
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def capture_snapshot(cls, rule_set):
+        """
+        The raw data attendance_rule_set_snapshot freezes at clock-in:
+        this row's OWN RULE_FIELDS values (whatever tier it is), plus --
+        only when this row isn't already the Company Default itself --
+        the Company Default row's own RULE_FIELDS values too, for
+        resolve_effective_value() to fall back to. Returns None if
+        `rule_set` is None (no rule set configured at all).
+
+        Captured as two separate raw dicts, not one pre-merged dict, so
+        it's always visible afterward exactly what this specific row set
+        itself versus what it borrowed from the company -- and so the
+        actual own-wins-else-inherit resolution can be redone later
+        (e.g. at checkout) purely from this frozen data, without ever
+        touching the live rows again.
+        """
+        if rule_set is None:
+            return None
+        own = {name: getattr(rule_set, name) for name in cls.RULE_FIELDS}
+        company_default_values = None
+        if rule_set.tier != TIER_COMPANY:
+            company_default = cls.objects.filter(
+                tier=TIER_COMPANY, company=rule_set.company, is_active=True,
+            ).first()
+            if company_default is not None:
+                company_default_values = {
+                    name: getattr(company_default, name) for name in cls.RULE_FIELDS
+                }
+        return {"own": own, "company_default": company_default_values}
+
+    @classmethod
+    def resolve_effective_value(cls, snapshot, field_name):
+        """
+        One field's effective value, resolved purely from a frozen
+        attendance_rule_set_snapshot dict (see capture_snapshot() above)
+        -- never from a live row. This is what actually keeps an
+        already-open session's resolved values from drifting: the row
+        this snapshot came from, or the Company Default it borrowed
+        from, may both have been edited since, but this function never
+        looks at them again. Mirrors get_effective_values()'s own-value-
+        wins-else-inherit-if-the-field-is-inheritable logic exactly.
+        """
+        if not snapshot:
+            return None
+        own_value = (snapshot.get("own") or {}).get(field_name)
+        if own_value not in (None, "") or field_name not in cls.INHERITED_FIELDS:
+            return own_value
+        company_default_values = snapshot.get("company_default") or {}
+        return company_default_values.get(field_name)

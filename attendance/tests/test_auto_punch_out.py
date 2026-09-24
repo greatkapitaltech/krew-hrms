@@ -33,6 +33,15 @@ def _make_open_attendance(employee, **kwargs):
         attendance_clock_out_date=None,
     )
     defaults.update(kwargs)
+    # Mirrors clock_in_attendance_and_activity(): the scheduler now reads
+    # exclusively from the frozen snapshot, never a live get_effective_
+    # values() call, so a directly-constructed test row has to carry it
+    # too if a rule_set was passed.
+    rule_set = defaults.get("attendance_rule_set")
+    if rule_set is not None and "attendance_rule_set_snapshot" not in defaults:
+        defaults["attendance_rule_set_snapshot"] = AttendanceRuleSet.capture_snapshot(
+            rule_set
+        )
     return Attendance.objects.create(**defaults)
 
 

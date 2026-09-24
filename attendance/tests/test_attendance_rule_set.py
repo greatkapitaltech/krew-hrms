@@ -214,6 +214,57 @@ class AttendanceRuleSetConstraintTests(TestCase):
             instance.full_clean()
 
 
+class AttendanceRuleSetVersionTests(TestCase):
+    def setUp(self):
+        self.company = make_company("Acme")
+
+    def test_starts_at_one_on_creation(self):
+        rule_set = AttendanceRuleSet.objects.create(
+            tier="COMPANY", company=self.company,
+        )
+        self.assertEqual(rule_set.version, 1)
+
+    def test_increments_on_a_full_save(self):
+        rule_set = AttendanceRuleSet.objects.create(
+            tier="COMPANY", company=self.company,
+        )
+        rule_set.late_grace_minutes = 15
+        rule_set.save()
+        self.assertEqual(rule_set.version, 2)
+        rule_set.refresh_from_db()
+        self.assertEqual(rule_set.version, 2)
+
+    def test_increments_on_a_partial_save_with_update_fields(self):
+        rule_set = AttendanceRuleSet.objects.create(
+            tier="COMPANY", company=self.company,
+        )
+        rule_set.late_grace_minutes = 15
+        rule_set.save(update_fields=["late_grace_minutes"])
+        rule_set.refresh_from_db()
+        self.assertEqual(rule_set.version, 2)
+        self.assertEqual(rule_set.late_grace_minutes, 15)
+
+    def test_increments_again_on_each_subsequent_save(self):
+        rule_set = AttendanceRuleSet.objects.create(
+            tier="COMPANY", company=self.company,
+        )
+        rule_set.save()
+        rule_set.save()
+        rule_set.refresh_from_db()
+        self.assertEqual(rule_set.version, 3)
+
+    def test_pending_config_change_apply_increments_it(self):
+        rule_set = AttendanceRuleSet.objects.create(
+            tier="COMPANY", company=self.company, late_grace_minutes=10,
+        )
+        change = PendingConfigChange.schedule(
+            rule_set, {"late_grace_minutes": 20},
+        )
+        change.apply()
+        rule_set.refresh_from_db()
+        self.assertEqual(rule_set.version, 2)
+
+
 class PendingConfigChangeTests(TestCase):
     def setUp(self):
         self.company = make_company("Acme")
@@ -283,6 +334,63 @@ class PendingConfigChangeTests(TestCase):
         self.rule_set.refresh_from_db()
         self.assertEqual(self.rule_set.late_grace_minutes, 10)
         self.assertEqual(change.status, PendingConfigChange.STATUS_CANCELLED)
+
+    def test_apply_is_recorded_in_the_history_table(self):
+        """
+        apply() mutates the row in place now -- what preserves "what did
+        this used to say" is AttendanceRuleSet.history (a HorillaAuditLog/
+        django-simple-history field), not apply() itself keeping old rows.
+        """
+        change = PendingConfigChange.schedule(
+            self.rule_set, {"late_grace_minutes": 20},
+        )
+        change.apply()
+        history_values = list(
+            self.rule_set.history.order_by("history_date").values_list(
+                "late_grace_minutes", flat=True
+            )
+        )
+        self.assertIn(10, history_values)
+        self.assertIn(20, history_values)
+
+    def test_an_open_session_snapshot_is_unaffected_by_a_later_edit(self):
+        """
+        The actual guarantee attendance_rule_set_snapshot exists for: an
+        Attendance row that captured its snapshot BEFORE a change applied
+        must still resolve the pre-change values afterward, indefinitely
+        -- even though the underlying AttendanceRuleSet row itself was
+        mutated in place, not replaced.
+        """
+        from datetime import date as _date
+
+        from attendance.models import Attendance
+        from horilla.testkit.factories import make_employee, make_user
+
+        employee = make_employee(
+            company=self.company, email="snap1@test.horilla", user=make_user("snap1"),
+        )
+        attendance = Attendance.objects.create(
+            employee_id=employee,
+            attendance_date=_date.today(),
+            attendance_rule_set=self.rule_set,
+            attendance_rule_set_snapshot=AttendanceRuleSet.capture_snapshot(
+                self.rule_set
+            ),
+        )
+
+        change = PendingConfigChange.schedule(
+            self.rule_set, {"mode": AttendanceRuleSet.MODE_FLEXIBLE},
+        )
+        change.apply()
+
+        attendance.refresh_from_db()
+        # The FK still points at the same row, and that row really did
+        # change -- but the frozen snapshot still says Shift-based.
+        self.assertEqual(attendance.attendance_rule_set_id, self.rule_set.pk)
+        self.assertFalse(attendance.is_flexible_mode())
+
+        self.rule_set.refresh_from_db()
+        self.assertEqual(self.rule_set.mode, AttendanceRuleSet.MODE_FLEXIBLE)
 
     def test_new_override_creation_goes_through_the_same_delay(self):
         dept = Department.objects.create(department="Warehouse")
