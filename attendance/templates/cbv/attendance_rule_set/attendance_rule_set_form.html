@@ -58,21 +58,14 @@
             });
         }
 
-        // Not run from $(document).ready(): that fires synchronously the
-        // instant this injected <script> executes, which is DURING htmx's
-        // swap step -- before horilla_theme's own htmx:afterSettle handler
-        // (assets/js/htmxSelect2.js) has turned #id_department/
-        // #id_employee_type_category into Select2 widgets. Hiding a field's
-        // parent div first and initializing Select2 on it second leaves
-        // Select2 measuring a display:none element (`width: '100%'` off a
-        // hidden ancestor resolves to 0) -- it never recomputes that size
-        // later, so toggling the div visible again afterwards would still
-        // show a collapsed, unusable dropdown. Binding to htmx:afterSettle
-        // instead, with a namespace so reopening this modal doesn't stack
-        // duplicate handlers on the always-present document, guarantees
-        // Select2's own page-load-registered handler (which always
-        // registers first) runs before this one -- so every field is
-        // still visible, and correctly sized, at the moment Select2 reads it.
+        // A short delay rather than relying on precise event-ordering
+        // assumptions against Select2's own init (htmxSelect2.js) --
+        // hiding a field's parent div before Select2 has sized it (were
+        // this on $(document).ready(), which fires before that swap's
+        // scripts settle) leaves it permanently mis-sized even once
+        // shown again. 50ms is enough for everything from this swap,
+        // Select2 included, to have already run.
+        setTimeout(toggleAttendanceRuleSetFields, 50);
         $(document)
             .off("htmx:afterSettle.attendanceRuleSetForm")
             .on("htmx:afterSettle.attendanceRuleSetForm", toggleAttendanceRuleSetFields);

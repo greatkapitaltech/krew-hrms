@@ -524,6 +524,11 @@ urlpatterns = [
         name="regularization-request-form",
     ),
     path(
+        "regularization-requests/eligible/list/",
+        regularization_request.RegularizableAttendanceListView.as_view(),
+        name="regularizable-attendance-list",
+    ),
+    path(
         "regularization-requests/<int:pk>/approve/",
         regularization_request.approve_regularization_request,
         name="approve-regularization-request",

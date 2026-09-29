@@ -1,0 +1,23 @@
+{% include "generic/horilla_form.html" %}
+
+<script>
+    (function () {
+        // Only two tiers on this screen (Company Default / Department
+        // Override -- see GeoFencingRuleForm's own docstring), so the
+        // only field that ever needs to show/hide is department itself.
+        function toggleGeoFencingRuleFields() {
+            var tier = $("#id_tier").val();
+            $("#id_department_parent_div").toggle(tier === "DEPARTMENT");
+        }
+
+        // A short delay rather than relying on precise event-ordering
+        // assumptions against Select2's own init (htmxSelect2.js) --
+        // see AttendanceRuleSetForm's own template for the fuller story
+        // on why htmx:afterSettle timing alone wasn't reliable enough.
+        setTimeout(toggleGeoFencingRuleFields, 50);
+        $(document)
+            .off("htmx:afterSettle.geoFencingRuleForm")
+            .on("htmx:afterSettle.geoFencingRuleForm", toggleGeoFencingRuleFields);
+        $("#id_tier").on("change", toggleGeoFencingRuleFields);
+    })();
+</script>

@@ -398,6 +398,81 @@ BACKGROUND_TASK_LOCK_TTL_SECONDS = env.int(
 # ========================================
 # LOGGING, MESSAGES, OTHER GLOBALS
 # ========================================
+
+# Without this, `logging.getLogger(__name__)` calls throughout the
+# project (e.g. attendance/tasks.py) have no handler anywhere in their
+# hierarchy -- Python's own "handler of last resort" then applies, which
+# only prints WARNING and above, so every logger.info()/logger.debug()
+# call in the codebase silently goes nowhere. LOG_LEVEL controls the
+# project's OWN loggers (root, minus the exceptions below); bump it to
+# DEBUG in .env for the more granular per-request tracing some call
+# sites use (e.g. attendance/tasks.py's per-branch traces).
+LOG_LEVEL = env("LOG_LEVEL", default="DEBUG" if DEBUG else "INFO")
+
+LOGGING = {
+    "version": 1,
+    # Preserves Django's own already-working loggers (notably
+    # django.server, which prints runserver's request access log lines
+    # via its own separate handler/formatter) -- only loggers actually
+    # redefined below are affected.
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(levelname)s %(name)s: %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        # Kept quiet even at LOG_LEVEL=DEBUG -- SQL query logging in
+        # particular (one line per query) would otherwise drown out
+        # everything else the project's own code logs.
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.utils.autoreload": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        # django_apscheduler's own polling loop (attendance/scheduler.py's
+        # Auto Punch-out job, and payroll's) logs "looking for jobs to
+        # run"/"next wakeup" on every poll -- INFO+ only, even at
+        # LOG_LEVEL=DEBUG.
+        "apscheduler": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        # Celery/Kombu's own internals (task registry dumps, broker
+        # connection chatter) -- dumps a burst of DEBUG noise the first
+        # time a task runs in a given process (attendance/tasks.py under
+        # CELERY_TASK_ALWAYS_EAGER). Not the project's own task logging,
+        # which uses attendance.tasks's own logger, unaffected by this.
+        "celery": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "kombu": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MESSAGE_TAGS = {

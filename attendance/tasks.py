@@ -61,16 +61,36 @@ def _run_late_come_early_out(task):
         # earlier clock-in the same day, superseded by a later one.
         # Nothing to flag yet; the eventual clock-out enqueues its own
         # task once there's something to check.
-        if not attendance.is_flexible_mode():
-            late_come(
-                attendance=attendance, start_time=start_time_sec,
-                end_time=end_time_sec, shift=shift,
+        if attendance.is_flexible_mode():
+            logger.debug(
+                "BackgroundAttendanceTask %s: attendance %s still open and "
+                "Flexible -- nothing to check yet.",
+                task.pk, attendance.pk,
             )
+            return
+        logger.debug(
+            "BackgroundAttendanceTask %s: attendance %s still open -- "
+            "checking late-come only.",
+            task.pk, attendance.pk,
+        )
+        late_come(
+            attendance=attendance, start_time=start_time_sec,
+            end_time=end_time_sec, shift=shift,
+        )
         return
 
     if attendance.is_flexible_mode():
+        logger.debug(
+            "BackgroundAttendanceTask %s: checking Flexible shortfall for "
+            "attendance %s.",
+            task.pk, attendance.pk,
+        )
         flexible_shortfall(attendance)
     else:
+        logger.debug(
+            "BackgroundAttendanceTask %s: checking early-out for attendance %s.",
+            task.pk, attendance.pk,
+        )
         early_out(
             attendance, start_time=start_time_sec, end_time=end_time_sec,
             shift=shift,
@@ -113,8 +133,17 @@ def process_background_attendance_task(task_id):
             return
 
         if task.status == BackgroundAttendanceTask.STATUS_SUCCESS:
+            logger.debug(
+                "BackgroundAttendanceTask %s already SUCCESS -- skipping "
+                "(processed by a competing retry path).",
+                task_id,
+            )
             return  # already processed by a competing retry path
 
+        logger.debug(
+            "BackgroundAttendanceTask %s: starting processing (kind=%s, attempt %s).",
+            task.pk, task.kind, task.attempts,
+        )
         task.status = BackgroundAttendanceTask.STATUS_PROCESSING
         task.save(update_fields=["status"])
 
@@ -141,6 +170,10 @@ def process_background_attendance_task(task_id):
             task.status = BackgroundAttendanceTask.STATUS_SUCCESS
             task.processed_at = timezone.now()
             task.save(update_fields=["status", "processed_at"])
+            logger.info(
+                "BackgroundAttendanceTask %s (kind=%s) processed successfully.",
+                task.pk, task.kind,
+            )
     finally:
         # Released as soon as this run finishes, success or failure --
         # the TTL above is only a safety net for a worker that died
@@ -152,7 +185,7 @@ def process_background_attendance_task(task_id):
 def sweep_stuck_background_tasks():
     """
     The sole retry mechanism (see module docstring): re-enqueues every
-    task that hasn't reached DONE and hasn't used up MAX_ATTEMPTS yet,
+    task that hasn't reached SUCCESS and hasn't used up MAX_ATTEMPTS yet,
     whether it never started or started and failed -- both look the same
     from here (PENDING or FAILED, attempts < MAX_ATTEMPTS).
     """
@@ -165,6 +198,13 @@ def sweep_stuck_background_tasks():
             attempts__lt=BackgroundAttendanceTask.MAX_ATTEMPTS,
         ).values_list("pk", flat=True)
     )
+    if stuck_ids:
+        logger.info(
+            "sweep_stuck_background_tasks: re-enqueuing %s stuck task(s): %s",
+            len(stuck_ids), stuck_ids,
+        )
+    else:
+        logger.debug("sweep_stuck_background_tasks: nothing stuck.")
     for task_id in stuck_ids:
         process_background_attendance_task.delay(task_id)
     return len(stuck_ids)
@@ -180,6 +220,11 @@ def enqueue_background_attendance_task(attendance, kind):
     punch response); the row itself is what's actually durable.
     """
     task = BackgroundAttendanceTask.objects.create(attendance=attendance, kind=kind)
+    logger.debug(
+        "enqueue_background_attendance_task: created task %s (kind=%s) for "
+        "attendance %s.",
+        task.pk, kind, attendance.pk,
+    )
     process_background_attendance_task.delay(task.pk)
     return task
 
@@ -195,6 +240,11 @@ def retry_background_task(task, reset_by, note=""):
         task=task, reset_by=reset_by,
         previous_status=task.status, previous_attempts=task.attempts,
         note=note,
+    )
+    logger.info(
+        "retry_background_task: task %s manually reset by %s (was status=%s, "
+        "attempts=%s).",
+        task.pk, reset_by, task.status, task.attempts,
     )
     task.status = BackgroundAttendanceTask.STATUS_PENDING
     task.attempts = 0

@@ -9,6 +9,7 @@ attendance/models.py).
 from typing import Any
 
 from django.contrib import messages
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -24,6 +25,43 @@ from horilla_views.cbv_methods import login_required
 from horilla_views.generic.cbv.views import HorillaFormView, HorillaListView, HorillaNavView, TemplateView
 
 
+def _open_regularizable_reasons(attendance):
+    """
+    Which of RegularizationRequest's reasons are both (a) actually
+    flagged on this attendance day and (b) don't already have a PENDING
+    request raised against that specific reason -- shared by
+    RegularizableAttendanceListView (which day/reason combos to
+    surface) and RegularizationRequestFormView (which reason_code
+    choices to offer when opened from one of those rows).
+
+    Only two of RegularizationRequest's four reasons have anything to
+    check here: TIME_CORRECTION is general-purpose, not tied to a flag
+    at all (stays reachable only via the existing blank "Raise a
+    Request" entry point); AUTO_CLOSE_DISPUTE has no backing flag on
+    Attendance yet (see RegularizationRequestForm's own docstring), so
+    there's nothing to detect. attendance_validated == False is
+    deliberately not checked directly -- attendance_validate() now
+    derives it entirely from the overtime buffer decision (see that
+    function's docstring), so it's the exact same condition as the
+    overtime check below, not a separate one.
+    """
+    reasons = []
+    if attendance.geo_fence_violation or attendance.geo_fence_unverified:
+        reasons.append(RegularizationRequest.REASON_GEO_VIOLATION_DISPUTE)
+    if (attendance.overtime_second or 0) > 0 and not attendance.attendance_overtime_approve:
+        reasons.append(RegularizationRequest.REASON_OVERTIME_DENIAL_DISPUTE)
+    if not reasons:
+        return []
+    pending = set(
+        RegularizationRequest.objects.filter(
+            attendance=attendance,
+            status=RegularizationRequest.STATUS_PENDING,
+            reason_code__in=reasons,
+        ).values_list("reason_code", flat=True)
+    )
+    return [reason for reason in reasons if reason not in pending]
+
+
 @method_decorator(login_required, name="dispatch")
 class RegularizationRequestPageView(TemplateView):
     """
@@ -31,6 +69,99 @@ class RegularizationRequestPageView(TemplateView):
     """
 
     template_name = "cbv/regularization_request/regularization_request.html"
+
+
+@method_decorator(login_required, name="dispatch")
+class RegularizableAttendanceListView(HorillaListView):
+    """
+    Attendance days that are actually flagged for something a
+    Regularization request can address right now -- see
+    _open_regularizable_reasons() for exactly which reasons and why
+    only two of the four qualify. Sits alongside the request-history
+    list/generic "Raise a Request" entry point below, doesn't replace
+    it -- this is the fast path for a day that's visibly flagged; the
+    blank form is still there for anything else (a plain time
+    correction, or disputing something this list can't detect yet).
+    """
+
+    model = Attendance
+    bulk_select_option = False
+    quick_export = False
+
+    columns = [
+        (_("Employee"), "employee_id", "employee_id__get_avatar"),
+        (_("Date"), "attendance_date"),
+        (_("Flagged For"), "flagged_reasons_display"),
+        (_("Overtime"), "attendance_overtime"),
+    ]
+    default_columns = columns
+
+    header_attrs = {
+        # A day can have both reasons at once -- header_attrs only
+        # widens the <th> (cells aren't independently stylable per
+        # column), but a wider header still widens the column overall;
+        # flagged_reasons_display() also uses shorter labels than
+        # RegularizationRequest.REASON_CHOICES' own for the same reason.
+        "flagged_reasons_display": """ style="width:180px !important" """,
+    }
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        own = queryset.filter(employee_id__employee_user_id=self.request.user)
+        subordinates = filtersubordinates(
+            request=self.request, perm="attendance.view_attendance", queryset=queryset,
+        )
+        visible = (own | subordinates).distinct()
+        candidates = visible.filter(
+            Q(geo_fence_violation=True)
+            | Q(geo_fence_unverified=True)
+            | Q(attendance_validated=False, overtime_second__gt=0)
+        )
+        eligible_ids = [
+            attendance.pk
+            for attendance in candidates
+            if _open_regularizable_reasons(attendance)
+        ]
+        return queryset.filter(pk__in=eligible_ids).order_by("-attendance_date")
+
+    actions = [
+        {
+            "action": _("Raise Request"),
+            "icon": "flag-outline",
+            "attrs": """
+                href="#"
+                data-toggle="oh-modal-toggle"
+                data-target="#genericModal"
+                hx-get="{raise_regularization_url}"
+                hx-target="#genericModalBody"
+                class="oh-btn oh-btn--secondary w-100"
+            """,
+        },
+    ]
+
+
+def flagged_reasons_display(self):
+    # Shorter than RegularizationRequest.REASON_CHOICES' own labels
+    # ("Geo-location Dispute", "Overtime Decision Dispute") on purpose --
+    # this column has to fit both at once on a day flagged for both, and
+    # list-table cells truncate with an ellipsis past a fixed width with
+    # no per-column override for that (only the header, not the cells,
+    # is stylable via header_attrs).
+    short_labels = {
+        RegularizationRequest.REASON_GEO_VIOLATION_DISPUTE: _("Geo Violation"),
+        RegularizationRequest.REASON_OVERTIME_DENIAL_DISPUTE: _("Overtime"),
+    }
+    return ", ".join(
+        str(short_labels[reason]) for reason in _open_regularizable_reasons(self)
+    )
+
+
+def raise_regularization_url(self):
+    return f"{reverse('regularization-request-form')}?attendance={self.pk}"
+
+
+Attendance.flagged_reasons_display = property(flagged_reasons_display)
+Attendance.raise_regularization_url = property(raise_regularization_url)
 
 
 @method_decorator(login_required, name="dispatch")
@@ -161,13 +292,37 @@ class RegularizationRequestFormView(HorillaFormView):
     model = RegularizationRequest
     new_display_title = _("Raise a Regularization Request")
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
+    def init_form(self, *args, data=None, files=None, instance=None, **kwargs):
+        # Overridden (not scoped from get_context_data, which doesn't run
+        # before is_valid() on a successful POST -- see
+        # AttendanceRuleSetFormView's own init_form() for the same fix)
+        # so both the employee-scoped queryset and, when arriving from
+        # RegularizableAttendanceListView's "Raise Request" row action
+        # (?attendance=<pk> in the query string -- carried onto the POST
+        # too, since horilla_form.html's hx-post target includes
+        # request.GET.urlencode), the attendance pre-fill/lock and
+        # reason_code narrowing actually apply during validation, not
+        # just on render.
+        form = self.form_class(data, files, instance=instance, initial=self.get_initial())
         employee = self.request.user.employee_get
-        self.form.fields["attendance"].queryset = Attendance.objects.filter(
+        form.fields["attendance"].queryset = Attendance.objects.filter(
             employee_id=employee
         ).order_by("-attendance_date")
-        return context
+
+        prefill_id = self.request.GET.get("attendance")
+        if prefill_id:
+            attendance = form.fields["attendance"].queryset.filter(pk=prefill_id).first()
+            if attendance is not None:
+                form.fields["attendance"].initial = attendance.pk
+                form.fields["attendance"].disabled = True
+                eligible_reasons = _open_regularizable_reasons(attendance)
+                if eligible_reasons:
+                    form.fields["reason_code"].choices = [
+                        choice
+                        for choice in form.fields["reason_code"].choices
+                        if choice[0] in eligible_reasons
+                    ]
+        return form
 
     def form_valid(self, form: RegularizationRequestForm) -> HttpResponse:
         employee = self.request.user.employee_get

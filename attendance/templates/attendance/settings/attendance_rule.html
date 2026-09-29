@@ -338,6 +338,17 @@
         {% endif %}
     </div>
 
+    {% comment %}
+    Geofencing used to be embedded here directly (hx-get onto "geo-config",
+    the single-row, Company-Default-only form -- geo_location_config() in
+    geofencing/views.py, still fully intact and reachable at that URL).
+    Superseded by "Geo-Mark Rules" (geofencing/cbv/geo_fencing_rule.py,
+    linked from Settings alongside "Geo & Face Config") as the one
+    canonical geofencing screen, covering both tiers that form can
+    actually be configured for (Company Default and Department
+    Override) -- kept as a single, non-embedded screen rather than
+    re-embedding a second copy here.
+    {% endcomment %}
     {% if "geofencing"|app_installed and perms.geofencing.add_geofencing %}
         <div class="border border-[#ebebeb] rounded-md overflow-hidden mb-5 mr-3">
             <h5 class="text-sm font-semibold bg-[#f3f3f3] px-4 py-3 text-[#333] flex items-center justify-between">
@@ -351,8 +362,9 @@
                 </span>
             </h5>
             <div class="p-4">
-                <div hx-get="{% url 'geo-config' %}" hx-trigger="load" hx-target="#geo"></div>
-                <div id="geo"></div>
+                <a href="{% url 'geo-fencing-rule-view' %}" class="oh-btn oh-btn--secondary">
+                    {% trans "Manage Geo-Mark Rules" %}
+                </a>
             </div>
         </div>
     {% endif %}
