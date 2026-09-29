@@ -112,7 +112,7 @@ def process_background_attendance_task(task_id):
             logger.warning("BackgroundAttendanceTask %s no longer exists", task_id)
             return
 
-        if task.status == BackgroundAttendanceTask.STATUS_DONE:
+        if task.status == BackgroundAttendanceTask.STATUS_SUCCESS:
             return  # already processed by a competing retry path
 
         task.status = BackgroundAttendanceTask.STATUS_PROCESSING
@@ -138,7 +138,7 @@ def process_background_attendance_task(task_id):
                 task.pk, task.kind, task.attempts,
             )
         else:
-            task.status = BackgroundAttendanceTask.STATUS_DONE
+            task.status = BackgroundAttendanceTask.STATUS_SUCCESS
             task.processed_at = timezone.now()
             task.save(update_fields=["status", "processed_at"])
     finally:

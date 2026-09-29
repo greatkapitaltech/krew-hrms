@@ -136,7 +136,7 @@ class ClockInOutViewsDeferLateComeEarlyOutTests(BackgroundTaskTestBase):
 
         task = BackgroundAttendanceTask.objects.get(attendance=attendance)
         self.assertEqual(task.kind, BackgroundAttendanceTask.KIND_LATE_COME_EARLY_OUT)
-        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_DONE)
+        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_SUCCESS)
         self.assertTrue(
             AttendanceLateComeEarlyOut.objects.filter(
                 attendance_id=attendance, type="late_come",
@@ -166,7 +166,7 @@ class ClockInOutViewsDeferLateComeEarlyOutTests(BackgroundTaskTestBase):
         self.assertEqual(response.status_code, 200)
 
         task = BackgroundAttendanceTask.objects.get(attendance=attendance)
-        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_DONE)
+        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_SUCCESS)
         self.assertTrue(
             AttendanceLateComeEarlyOut.objects.filter(
                 attendance_id=attendance, type="early_out",
@@ -200,7 +200,7 @@ class ClockInOutViewsDeferLateComeEarlyOutTests(BackgroundTaskTestBase):
 
         attendance.refresh_from_db()
         task = BackgroundAttendanceTask.objects.get(attendance=attendance)
-        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_DONE)
+        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_SUCCESS)
         self.assertTrue(
             AttendanceLateComeEarlyOut.objects.filter(
                 attendance_id=attendance, type="flexible_shortfall",
@@ -235,7 +235,7 @@ class BackgroundTaskRetryTests(BackgroundTaskTestBase):
             self.attendance, BackgroundAttendanceTask.KIND_LATE_COME_EARLY_OUT,
         )
         task.refresh_from_db()
-        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_DONE)
+        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_SUCCESS)
         self.assertEqual(task.attempts, 0)
         self.assertIsNotNone(task.processed_at)
 
@@ -321,7 +321,7 @@ class BackgroundTaskRetryTests(BackgroundTaskTestBase):
         swept = sweep_stuck_background_tasks()
         self.assertEqual(swept, 1)
         task.refresh_from_db()
-        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_DONE)
+        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_SUCCESS)
 
     def test_sweep_does_not_reenqueue_a_task_at_the_attempt_cap(self):
         BackgroundAttendanceTask.objects.create(
@@ -344,7 +344,7 @@ class BackgroundTaskRetryTests(BackgroundTaskTestBase):
         retry_background_task(task, reset_by=self.employee, note="fixed the cause")
 
         task.refresh_from_db()
-        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_DONE)  # eager-processed
+        self.assertEqual(task.status, BackgroundAttendanceTask.STATUS_SUCCESS)  # eager-processed
         self.assertEqual(
             BackgroundAttendanceTaskRetryLog.objects.filter(task=task).count(), 1
         )

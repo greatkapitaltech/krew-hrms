@@ -24,7 +24,6 @@ from attendance.methods.utils import (
     activity_datetime,
     employee_exists,
     format_time,
-    overtime_calculation,
     shift_schedule_today,
     strtime_seconds,
 )
@@ -434,8 +433,15 @@ def clock_out_attendance_and_activity(
         attendance.attendance_clock_out = now + ":00"
         attendance.attendance_clock_out_date = date_today
         attendance.attendance_worked_hour = duration
-        # Overtime calculation
-        attendance.attendance_overtime = overtime_calculation(attendance)
+        # Compute overtime/auto-approve now, ahead of the save() below
+        # that would normally do this -- attendance_validate() needs the
+        # freshly-computed overtime_second/attendance_overtime_approve
+        # for THIS clock-out to decide validation, and save() hasn't run
+        # yet at this point. Both methods are pure functions of fields
+        # already set on this instance, so save() calling them again
+        # moments later recomputes the identical result -- harmless.
+        attendance.update_attendance_overtime()
+        attendance.handle_overtime_conditions()
 
         # Validate the attendance as per the condition
         attendance.attendance_validated = attendance_validate(attendance)

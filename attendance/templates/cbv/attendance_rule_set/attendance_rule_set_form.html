@@ -1,0 +1,82 @@
+{% include "generic/horilla_form.html" %}
+
+<script>
+    (function () {
+        // Fields AttendanceRuleSet.RULE_FIELDS an Employee-Type override
+        // must leave blank (see AttendanceRuleSetForm.clean(), which
+        // enforces this same list server-side regardless of what the UI
+        // shows/hides) -- kept in sync with base.config_tiers.
+        // late_grace_minutes isn't in this list -- not a rendered field
+        // at all (see ATTENDANCE_RULE_SET_EDITABLE_FIELDS's comment in
+        // attendance/forms.py: still backend-only, GraceTime is the
+        // mechanism that actually governs late-mark grace today).
+        var inheritedOnlyFields = [
+            "auto_punch_out_cutoff_time",
+            "total_work_hours_reference",
+            "track_overtime",
+            "ot_threshold_hours",
+            "shift_ot_auto_approve_buffer_minutes",
+            "flexible_ot_auto_approve_buffer_hours",
+            "regularization_enabled",
+            "regularization_monthly_cap",
+            "irregularities_enabled"
+        ];
+
+        // Fields meaningful for only one AttendanceRuleSet.mode -- per
+        // each field's own verbose_name/comment in attendance/models.py:
+        // the shift OT buffer is phrased against a shift's own clock
+        // times; auto_punch_out_cutoff_time, total_work_hours_reference
+        // and the flexible OT buffer only make sense with no shift to
+        // anchor to. track_overtime/ot_threshold_hours (the same
+        // threshold field is read differently per mode -- see its own
+        // comment -- not shown/hidden by mode), regularization and
+        // irregularities are mode-agnostic and always shown (subject to
+        // the tier rule above).
+        var shiftOnlyFields = ["shift_ot_auto_approve_buffer_minutes"];
+        var flexibleOnlyFields = [
+            "auto_punch_out_cutoff_time",
+            "total_work_hours_reference",
+            "flexible_ot_auto_approve_buffer_hours"
+        ];
+
+        function toggleAttendanceRuleSetFields() {
+            var tier = $("#id_tier").val();
+            var mode = $("#id_mode").val();
+
+            $("#id_employee_type_category_parent_div").toggle(tier === "EMPLOYEE_TYPE");
+            $("#id_department_parent_div").toggle(tier === "DEPARTMENT");
+
+            $.each(inheritedOnlyFields, function (index, name) {
+                var visible = tier !== "EMPLOYEE_TYPE";
+                if (visible && shiftOnlyFields.indexOf(name) !== -1) {
+                    visible = mode === "SHIFT_BASED";
+                }
+                if (visible && flexibleOnlyFields.indexOf(name) !== -1) {
+                    visible = mode === "FLEXIBLE";
+                }
+                $("#id_" + name + "_parent_div").toggle(visible);
+            });
+        }
+
+        // Not run from $(document).ready(): that fires synchronously the
+        // instant this injected <script> executes, which is DURING htmx's
+        // swap step -- before horilla_theme's own htmx:afterSettle handler
+        // (assets/js/htmxSelect2.js) has turned #id_department/
+        // #id_employee_type_category into Select2 widgets. Hiding a field's
+        // parent div first and initializing Select2 on it second leaves
+        // Select2 measuring a display:none element (`width: '100%'` off a
+        // hidden ancestor resolves to 0) -- it never recomputes that size
+        // later, so toggling the div visible again afterwards would still
+        // show a collapsed, unusable dropdown. Binding to htmx:afterSettle
+        // instead, with a namespace so reopening this modal doesn't stack
+        // duplicate handlers on the always-present document, guarantees
+        // Select2's own page-load-registered handler (which always
+        // registers first) runs before this one -- so every field is
+        // still visible, and correctly sized, at the moment Select2 reads it.
+        $(document)
+            .off("htmx:afterSettle.attendanceRuleSetForm")
+            .on("htmx:afterSettle.attendanceRuleSetForm", toggleAttendanceRuleSetFields);
+        $("#id_tier").on("change", toggleAttendanceRuleSetFields);
+        $("#id_mode").on("change", toggleAttendanceRuleSetFields);
+    })();
+</script>

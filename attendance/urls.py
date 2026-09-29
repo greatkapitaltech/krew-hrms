@@ -11,6 +11,7 @@ from attendance import dashboard as att_dashboard
 from attendance.cbv import (
     attendance_activity,
     attendance_request,
+    attendance_rule_set,
     attendance_tab,
     attendances,
     break_point,
@@ -531,6 +532,31 @@ urlpatterns = [
         "regularization-requests/<int:pk>/reject/",
         regularization_request.reject_regularization_request,
         name="reject-regularization-request",
+    ),
+    path(
+        "attendance-rule-sets/",
+        attendance_rule_set.AttendanceRuleSetPageView.as_view(),
+        name="attendance-rule-set-view",
+    ),
+    path(
+        "attendance-rule-sets/list/",
+        attendance_rule_set.AttendanceRuleSetListView.as_view(),
+        name="attendance-rule-set-list",
+    ),
+    path(
+        "attendance-rule-sets/nav/",
+        attendance_rule_set.AttendanceRuleSetNav.as_view(),
+        name="attendance-rule-set-nav",
+    ),
+    path(
+        "attendance-rule-sets/create/",
+        attendance_rule_set.AttendanceRuleSetFormView.as_view(),
+        name="attendance-rule-set-create",
+    ),
+    path(
+        "attendance-rule-sets/<int:pk>/update/",
+        attendance_rule_set.AttendanceRuleSetFormView.as_view(),
+        name="attendance-rule-set-update",
     ),
     path(
         "create-batch-attendance/",

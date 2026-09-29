@@ -2238,12 +2238,14 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
     # Rule fields an Employee-Type override leaves blank to inherit from
     # the Company Default row -- per the PRD, an Employee-Type override
     # only ever picks the mode, never its own rule values.
+    # validation_threshold deliberately excluded -- see its own field
+    # comment. Auto-validate is now derived from the overtime auto-
+    # approve buffer fields already listed here, not a separate setting.
     RULE_FIELDS = (
         "mode",
         "late_grace_minutes",
         "auto_punch_out_cutoff_time",
         "total_work_hours_reference",
-        "validation_threshold",
         "track_overtime",
         "ot_threshold_hours",
         "shift_ot_auto_approve_buffer_minutes",
@@ -2256,7 +2258,6 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         "late_grace_minutes",
         "auto_punch_out_cutoff_time",
         "total_work_hours_reference",
-        "validation_threshold",
         "track_overtime",
         "ot_threshold_hours",
         "shift_ot_auto_approve_buffer_minutes",
@@ -2325,6 +2326,16 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
     # "unset" so a non-Company-Default row can fall through to inherit it;
     # 0 is a legitimate real value for this field (no grace at all), so it
     # can't double as the "not set" sentinel.
+    #
+    # Fully wired at the model layer (RULE_FIELDS, INHERITED_FIELDS,
+    # resolution, snapshotting) but not yet read anywhere -- late-mark
+    # grace is still governed entirely by the pre-existing GraceTime
+    # model (shift.grace_time_id, or the company-wide default GraceTime
+    # row -- see late_come()/early_out() in attendance/views/
+    # clock_in_out.py), a separate mechanism this field doesn't feed.
+    # Deliberately excluded from the settings screen's form
+    # (attendance/forms.py's ATTENDANCE_RULE_SET_EDITABLE_FIELDS) so an
+    # admin can't set a value here that has no actual effect.
     late_grace_minutes = models.PositiveIntegerField(
         null=True, blank=True, verbose_name=_("Late-Mark Grace (minutes)")
     )
@@ -2339,14 +2350,23 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         blank=True,
         verbose_name=_("Total Work Hours Reference"),
     )
-    # Validation: the worked-hours threshold that decides auto-validate vs
-    # needs-a-manager's-review. Same "HH:MM" string representation as the
-    # single-row AttendanceValidationCondition.validation_at_work field it
-    # replaces (see attendance_validate() in attendance/views/views.py),
-    # so the existing strtime_seconds()-based comparison ports over
-    # unchanged. Distinct from total_work_hours_reference above -- that
-    # one is Irregularities' purely-informational Flexible-mode shortfall
-    # reference; this one gates an actual manager decision.
+    # No longer used -- superseded by attendance_validate() (attendance/
+    # views/views.py) deriving auto-validate entirely from the overtime
+    # auto-approve buffer (shift_ot_auto_approve_buffer_minutes /
+    # flexible_ot_auto_approve_buffer_hours) instead. Decided against
+    # per-mode: for Shift-based, late-come/early-out tracking already
+    # covers "worked unusually little," and a flat worked-hours ceiling
+    # had no way to account for a legitimately long, fully-approved day;
+    # for Flexible, total_work_hours_reference already covers the
+    # minimum-hours side via Irregularities' shortfall check, making a
+    # second, differently-scoped floor/ceiling on the same concept
+    # redundant. Left declared (not deleted, not RemoveField'd) rather
+    # than dropping the column -- same "unlink the behavior, keep the
+    # data" precedent used elsewhere in this codebase (e.g.
+    # AUTO_CLOSE_DISPUTE) -- but removed from RULE_FIELDS/
+    # INHERITED_FIELDS below, so it's no longer part of the tiered
+    # config surface: not resolvable, not editable via the settings
+    # screen, not read anywhere.
     validation_threshold = models.CharField(
         max_length=10,
         null=True,
@@ -2932,12 +2952,12 @@ class BackgroundAttendanceTask(HorillaModel):
 
     STATUS_PENDING = "PENDING"
     STATUS_PROCESSING = "PROCESSING"
-    STATUS_DONE = "DONE"
+    STATUS_SUCCESS = "SUCCESS"
     STATUS_FAILED = "FAILED"
     STATUS_CHOICES = (
         (STATUS_PENDING, _("Pending")),
         (STATUS_PROCESSING, _("Processing")),
-        (STATUS_DONE, _("Done")),
+        (STATUS_SUCCESS, _("Success")),
         (STATUS_FAILED, _("Failed")),
     )
 

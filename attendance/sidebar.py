@@ -34,6 +34,11 @@ SUBMENUS = [
         "redirect": reverse_lazy("regularization-request-view"),
     },
     {
+        "menu": _("Attendance Rule Sets"),
+        "redirect": reverse_lazy("attendance-rule-set-view"),
+        "accessibility": "attendance.sidebar.attendance_rule_set_accessibility",
+    },
+    {
         "menu": _("Daily Work Status"),
         "redirect": reverse_lazy("work-records"),
         "accessibility": "attendance.sidebar.work_record_accessibility",
@@ -108,6 +113,10 @@ def monthly_summary_accessibility(request, submenu, user_perms, *args, **kwargs)
     return request.user.has_perm("attendance.view_attendance") or is_reportingmanager(
         request.user
     )
+
+
+def attendance_rule_set_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.view_attendanceruleset")
 
 
 # ---------------------------------------------------------------------------

@@ -365,10 +365,13 @@ class OvertimeEndToEndClockOutTests(TestCase):
 
 class ValidationAndOvertimeTogetherTests(TestCase):
     """
-    Validation (#6) and Overtime (#7) share the exact same Attendance.
-    save() pipeline -- confirm they're computed independently and
-    correctly on the same clock-out, not just each in isolation (as
-    test_validation_threshold.py and the rest of this file do).
+    Validation (#6) is no longer an independent check -- attendance_validate()
+    (attendance/views/views.py) now derives it entirely from the same
+    overtime auto-approve buffer decision Overtime (#7) makes for
+    attendance_overtime_approve (see validation_threshold's removal,
+    attendance/models.py). Confirm that coupling holds on a real
+    clock-out, not just attendance_validate() in isolation (see
+    test_attendance_validate.py for that).
     """
 
     def setUp(self):
@@ -388,7 +391,6 @@ class ValidationAndOvertimeTogetherTests(TestCase):
         AttendanceRuleSet.objects.create(
             tier="COMPANY", company=self.company,
             mode=AttendanceRuleSet.MODE_SHIFT_BASED,
-            validation_threshold="08:30",
             track_overtime=True,
             ot_threshold_hours="1.50",  # shift ends 18:00 -> OT starts 19:30
             shift_ot_auto_approve_buffer_minutes=30,
@@ -418,26 +420,34 @@ class ValidationAndOvertimeTogetherTests(TestCase):
             ),
         )
 
-    def test_short_day_validates_with_no_overtime(self):
+    def test_short_day_with_no_overtime_auto_validates(self):
         self._clock_in()
         attendance = self._clock_out(time(18, 0))  # 8:00 worked, no OT yet
         self.assertEqual(attendance.attendance_worked_hour, "08:00")
-        self.assertTrue(attendance.attendance_validated)  # under 08:30 threshold
         self.assertEqual(attendance.overtime_second, 0)  # before 19:30 OT start
         self.assertFalse(attendance.attendance_overtime_approve)  # nothing to approve
+        self.assertTrue(attendance.attendance_validated)  # no overtime -> trivially validates
 
-    def test_long_day_needs_validation_but_overtime_still_auto_approves(self):
+    def test_overtime_within_buffer_auto_validates_the_whole_record(self):
         """
-        The actual case worth proving: a record can need a manager's
-        validation decision while its overtime is *separately* already
-        auto-approved -- these two flags must not leak into each other.
+        The case worth proving under the new coupling: once overtime
+        exists, the record's own validation follows the *same* decision
+        as the overtime's own auto-approval, not a separate worked-hours
+        check -- 20 min of overtime here, within the 30-min buffer.
         """
         self._clock_in()
         attendance = self._clock_out(time(19, 50))  # 9:50 worked
         self.assertEqual(attendance.attendance_worked_hour, "09:50")
-        self.assertFalse(attendance.attendance_validated)  # over 08:30 threshold
         self.assertEqual(attendance.overtime_second, 20 * 60)  # 20 min past 19:30
         self.assertTrue(attendance.attendance_overtime_approve)  # within 30-min buffer
+        self.assertTrue(attendance.attendance_validated)
+
+    def test_overtime_beyond_buffer_needs_review_on_both(self):
+        self._clock_in()
+        attendance = self._clock_out(time(20, 15))  # 45 min past OT start (19:30)
+        self.assertEqual(attendance.overtime_second, 45 * 60)
+        self.assertFalse(attendance.attendance_overtime_approve)  # past 30-min buffer
+        self.assertFalse(attendance.attendance_validated)
 
 
 class ManualOvertimeApprovalTests(TestCase):

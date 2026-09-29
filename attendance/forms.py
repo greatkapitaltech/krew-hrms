@@ -46,6 +46,7 @@ from attendance.models import (
     AttendanceLateComeEarlyOut,
     AttendanceOverTime,
     AttendanceRequestComment,
+    AttendanceRuleSet,
     AttendanceValidationCondition,
     BatchAttendance,
     GraceTime,
@@ -55,6 +56,7 @@ from attendance.models import (
     strtime_seconds,
     validate_time_format,
 )
+from base.config_tiers import TIER_EMPLOYEE_TYPE
 from base.forms import ModelForm as BaseModelForm
 from base.forms import MultipleFileField
 from base.methods import (
@@ -63,7 +65,7 @@ from base.methods import (
     is_reportingmanager,
     reload_queryset,
 )
-from base.models import Company, EmployeeShift
+from base.models import Company, Department, EmployeeShift
 from employee.filters import EmployeeFilter
 from employee.models import Employee
 from horilla import horilla_middlewares
@@ -1418,6 +1420,100 @@ class RegularizationRequestForm(BaseModelForm):
         instance = self.instance
         for field_name in self.Meta.fields:
             setattr(instance, field_name, cleaned_data.get(field_name))
+        try:
+            instance.clean()
+        except ValidationError as error:
+            raise forms.ValidationError(error.messages) from error
+        return cleaned_data
+
+
+# late_grace_minutes stays in AttendanceRuleSet.RULE_FIELDS/
+# INHERITED_FIELDS (resolvable, snapshotted, inheritable -- the model layer
+# is fully wired) but is excluded here: the field it would actually govern,
+# late-mark grace, is still read entirely from the pre-existing GraceTime
+# model (shift.grace_time_id, or the company-wide default GraceTime row --
+# see late_come()/early_out() in attendance/views/clock_in_out.py), not from
+# AttendanceRuleSet at all. Exposing it on this screen let an admin set a
+# value with zero actual effect. Same "unlink the UI, keep the backend"
+# treatment used elsewhere in this codebase (e.g. AUTO_CLOSE_DISPUTE) --
+# the column/resolution logic stays intact for whenever grace time is
+# properly merged into the tiered model, just not reachable from here yet.
+ATTENDANCE_RULE_SET_EDITABLE_FIELDS = tuple(
+    field for field in AttendanceRuleSet.RULE_FIELDS if field != "late_grace_minutes"
+)
+
+
+class AttendanceRuleSetForm(BaseModelForm):
+    """
+    The combined settings screen for #1 Attendance Type, Validation
+    Threshold, the Overtime cluster, and Regularization's enable/cap --
+    one form per tier (Company Default / Employee-Type Override /
+    Department Override), per AttendanceRuleSet's own docstring.
+
+    Never saved directly (see AttendanceRuleSetFormView.form_valid): this
+    form only produces validated field values; every actual write goes
+    through PendingConfigChange.schedule() so "changes apply from the 1st
+    of next month" is one mechanism, not reimplemented here. `tier`/
+    `employee_type_category`/`department` pick WHICH row is being
+    configured and, once a row exists, never change again -- disabled
+    (not just read-only) on an edit so a tampered POST can't move an
+    existing override to a different scope.
+
+    Exposes ATTENDANCE_RULE_SET_EDITABLE_FIELDS, not the model's full
+    RULE_FIELDS -- see that constant's own comment for why
+    late_grace_minutes is left out.
+    """
+
+    class Meta:
+        model = AttendanceRuleSet
+        fields = ["tier", "employee_type_category", "department"] + list(
+            ATTENDANCE_RULE_SET_EDITABLE_FIELDS
+        )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        self.fields["mode"].help_text = _(
+            "For an Employee-Type Override, this is the only rule value "
+            "that applies -- every other field is ignored and stays "
+            "inherited from the Company Default row."
+        )
+        if self.instance.pk is None:
+            self.instance.company = company
+            self.fields["department"].queryset = (
+                Department.objects.filter(company_id=company)
+                if company is not None
+                else Department.objects.none()
+            )
+        else:
+            # An existing row's scope is fixed -- see class docstring.
+            self.fields["tier"].disabled = True
+            self.fields["employee_type_category"].disabled = True
+            self.fields["department"].disabled = True
+            self.fields["department"].queryset = Department.objects.filter(
+                company_id=self.instance.company_id
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # An Employee-Type override only ever picks `mode` -- every other
+        # rule field must stay blank so it inherits the Company Default
+        # row (see AttendanceRuleSet.RULE_FIELDS's own comment); silently
+        # dropped here rather than rejected, since the fields stay visible
+        # and fillable in this single shared form.
+        if cleaned_data.get("tier") == TIER_EMPLOYEE_TYPE:
+            for field_name in AttendanceRuleSet.INHERITED_FIELDS:
+                if field_name in ATTENDANCE_RULE_SET_EDITABLE_FIELDS:
+                    cleaned_data[field_name] = None
+
+        instance = self.instance
+        for field_name in self.Meta.fields:
+            if field_name in cleaned_data:
+                setattr(instance, field_name, cleaned_data[field_name])
+        # clean() re-checks the tier/scope shape (e.g. an Employee-Type
+        # row must set employee_type_category and leave department blank)
+        # -- ModelForm doesn't call the model's whole-instance clean()
+        # automatically once individual fields already validated.
         try:
             instance.clean()
         except ValidationError as error:

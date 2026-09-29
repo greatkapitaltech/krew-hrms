@@ -132,35 +132,61 @@ from horilla.decorators import (
 from notifications.signals import notify
 
 
+# def attendance_validate(attendance):
+#     """
+#     Old design: True if worked hours were at or under
+#     AttendanceRuleSet.validation_threshold (a flat, mode-agnostic
+#     worked-hours ceiling), False otherwise. Replaced -- see
+#     validation_threshold's own field comment in attendance/models.py
+#     for why -- by the version below, which derives auto-validate from
+#     the overtime auto-approve buffer instead. Kept here, commented out,
+#     rather than deleted, same as the rest of this module's dead code.
+#     """
+#     condition_for_at_work = strtime_seconds("09:00")
+#     threshold = AttendanceRuleSet.resolve_effective_value(
+#         attendance.attendance_rule_set_snapshot, "validation_threshold"
+#     )
+#     if threshold:
+#         condition_for_at_work = strtime_seconds(threshold)
+#     at_work = strtime_seconds(attendance.attendance_worked_hour)
+#     return condition_for_at_work >= at_work
+
+
 def attendance_validate(attendance):
     """
-    True if this attendance can auto-validate itself (worked hours are at
-    or under the threshold), False if it needs a manager's review.
+    True if this attendance can auto-validate itself, False if it needs
+    a manager's review.
 
-    Resolves the threshold purely from attendance.attendance_rule_set_
-    snapshot -- frozen once at this day's first clock-in (see
-    clock_in_attendance_and_activity()) -- via AttendanceRuleSet.
-    resolve_effective_value(), never by calling get_effective_values()
-    live on attendance_rule_set again. That call can fall through to a
-    live Company Default lookup for an inherited field, and a live
-    lookup isn't frozen just because the specific row is; resolving from
-    the already-captured snapshot instead is what actually keeps a
-    mid-day config change from changing an already-open day's validation
-    behavior. Falls back to the same 9:00 AM default as before for
-    attendance predating this feature, or a company that never
-    configured a rule set at all.
+    Driven entirely by whether this day's overtime (if any) falls within
+    the configured auto-approve buffer -- the same decision
+    Attendance.handle_overtime_conditions() makes for
+    attendance_overtime_approve, reused directly rather than
+    reimplemented: no overtime at all trivially validates; overtime
+    within the buffer validates; overtime past the buffer needs review.
+    Replaces the old flat "total worked hours vs a separate threshold"
+    ceiling check (see AttendanceRuleSet.validation_threshold's own
+    comment for why that was dropped) -- decided against per-mode:
+    Shift-based already has late-come/early-out tracking for "worked
+    unusually little," and a flat worked-hours ceiling had no way to
+    account for a legitimately long, fully-approved day; the OT buffer
+    already carries the same "how much extra is normal enough to skip a
+    human" judgment, just correctly scoped to the actual overtime
+    portion instead of the day's whole worked-hour total.
+
+    Expects attendance.overtime_second/attendance_overtime_approve to
+    already be current for this save -- the caller
+    (clock_out_attendance_and_activity()) computes them via
+    attendance.update_attendance_overtime()/handle_overtime_conditions()
+    immediately before calling this, since Attendance.save() (which
+    normally does that) hasn't run yet at this point in the clock-out
+    flow.
     args:
         attendance : attendance object
     """
-
-    condition_for_at_work = strtime_seconds("09:00")
-    threshold = AttendanceRuleSet.resolve_effective_value(
-        attendance.attendance_rule_set_snapshot, "validation_threshold"
-    )
-    if threshold:
-        condition_for_at_work = strtime_seconds(threshold)
-    at_work = strtime_seconds(attendance.attendance_worked_hour)
-    return condition_for_at_work >= at_work
+    overtime_second = attendance.overtime_second or 0
+    if overtime_second <= 0:
+        return True
+    return attendance.attendance_overtime_approve
 
 
 @login_required
