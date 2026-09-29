@@ -4,7 +4,6 @@ clock_in_out.py
 This module is used register endpoints to the check-in check-out functionalities
 """
 
-import ipaddress
 import logging
 
 from django.shortcuts import render
@@ -32,19 +31,46 @@ from attendance.methods.utils import (
 from attendance.models import (
     Attendance,
     AttendanceActivity,
-    AttendanceGeneralSetting,
     AttendanceLateComeEarlyOut,
     AttendanceRuleSet,
     GraceTime,
 )
 from attendance.views.views import attendance_validate
+from base.caching import get_cached_attendance_general_settings
 from base.context_processors import (
     enable_late_come_early_out_tracking,
     timerunner_enabled,
 )
-from base.models import AttendanceAllowedIP, Company, EmployeeShiftDay
+from base.models import Company, EmployeeShiftDay
 from horilla.decorators import hx_request_required, login_required
 from horilla.horilla_middlewares import _thread_locals
+
+
+def _enqueue_late_come_early_out(attendance):
+    """
+    Defers late-come/early-out/flexible-shortfall flagging to a
+    background task (Part 3 of the Attendance performance plan) --
+    every call site that used to call late_come()/early_out()/
+    flexible_shortfall() directly enqueues this instead; the task itself
+    (attendance/tasks.py) re-derives which of those three applies. Wrapped
+    defensively: a broker hiccup here must never affect the punch
+    response that already succeeded above this call -- the periodic
+    sweep (attendance/tasks.py::sweep_stuck_background_tasks) still finds
+    and processes the durable BackgroundAttendanceTask row this creates
+    even if the immediate .delay() itself fails to reach a worker.
+    """
+    from attendance.models import BackgroundAttendanceTask
+    from attendance.tasks import enqueue_background_attendance_task
+
+    try:
+        enqueue_background_attendance_task(
+            attendance, BackgroundAttendanceTask.KIND_LATE_COME_EARLY_OUT,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to enqueue late-come/early-out task for attendance %s",
+            attendance.pk,
+        )
 
 
 def late_come_create(attendance):
@@ -84,7 +110,17 @@ def late_come(attendance, start_time, end_time, shift):
     if not enable_late_come_early_out_tracking(None).get("tracking"):
         return
     request = getattr(_thread_locals, "request", None)
-    now_sec = strtime_seconds(attendance.attendance_clock_in.strftime("%H:%M"))
+    clock_in_time = attendance.attendance_clock_in
+    if isinstance(clock_in_time, str):
+        # A freshly-assigned, not-yet-saved Attendance keeps whatever raw
+        # "%H:%M" string was assigned to this TimeField in memory --
+        # Django only coerces it to a real time on the way to the DB, not
+        # on attribute assignment. Callers driven by a fresh DB read (the
+        # other late_come() call sites) never hit this; the clock-in path
+        # does, since it calls this on the same in-memory object it just
+        # saved rather than re-fetching.
+        clock_in_time = datetime.strptime(clock_in_time, "%H:%M").time()
+    now_sec = strtime_seconds(clock_in_time.strftime("%H:%M"))
     mid_day_sec = strtime_seconds("12:00")
 
     # Checking gracetime allowance before creating late come
@@ -214,18 +250,13 @@ def clock_in_attendance_and_activity(
         attendance.geo_fence_violation = geo_fence_violation
         attendance.geo_fence_unverified = geo_fence_unverified
         attendance.save()
-        # check here late come or not
-
-        attendance = Attendance.find(attendance.id)
         # Late-come detection doesn't apply under Flexible mode -- there's
-        # no shift to be late against.
+        # no shift to be late against. Deferred to a background task
+        # (Part 3 of the Attendance performance plan) -- the punch itself
+        # is already durable above; this is purely a consequence of it,
+        # safe to run a moment later and harmless to redo if it fails.
         if not attendance.is_flexible_mode():
-            late_come(
-                attendance=attendance,
-                start_time=start_time,
-                end_time=end_time,
-                shift=shift,
-            )
+            _enqueue_late_come_early_out(attendance)
     else:
         attendance = attendance[0]
         attendance.attendance_clock_out = None
@@ -262,55 +293,16 @@ def clock_in(request):
     selected_company = request.session.get("selected_company")
     if selected_company == "all":
         company = None
-        attendance_general_settings = AttendanceGeneralSetting.objects.filter(
-            company_id=None
-        ).first()
+        attendance_general_settings = get_cached_attendance_general_settings(None)
     else:
         company = Company.objects.filter(id=selected_company).first()
-        attendance_general_settings = AttendanceGeneralSetting.objects.filter(
-            company_id=company
-        ).first()
+        attendance_general_settings = get_cached_attendance_general_settings(company)
     # request.__dict__.get("datetime")' used to check if the request is from a biometric device
     if (
         attendance_general_settings
         and attendance_general_settings.enable_check_in
         or request.__dict__.get("datetime")
     ):
-        allowed_attendance_ips = AttendanceAllowedIP.objects.filter(
-            company_id=company
-        ).first()
-
-        if (
-            not request.__dict__.get("datetime")
-            and allowed_attendance_ips
-            and allowed_attendance_ips.is_enabled
-        ):
-            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-            ip = request.META.get("REMOTE_ADDR")
-            if x_forwarded_for:
-                ip = x_forwarded_for.split(",")[0]
-
-            allowed_ips = (allowed_attendance_ips.additional_data or {}).get(
-                "allowed_ips", []
-            )
-            ip_allowed = False
-            for allowed_ip in allowed_ips:
-                try:
-                    if ipaddress.ip_address(ip) in ipaddress.ip_network(
-                        allowed_ip, strict=False
-                    ):
-                        ip_allowed = True
-                        break
-                except ValueError:
-                    continue
-
-            if not ip_allowed:
-                messages.error(
-                    request,
-                    _("Check-In Restricted: Your current network is not authorized "),
-                )
-                return HorillaRedirect(request)
-
         employee, work_info = employee_exists(request)
         datetime_now = timezone.localtime()
         if request.__dict__.get("datetime"):
@@ -594,59 +586,19 @@ def clock_out(request):
     selected_company = request.session.get("selected_company")
     if selected_company == "all":
         company = None
-        attendance_general_settings = AttendanceGeneralSetting.objects.filter(
-            company_id=None
-        ).first()
+        attendance_general_settings = get_cached_attendance_general_settings(None)
     else:
         company = Company.objects.filter(id=selected_company).first()
-        attendance_general_settings = AttendanceGeneralSetting.objects.filter(
-            company_id=company
-        ).first()
+        attendance_general_settings = get_cached_attendance_general_settings(company)
     if (
         attendance_general_settings
         and attendance_general_settings.enable_check_in
         or request.__dict__.get("datetime")
     ):
-        allowed_attendance_ips = AttendanceAllowedIP.objects.filter(
-            company_id=company
-        ).first()
-
-        if (
-            not request.__dict__.get("datetime")
-            and allowed_attendance_ips
-            and allowed_attendance_ips.is_enabled
-        ):
-            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-            ip = request.META.get("REMOTE_ADDR")
-            if x_forwarded_for:
-                ip = x_forwarded_for.split(",")[0]
-
-            allowed_ips = (allowed_attendance_ips.additional_data or {}).get(
-                "allowed_ips", []
-            )
-            ip_allowed = False
-            for allowed_ip in allowed_ips:
-                try:
-                    if ipaddress.ip_address(ip) in ipaddress.ip_network(
-                        allowed_ip, strict=False
-                    ):
-                        ip_allowed = True
-                        break
-                except ValueError:
-                    continue
-
-            if not ip_allowed:
-                messages.error(
-                    request,
-                    _("Check-Out Restricted: Your current network is not authorized"),
-                )
-                return HorillaRedirect(request)
-
         datetime_now = timezone.localtime()
         if request.__dict__.get("datetime"):
             datetime_now = request.datetime
         employee, work_info = employee_exists(request)
-        shift = work_info.shift_id
         date_today = date.today()
         if request.__dict__.get("date"):
             date_today = request.date
@@ -666,9 +618,11 @@ def clock_out(request):
         now = datetime.now().strftime("%H:%M")
         if request.__dict__.get("time"):
             now = request.time.strftime("%H:%M")
-        minimum_hour, start_time_sec, end_time_sec = shift_schedule_today(
-            day=day, shift=shift
-        )
+        # start_time_sec/end_time_sec/minimum_hour used to be resolved
+        # here for the early_out()/flexible_shortfall() calls below --
+        # both are now deferred to a background task (Part 3 of the
+        # Attendance performance plan) that re-derives them itself, so
+        # this hot-path lookup is no longer needed at all.
         attendance = clock_out_attendance_and_activity(
             employee=employee,
             date_today=date_today,
@@ -685,9 +639,12 @@ def clock_out(request):
             # counterpart there is a worked-hours shortfall check
             # instead (see flexible_shortfall()). Uses the mode
             # snapshotted at this day's first clock-in, not a fresh
-            # resolution.
+            # resolution. The gating logic below (whether to check at
+            # all) stays synchronous -- it's pure computation, no DB
+            # writes; only the actual flagging call is deferred (Part 3
+            # of the Attendance performance plan).
             if attendance.is_flexible_mode():
-                flexible_shortfall(attendance)
+                _enqueue_late_come_early_out(attendance)
             else:
                 early_out_instance = attendance.late_come_early_out.filter(
                     type="early_out"
@@ -704,19 +661,9 @@ def clock_out(request):
                             mid_sec >= now_sec
                             and date_today == next_date
                         ):
-                            early_out(
-                                attendance=attendance,
-                                start_time=start_time_sec,
-                                end_time=end_time_sec,
-                                shift=shift,
-                            )
+                            _enqueue_late_come_early_out(attendance)
                     elif attendance.attendance_date == date_today:
-                        early_out(
-                            attendance=attendance,
-                            start_time=start_time_sec,
-                            end_time=end_time_sec,
-                            shift=shift,
-                        )
+                        _enqueue_late_come_early_out(attendance)
 
         # Refresh employee from DB so template re-evaluates is_clocked_in correctly
         employee.refresh_from_db()

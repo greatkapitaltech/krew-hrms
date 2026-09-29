@@ -178,10 +178,16 @@ def shift_schedule_today(day, shift):
         shift   : shift instance
         day     : shift day object
     """
-    schedule_today = day.day_schedule.filter(shift_id=shift)
+    # Local import: attendance.caching imports attendance.models, which
+    # itself imports this module at module scope -- importing caching up
+    # at the top of this file would be a circular import at app-load
+    # time. Safe here since the function isn't called until the app is
+    # fully loaded.
+    from attendance.caching import get_cached_shift_schedule_row
+
     start_time_sec, end_time_sec, minimum_hour = 0, 0, "00:00"
-    if schedule_today.exists():
-        schedule_today = schedule_today[0]
+    schedule_today = get_cached_shift_schedule_row(day, shift)
+    if schedule_today is not None:
         minimum_hour = schedule_today.minimum_working_hour
         start_time_sec = strtime_seconds(schedule_today.start_time.strftime("%H:%M"))
         end_time_sec = strtime_seconds(schedule_today.end_time.strftime("%H:%M"))

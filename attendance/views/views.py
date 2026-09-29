@@ -101,6 +101,7 @@ from attendance.models import (
 )
 from attendance.views.handle_attendance_errors import handle_attendance_errors
 from attendance.views.process_attendance_data import process_attendance_data
+from base.caching import bust_attendance_general_settings_cache
 from base.forms import AttendanceAllowedIPForm, TrackLateComeEarlyOutForm
 from base.methods import (
     choosesubordinates,
@@ -3086,6 +3087,11 @@ def enable_timerunner(request):
             settings_qs.update(time_runner=enabled)
         else:
             AttendanceGeneralSetting(company_id=company, time_runner=enabled).save()
+    # Both .update() branches above bypass post_save (only the .save()
+    # fallback branches fire it on their own) -- bust explicitly so the
+    # cached lookup (base/caching.py) doesn't serve the pre-toggle value
+    # for up to CACHE_TTL_SECONDS.
+    bust_attendance_general_settings_cache()
 
     message = _("enabled") if enabled else _("disabled")
     messages.success(
@@ -3168,6 +3174,10 @@ def enable_disable_check_in(request):
         )
 
         if updated:
+            # .update() bypasses post_save -- bust explicitly, this is
+            # the exact field clock_in()/clock_out() gate on via the
+            # cached lookup (base/caching.py).
+            bust_attendance_general_settings_cache()
             message = _("Check In/Check Out has been successfully {}.").format(
                 _("enabled") if enable else _("disabled")
             )

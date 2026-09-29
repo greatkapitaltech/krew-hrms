@@ -346,6 +346,56 @@ LANGUAGES = (
 LOCALE_PATHS = [join(BASE_DIR, "horilla", "locale")]
 
 # ========================================
+# CELERY (background work off the clock-in/clock-out hot path --
+# see attendance/tasks.py, horilla/celery.py)
+# ========================================
+# Same "Redis is optional" shape as CACHE above: reuses REDIS_URL as the
+# broker, no separate infrastructure. Without it (bare venv/runserver,
+# and CI -- unit-tests.yml runs against SQLite defaults with no
+# REDIS_URL) tasks run synchronously in-process via
+# CELERY_TASK_ALWAYS_EAGER, so neither a worker nor a broker is ever
+# required to run the app or its test suite.
+CELERY_BROKER_URL = REDIS_URL or "memory://"
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_TASK_ALWAYS_EAGER = env.bool(
+    "CELERY_TASK_ALWAYS_EAGER", default=not bool(REDIS_URL)
+)
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "sweep-stuck-attendance-background-tasks": {
+        "task": "attendance.tasks.sweep_stuck_background_tasks",
+        "schedule": 300,  # seconds
+    },
+}
+
+# Shared TTL (seconds) for the hot-path caches in base/config_tiers.py
+# (tiered AttendanceRuleSet/GeoFencing resolution) and attendance/caching.py
+# (AttendanceGeneralSetting, shift schedule) -- a safety net only, since
+# both are actually kept fresh by signal-based invalidation; this just
+# bounds how long a missed signal (e.g. a bulk .update() that bypasses
+# save()) could serve a stale value.
+CACHE_TTL_SECONDS = env.int("CACHE_TTL_SECONDS", default=300)
+
+# Automatic-retry cap for BackgroundAttendanceTask (attendance/models.py,
+# attendance/tasks.py) -- both the periodic sweep and a manual retry read
+# this as the attempt ceiling.
+MAX_RETRIES = env.int("MAX_RETRIES", default=5)
+
+# How long process_background_attendance_task's per-task lock (a Redis
+# SETNX via cache.add(), attendance/tasks.py) is held before it's
+# considered abandoned. This is a safety net for a worker that died mid-
+# task, not the normal release path -- the task releases its own lock in
+# a finally block the moment it finishes. Should comfortably exceed the
+# slowest realistic run of late_come()/early_out()/flexible_shortfall().
+BACKGROUND_TASK_LOCK_TTL_SECONDS = env.int(
+    "BACKGROUND_TASK_LOCK_TTL_SECONDS", default=60
+)
+
+# ========================================
 # LOGGING, MESSAGES, OTHER GLOBALS
 # ========================================
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

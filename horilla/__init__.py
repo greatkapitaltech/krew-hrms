@@ -4,6 +4,10 @@ init.py
 
 import sys
 
+from horilla.celery import app as celery_app
+
+__all__ = ("celery_app",)
+
 # Patch makemigrations and migrate to use HorillaAutodetector.
 #
 # Django stores the autodetector as a class attribute on each command

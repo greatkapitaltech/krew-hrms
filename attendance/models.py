@@ -13,6 +13,7 @@ from decimal import Decimal
 
 import pandas as pd
 from django.apps import apps
+from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
@@ -44,8 +45,8 @@ from base.config_tiers import (
     config_override_requested,
     next_month_first,
 )
+from base.caching import get_cached_is_company_leave, get_cached_is_holiday
 from base.horilla_company_manager import HorillaCompanyManager
-from base.methods import is_company_leave, is_holiday
 from base.models import (
     COLLAR_CATEGORY_CHOICES,
     Company,
@@ -806,9 +807,9 @@ class Attendance(HorillaModel):
         """
         Set minimum_hour to 00:00 if the attendance date falls on a holiday or company leave.
         """
-        if is_holiday(self.attendance_date, self.employee_id) or is_company_leave(
-            self.attendance_date
-        ):
+        if get_cached_is_holiday(
+            self.attendance_date, self.employee_id
+        ) or get_cached_is_company_leave(self.attendance_date):
             self.minimum_hour = "00:00"
             self.is_holiday = True
         else:
@@ -2904,3 +2905,99 @@ class ApprovalDelegate(HorillaModel):
         return cls.is_delegate_for(
             approver, reporting_manager, on_date=on_date, target=target,
         )
+
+
+class BackgroundAttendanceTask(HorillaModel):
+    """
+    What makes deferring late-come/early-out flagging (Part 3 of the
+    Attendance performance plan) safe to fail and retry: the fact that a
+    punch still needs this processing is written durably here,
+    synchronously, at punch time -- a Celery worker (attendance/tasks.py)
+    reads this table to know what still needs doing, rather than the
+    queue being the only record of it.
+
+    Deferring the monthly overtime account update (Attendance.save()'s
+    AttendanceOverTime block) the same way was investigated and declined
+    -- measured at ~1.35ms/save, not worth the payroll-correctness risk
+    of a window where that total hasn't caught up yet. `kind` only has
+    one value as a result; the field stays a CharField+choices rather
+    than being collapsed to a boolean so a genuinely different kind of
+    deferred work can still be added later without a schema change.
+    """
+
+    KIND_LATE_COME_EARLY_OUT = "LATE_COME_EARLY_OUT"
+    KIND_CHOICES = (
+        (KIND_LATE_COME_EARLY_OUT, _("Late-Come / Early-Out Flagging")),
+    )
+
+    STATUS_PENDING = "PENDING"
+    STATUS_PROCESSING = "PROCESSING"
+    STATUS_DONE = "DONE"
+    STATUS_FAILED = "FAILED"
+    STATUS_CHOICES = (
+        (STATUS_PENDING, _("Pending")),
+        (STATUS_PROCESSING, _("Processing")),
+        (STATUS_DONE, _("Done")),
+        (STATUS_FAILED, _("Failed")),
+    )
+
+    # Automatic retries -- all of them run through the periodic sweep
+    # (see attendance/tasks.py's module docstring for why Celery's own
+    # self.retry() isn't used) -- stop once attempts reaches this. The
+    # row stays visible either way; only automatic retry stops.
+    # settings.MAX_RETRIES is env-overridable (horilla/settings/base.py).
+    MAX_ATTEMPTS = settings.MAX_RETRIES
+
+    attendance = models.ForeignKey(
+        "attendance.Attendance", on_delete=models.CASCADE,
+        related_name="background_tasks", verbose_name=_("Attendance"),
+    )
+    kind = models.CharField(max_length=25, choices=KIND_CHOICES, verbose_name=_("Kind"))
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING,
+    )
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(null=True, blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        verbose_name = _("Background Attendance Task")
+        verbose_name_plural = _("Background Attendance Tasks")
+
+    def __str__(self):
+        return f"{self.get_kind_display()} for {self.attendance} ({self.status})"
+
+
+class BackgroundAttendanceTaskRetryLog(HorillaModel):
+    """
+    Append-only: one row per manual reset of a BackgroundAttendanceTask
+    that ran out of automatic retries. The task itself always reflects
+    only its current attempt cycle (reset back to attempts=0 on a manual
+    retry); the history of every past manual intervention lives here
+    instead, so it isn't lost just because the task row gets reused
+    rather than replaced.
+    """
+
+    task = models.ForeignKey(
+        BackgroundAttendanceTask, on_delete=models.CASCADE,
+        related_name="retry_log", verbose_name=_("Task"),
+    )
+    reset_by = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", verbose_name=_("Reset By"),
+    )
+    reset_at = models.DateTimeField(auto_now_add=True)
+    previous_status = models.CharField(max_length=10)
+    previous_attempts = models.PositiveIntegerField()
+    note = models.TextField(null=True, blank=True)
+
+    objects = models.Manager()
+
+    class Meta:
+        verbose_name = _("Background Attendance Task Retry Log")
+        verbose_name_plural = _("Background Attendance Task Retry Logs")
+
+    def __str__(self):
+        return f"Retry of {self.task_id} by {self.reset_by} at {self.reset_at}"

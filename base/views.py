@@ -51,6 +51,7 @@ from rest_framework_simplejwt.tokens import UntypedToken
 from accessibility.accessibility import ACCESSBILITY_FEATURE
 from accessibility.models import DefaultAccessibility
 from base.backends import ConfiguredEmailBackend
+from base.caching import bust_is_holiday_cache
 from base.decorators import (
     shift_request_change_permission,
     work_type_request_change_permission,
@@ -7989,6 +7990,10 @@ def csv_holiday_import(file):
 
     if holiday_list:
         Holidays.objects.bulk_create(holiday_list)
+        # bulk_create() bypasses post_save -- bust explicitly so
+        # get_cached_is_holiday() (base/caching.py) doesn't keep serving
+        # "not a holiday" for these newly-imported dates/employees.
+        bust_is_holiday_cache()
 
     if os.path.exists(holiday_file):
         os.remove(holiday_file)
@@ -8062,6 +8067,7 @@ def excel_holiday_import(file):
 
     if valid_holidays:
         Holidays.objects.bulk_create(valid_holidays)
+        bust_is_holiday_cache()  # see the same comment above this function's sibling
 
     return error_list, len(holiday_dicts)
 

@@ -82,6 +82,17 @@ dev-db-shell: ## psql shell into the local development database
 dev-db-reset: ## Destroy local PostgreSQL + pgAdmin + Redis AND all their data
 	$(COMPOSE_DEV) down -v
 
+# Celery worker/beat for the hybrid make dev-db workflow (Django itself
+# runs via `manage.py runserver` outside Docker, same as these) -- run
+# each in its own terminal alongside runserver. `make dev` (the full
+# Docker Compose stack) runs these as separate celery_worker/celery_beat
+# services instead; see docker-compose.yml.
+celery-worker: ## Run a Celery worker against the local dev broker (needs REDIS_URL set)
+	celery -A horilla worker -l info
+
+celery-beat: ## Run Celery beat (periodic sweep of stuck background tasks)
+	celery -A horilla beat -l info
+
 
 # Unit-test coverage program (feature/unit-test-coverage)
 # Smoke = Phases 0–3 first-party app minimum bar.

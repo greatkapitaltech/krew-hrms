@@ -13,7 +13,10 @@ reuses the resolution logic here instead of re-implementing it per model.
 
 from datetime import date
 
-from django.dispatch import Signal
+from django.conf import settings
+from django.core.cache import cache
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import Signal, receiver
 from django.utils.translation import gettext_lazy as _
 
 TIER_COMPANY = "COMPANY"
@@ -50,6 +53,61 @@ config_override_applied = Signal()  # kwargs: instance
 config_override_cancelled = Signal()  # kwargs: instance
 
 
+# resolve_for_employee() is a hot-path read (every clock-in/out), and
+# these rows change about as rarely as anything in the project -- only
+# when an admin edits a rule set. Cached per (model, company) using a
+# version counter rather than direct key deletion: LocMem has no
+# pattern-delete, and bumping a small counter invalidates every
+# previously-cached (department, employee_type_category) combination for
+# that company at once, with no need to enumerate them.
+# TTL itself comes from settings.CACHE_TTL_SECONDS (horilla/settings/
+# base.py, env-overridable) -- read live via `settings.` at each use, not
+# cached into a module-level constant, so @override_settings in tests
+# actually takes effect.
+
+
+def _version_cache_key(model_label, company_id):
+    return f"tiered_config_version:{model_label}:{company_id}"
+
+
+def _current_version(model_label, company_id):
+    key = _version_cache_key(model_label, company_id)
+    version = cache.get(key)
+    if version is None:
+        version = 0
+        cache.set(key, version, None)
+    return version
+
+
+def _bump_version(model_label, company_id):
+    key = _version_cache_key(model_label, company_id)
+    try:
+        cache.incr(key)
+    except ValueError:
+        # Nothing cached yet (or it expired) -- next reader starts a
+        # fresh counter at 1, which is still a change from whatever
+        # version any stale entry might have been cached under.
+        cache.set(key, 1, None)
+
+
+@receiver(post_save)
+@receiver(post_delete)
+def _bust_tiered_config_cache(sender, instance, **kwargs):
+    """
+    Deliberately unfiltered by `sender` -- new tiered-config models get
+    cache invalidation for free just by inheriting the mixin, with no
+    per-model signal wiring to remember. The isinstance check costs
+    nothing next to an actual query, so running it on every model's
+    save/delete project-wide is a fine trade for that.
+    """
+    if not isinstance(instance, TieredConfigResolutionMixin):
+        return
+    company_id = getattr(instance, "company_id", None)
+    if company_id is None:
+        return
+    _bump_version(type(instance)._meta.label_lower, company_id)
+
+
 class TieredConfigResolutionMixin:
     """
     Mixin for a concrete tiered config model. The model itself still
@@ -81,10 +139,12 @@ class TieredConfigResolutionMixin:
         """
         The single effective CURRENT row for `employee`: Department
         override, else Employee-Type override, else Company Default, else
-        None. Always resolved live against current data -- never cached
-        inside this method itself, so an employee moved between
-        departments/types picks up the correct override on the very next
-        call with no extra bookkeeping.
+        None. Cached per (model, company, department, employee_type_
+        category) -- see the version-counter helpers above for the
+        invalidation story. An employee moved between departments/types
+        still picks up the correct override on the very next call: the
+        cache key itself is keyed on their *current* department/type, not
+        remembered from a prior call.
         """
         work_info = getattr(employee, "employee_work_info", None)
         company = getattr(work_info, "company_id", None)
@@ -98,12 +158,31 @@ class TieredConfigResolutionMixin:
         # (see EmployeeType.collar_category's field comment).
         employee_type_category = getattr(employee_type, "collar_category", None)
 
+        model_label = cls._meta.label_lower
+        version = _current_version(model_label, company.pk)
+        cache_key = (
+            f"tiered_config:{model_label}:{company.pk}:"
+            f"{getattr(department, 'pk', None)}:{employee_type_category}:{version}"
+        )
+        cached_pk = cache.get(cache_key, "MISS")
+        if cached_pk != "MISS":
+            if cached_pk is None:
+                return None
+            row = cls.objects.filter(pk=cached_pk).first()
+            if row is not None:
+                return row
+            # The cached pk no longer exists (deleted without going
+            # through a signal-visible save/delete on this instance, or a
+            # bulk .delete() that skipped signals) -- fall through to a
+            # live resolve and refresh the cache below rather than trust it.
+
         if department is not None:
             row = cls.objects.filter(
                 tier=TIER_DEPARTMENT, company=company, department=department,
                 is_active=True,
             ).first()
             if row is not None:
+                cache.set(cache_key, row.pk, settings.CACHE_TTL_SECONDS)
                 return row
 
         if employee_type_category is not None:
@@ -112,11 +191,14 @@ class TieredConfigResolutionMixin:
                 employee_type_category=employee_type_category, is_active=True,
             ).first()
             if row is not None:
+                cache.set(cache_key, row.pk, settings.CACHE_TTL_SECONDS)
                 return row
 
-        return cls.objects.filter(
+        row = cls.objects.filter(
             tier=TIER_COMPANY, company=company, is_active=True,
         ).first()
+        cache.set(cache_key, row.pk if row is not None else None, settings.CACHE_TTL_SECONDS)
+        return row
 
     def get_effective_values(self):
         """
