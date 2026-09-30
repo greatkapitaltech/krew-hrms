@@ -218,37 +218,36 @@ def clock_in_attendance_and_activity(
         clock_in_latitude=latitude,
         clock_in_longitude=longitude,
     )
-    # create attendance if not exist
-    attendance = Attendance.objects.filter(
-        employee_id=employee, attendance_date=attendance_date
+    
+    resolved_rule_set = AttendanceRuleSet.resolve_for_employee(employee)
+    attendance, created = Attendance.objects.get_or_create(
+        employee_id=employee,
+        attendance_date=attendance_date,
+        defaults={
+            "shift_id": shift,
+            "work_type_id": employee.employee_work_info.work_type_id,
+            "attendance_day": day,
+            "attendance_clock_in": now,
+            "attendance_clock_in_date": date_today,
+            "minimum_hour": minimum_hour,
+            # Resolved and snapshotted once, here, at the first clock-in
+            # of the day -- never re-resolved afterward, so a mode switch
+            # that takes effect mid-session doesn't change this day's
+            # already-decided behavior. See Attendance.attendance_rule_set's
+            # field comment.
+            "attendance_rule_set": resolved_rule_set,
+            # Captured once, here, alongside the FK above -- this row's
+            # own raw values plus the Company Default's, for
+            # resolve_effective_value() to read from later without ever
+            # touching the live rows again. See the field's comment.
+            "attendance_rule_set_snapshot": AttendanceRuleSet.capture_snapshot(
+                resolved_rule_set
+            ),
+            "geo_fence_violation": geo_fence_violation,
+            "geo_fence_unverified": geo_fence_unverified,
+        },
     )
-    if not attendance.exists():
-        attendance = Attendance()
-        attendance.employee_id = employee
-        attendance.shift_id = shift
-        attendance.work_type_id = attendance.employee_id.employee_work_info.work_type_id
-        attendance.attendance_date = attendance_date
-        attendance.attendance_day = day
-        attendance.attendance_clock_in = now
-        attendance.attendance_clock_in_date = date_today
-        attendance.minimum_hour = minimum_hour
-        # Resolved and snapshotted once, here, at the first clock-in of the
-        # day -- never re-resolved afterward, so a mode switch that takes
-        # effect mid-session doesn't change this day's already-decided
-        # behavior. See Attendance.attendance_rule_set's field comment.
-        attendance.attendance_rule_set = AttendanceRuleSet.resolve_for_employee(
-            employee
-        )
-        # Captured once, here, alongside the FK above -- this row's own
-        # raw values plus the Company Default's, for
-        # resolve_effective_value() to read from later without ever
-        # touching the live rows again. See the field's comment.
-        attendance.attendance_rule_set_snapshot = AttendanceRuleSet.capture_snapshot(
-            attendance.attendance_rule_set
-        )
-        attendance.geo_fence_violation = geo_fence_violation
-        attendance.geo_fence_unverified = geo_fence_unverified
-        attendance.save()
+    if created:
         # Late-come detection doesn't apply under Flexible mode -- there's
         # no shift to be late against. Deferred to a background task
         # (Part 3 of the Attendance performance plan) -- the punch itself
@@ -257,7 +256,6 @@ def clock_in_attendance_and_activity(
         if not attendance.is_flexible_mode():
             _enqueue_late_come_early_out(attendance)
     else:
-        attendance = attendance[0]
         attendance.attendance_clock_out = None
         attendance.attendance_clock_out_date = None
         # OR'd, never overwritten with False -- a flag raised earlier
