@@ -1603,7 +1603,10 @@ class EmployeeShiftScheduleUpdateForm(ModelForm):
 
         model = EmployeeShiftSchedule
         fields = "__all__"
-        exclude = ["is_active"]
+        # minimum_working_hour is auto-computed from start_time/end_time/
+        # grace time now (EmployeeShiftSchedule.save()) -- no longer
+        # admin-entered.
+        exclude = ["is_active", "minimum_working_hour"]
         widgets = {
             "start_time": forms.TimeInput(attrs={"type": "time"}),
             "end_time": forms.TimeInput(attrs={"type": "time"}),
@@ -1652,7 +1655,25 @@ class EmployeeShiftScheduleUpdateForm(ModelForm):
         if apps.is_installed("attendance"):
             auto_punch_out_enabled = cleaned_data.get("is_auto_punch_out_enabled")
             auto_punch_out_time = cleaned_data.get("auto_punch_out_time")
+            start_time = cleaned_data.get("start_time")
             end_time = cleaned_data.get("end_time")
+
+            # A night shift (start_time > end_time) with no auto punch-out
+            # cutoff leaves an employee's session open indefinitely across
+            # the midnight boundary -- the exact precondition behind a
+            # documented negative-worked-hours bug in the auto punch-out
+            # scheduler (attendance/scheduler.py). Mandatory here, not just
+            # validated when already enabled, so a night shift can't be
+            # saved without one at all.
+            if start_time and end_time and start_time > end_time and not auto_punch_out_enabled:
+                raise ValidationError(
+                    {
+                        "is_auto_punch_out_enabled": _(
+                            "Automatic punch out is required for a night shift "
+                            "(start time after end time)."
+                        )
+                    }
+                )
 
             if auto_punch_out_enabled:
                 if not auto_punch_out_time:
@@ -1693,7 +1714,10 @@ class EmployeeShiftScheduleForm(ModelForm):
 
         model = EmployeeShiftSchedule
         fields = "__all__"
-        exclude = ["is_active", "day"]
+        # minimum_working_hour is auto-computed from start_time/end_time/
+        # grace time now (EmployeeShiftSchedule.save()) -- no longer
+        # admin-entered.
+        exclude = ["is_active", "day", "minimum_working_hour"]
         widgets = {
             "start_time": forms.TimeInput(),
             "end_time": forms.TimeInput(),
@@ -1740,7 +1764,21 @@ class EmployeeShiftScheduleForm(ModelForm):
         if apps.is_installed("attendance"):
             auto_punch_out_enabled = self.cleaned_data["is_auto_punch_out_enabled"]
             auto_punch_out_time = self.cleaned_data["auto_punch_out_time"]
+            start_time = self.cleaned_data.get("start_time")
             end_time = self.cleaned_data["end_time"]
+
+            # See EmployeeShiftScheduleUpdateForm.clean() for why this is
+            # mandatory, not just validated once already enabled.
+            if start_time and end_time and start_time > end_time and not auto_punch_out_enabled:
+                raise ValidationError(
+                    {
+                        "is_auto_punch_out_enabled": _(
+                            "Automatic punch out is required for a night shift "
+                            "(start time after end time)."
+                        )
+                    }
+                )
+
             if auto_punch_out_enabled:
                 if not auto_punch_out_time:
                     raise ValidationError(

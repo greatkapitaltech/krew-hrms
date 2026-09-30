@@ -3,6 +3,7 @@ base.py — Main Django settings for Horilla
 """
 
 import os
+import sys
 from datetime import timedelta
 from os.path import join
 from pathlib import Path
@@ -358,17 +359,30 @@ LOCALE_PATHS = [join(BASE_DIR, "horilla", "locale")]
 CELERY_BROKER_URL = REDIS_URL or "memory://"
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TASK_ALWAYS_EAGER = env.bool(
-    "CELERY_TASK_ALWAYS_EAGER", default=not bool(REDIS_URL)
+    "CELERY_TASK_ALWAYS_EAGER",
+    # `manage.py test` must never depend on a live external worker
+    # actually consuming a task within the test's own lifetime -- forced
+    # eager here regardless of REDIS_URL, same reasoning as CI
+    # (unit-tests.yml) staying correct simply by never setting REDIS_URL
+    # at all. A local dev environment with REDIS_URL configured (for
+    # real async testing outside of `test`) hit exactly this gap before.
+    default=not bool(REDIS_URL) or "test" in sys.argv,
 )
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = TIME_ZONE
+# How often sweep_stuck_background_tasks (attendance/tasks.py) re-enqueues
+# any BackgroundAttendanceTask still PENDING/FAILED -- the retry path for
+# a task whose .delay() never reached a worker, or whose handler raised.
+CELERY_BEAT_SWEEP_INTERVAL_SECONDS = env.int(
+    "CELERY_BEAT_SWEEP_INTERVAL_SECONDS", default=300
+)
 CELERY_BEAT_SCHEDULE = {
     "sweep-stuck-attendance-background-tasks": {
         "task": "attendance.tasks.sweep_stuck_background_tasks",
-        "schedule": 300,  # seconds
+        "schedule": CELERY_BEAT_SWEEP_INTERVAL_SECONDS,
     },
 }
 

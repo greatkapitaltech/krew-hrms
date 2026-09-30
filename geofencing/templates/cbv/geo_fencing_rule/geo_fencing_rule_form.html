@@ -1,3 +1,4 @@
+{% load i18n %}
 {% include "generic/horilla_form.html" %}
 
 <script>
@@ -10,14 +11,73 @@
             $("#id_department_parent_div").toggle(tier === "DEPARTMENT");
         }
 
+        // "Use my current location" -- fills latitude/longitude from the
+        // browser's own Geolocation API instead of typing coordinates by
+        // hand. Requires a secure context (HTTPS, or localhost for local
+        // dev) -- browsers refuse navigator.geolocation entirely
+        // otherwise, which getCurrentPosition() surfaces as a plain
+        // PERMISSION_DENIED, indistinguishable here from the user just
+        // saying no.
+        function addUseLocationButton() {
+            if ($("#useMyLocationBtn").length) {
+                return; // already added -- afterSettle can re-fire on this same form
+            }
+            var $latitudeDiv = $("#id_latitude_parent_div");
+            if (!$latitudeDiv.length) {
+                return;
+            }
+
+            var $status = $('<span class="ml-2" id="useMyLocationStatus"></span>');
+            var $button = $(
+                '<button type="button" id="useMyLocationBtn" ' +
+                'class="oh-btn oh-btn--light-bkg mt-2">' +
+                '{% trans "Use My Current Location" %}</button>'
+            );
+
+            $button.on("click", function () {
+                if (!navigator.geolocation) {
+                    $status.text("{% trans 'Geolocation is not supported by this browser.' %}");
+                    return;
+                }
+                $button.prop("disabled", true);
+                $status.text("{% trans 'Locating...' %}");
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        $("#id_latitude").val(position.coords.latitude);
+                        $("#id_longitude").val(position.coords.longitude);
+                        $button.prop("disabled", false);
+                        $status.text("{% trans 'Location filled in.' %}");
+                    },
+                    function (error) {
+                        var message = "{% trans 'Unable to retrieve your location.' %}";
+                        if (error.code === error.PERMISSION_DENIED) {
+                            message = "{% trans 'Location permission denied -- allow location access for this site and try again.' %}";
+                        } else if (error.code === error.TIMEOUT) {
+                            message = "{% trans 'Timed out trying to get your location.' %}";
+                        }
+                        $button.prop("disabled", false);
+                        $status.text(message);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            });
+
+            $latitudeDiv.append($button).append($status);
+        }
+
+        function initGeoFencingRuleForm() {
+            toggleGeoFencingRuleFields();
+            addUseLocationButton();
+        }
+
         // A short delay rather than relying on precise event-ordering
         // assumptions against Select2's own init (htmxSelect2.js) --
         // see AttendanceRuleSetForm's own template for the fuller story
         // on why htmx:afterSettle timing alone wasn't reliable enough.
-        setTimeout(toggleGeoFencingRuleFields, 50);
+        setTimeout(initGeoFencingRuleForm, 50);
         $(document)
             .off("htmx:afterSettle.geoFencingRuleForm")
-            .on("htmx:afterSettle.geoFencingRuleForm", toggleGeoFencingRuleFields);
+            .on("htmx:afterSettle.geoFencingRuleForm", initGeoFencingRuleForm);
         $("#id_tier").on("change", toggleGeoFencingRuleFields);
     })();
 </script>
