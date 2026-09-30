@@ -4,6 +4,7 @@ This module is used to register django models
 
 import ipaddress
 from datetime import date, datetime
+from datetime import time as dt_time
 
 from django.apps import apps
 from django.contrib import messages
@@ -869,12 +870,44 @@ class RotatingWorkTypeAssign(HorillaModel):
         )
 
 
+# The Attendance PRD resolves its Employee-Type tier against exactly
+# three fixed classifications -- White/Blue/Grey Collar -- but the
+# EmployeeType *name* itself stays free-form, same as before (a company
+# can still create "Software Engineer", "Machine Operator", etc). Every
+# EmployeeType row is instead required to map onto one of these three via
+# `collar_category`, which is what Attendance's tiered rule resolution
+# actually keys off -- see AttendanceRuleSet.employee_type_category in
+# attendance/models.py.
+COLLAR_WHITE = "WHITE_COLLAR"
+COLLAR_BLUE = "BLUE_COLLAR"
+COLLAR_GREY = "GREY_COLLAR"
+COLLAR_CATEGORY_CHOICES = (
+    (COLLAR_WHITE, _("White Collar")),
+    (COLLAR_BLUE, _("Blue Collar")),
+    (COLLAR_GREY, _("Grey Collar")),
+)
+
+
 class EmployeeType(HorillaModel):
     """
     EmployeeType model
+
+    `employee_type` is a free-form name, same as always -- no restriction
+    on what a company calls its own types. `collar_category` is new: every
+    row must map onto exactly one of the three fixed classifications the
+    Attendance PRD resolves rules against (White/Blue/Grey Collar), so an
+    arbitrarily-named type ("Machine Operator") still resolves to a real
+    tier ("Blue Collar") for Attendance purposes.
     """
 
     employee_type = models.CharField(max_length=50, verbose_name=_("Employee Type"))
+    collar_category = models.CharField(
+        max_length=15,
+        choices=COLLAR_CATEGORY_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name=_("Collar Category"),
+    )
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
     objects = HorillaCompanyManager()
@@ -1079,7 +1112,6 @@ class EmployeeShiftSchedule(HorillaModel):
             "Time at which the horilla will automatically check out the employee attendance if they forget."
         ),
     )
-
     company_id = models.ManyToManyField(Company, blank=True, verbose_name=_("Company"))
 
     objects = HorillaCompanyManager()
@@ -1160,7 +1192,69 @@ class EmployeeShiftSchedule(HorillaModel):
         if self.start_time and self.end_time:
             if self.start_time > self.end_time:
                 self.is_night_shift = True
+            self.minimum_working_hour = self._compute_minimum_working_hour()
         super().save(*args, **kwargs)
+
+    def _compute_minimum_working_hour(self):
+        """
+        Auto-derived from this schedule's own start/end time minus its
+        shift's resolved grace time -- shift duration minus grace, e.g.
+        10:00-18:00 (8h) with a 15-minute grace time gives 07:45. No
+        longer admin-entered: a hand-typed "Minimum Working Hours" value
+        was redundant with (and could silently drift out of sync with) a
+        shift's own configured start/end/grace, so this replaces that
+        manual field entirely.
+
+        Grace resolution mirrors attendance.views.clock_in_out.late_come()
+        exactly -- this shift's own grace_time_id if active and allows
+        clock-in, else the company default GraceTime under the same
+        condition, else no grace deduction. GraceTime is looked up via
+        apps.get_model() (attendance is a separate, non-dependency app
+        from base's side -- same reason EmployeeShift.grace_time_id
+        itself uses a string reference, "attendance.GraceTime", not a
+        direct import) and only if attendance is installed at all.
+        """
+        start_time = self.start_time
+        end_time = self.end_time
+        if isinstance(start_time, str):
+            # A freshly-assigned, not-yet-saved TimeField keeps whatever
+            # raw "HH:MM"/"HH:MM:SS" string was assigned in memory --
+            # Django only coerces it to a real time object on the way to
+            # the database, not on plain attribute assignment (e.g.
+            # EmployeeShiftSchedule.objects.create(start_time="10:00")).
+            # Same gotcha documented in late_come()'s own clock_in_time
+            # handling.
+            start_time = dt_time.fromisoformat(start_time)
+        if isinstance(end_time, str):
+            end_time = dt_time.fromisoformat(end_time)
+
+        start_seconds = start_time.hour * 3600 + start_time.minute * 60 + start_time.second
+        end_seconds = end_time.hour * 3600 + end_time.minute * 60 + end_time.second
+        if start_time > end_time:
+            duration_seconds = (24 * 3600 - start_seconds) + end_seconds
+        else:
+            duration_seconds = end_seconds - start_seconds
+
+        grace_seconds = 0
+        if apps.is_installed("attendance"):
+            grace_time = None
+            shift = self.shift_id if self.shift_id_id else None
+            if shift is not None and shift.grace_time_id:
+                candidate = shift.grace_time_id
+                if candidate.is_active and candidate.allowed_clock_in:
+                    grace_time = candidate
+            if grace_time is None:
+                GraceTime = apps.get_model("attendance", "GraceTime")
+                grace_time = GraceTime.objects.filter(
+                    is_default=True, is_active=True, allowed_clock_in=True
+                ).first()
+            if grace_time is not None:
+                grace_seconds = grace_time.allowed_time_in_secs
+
+        minimum_seconds = max(0, duration_seconds - grace_seconds)
+        hours, remainder = divmod(minimum_seconds, 3600)
+        minutes = remainder // 60
+        return f"{hours:02d}:{minutes:02d}"
 
     def day_col(self):
         """

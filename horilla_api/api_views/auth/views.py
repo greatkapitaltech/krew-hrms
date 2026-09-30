@@ -71,7 +71,10 @@ class LoginAPIView(APIView):
                 except:
                     pass
                 try:
-                    geo_fencing = employee.get_company().geo_fencing.start
+                    from geofencing.models import GeoFencing
+
+                    rule = GeoFencing.resolve_for_employee(employee)
+                    geo_fencing = bool(rule and rule.start and not rule.is_exemption())
                 except:
                     pass
                 try:

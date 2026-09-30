@@ -1,0 +1,41 @@
+{% extends "index.html" %}
+{% load i18n static %}
+
+{% block content %}
+    <style>
+        .regularization-PENDING {
+            border-left: 3.4px solid orange !important;
+            border-radius: 4px 0 0 4px;
+        }
+        .regularization-APPROVED {
+            border-left: 3.4px solid yellowgreen !important;
+            border-radius: 4px 0 0 4px;
+        }
+        .regularization-REJECTED {
+            border-left: 3.4px solid rgba(220, 53, 69, 0.7) !important;
+            border-radius: 4px 0 0 4px;
+        }
+    </style>
+
+    {% include "generic/components.html" %}
+
+    <div class="oh-wrapper px-2">
+        <h4 class="mb-2">{% trans "Attendance Needing Regularization" %}</h4>
+    </div>
+    <div
+        class="oh-wrapper"
+        id="eligibleDaysContainer"
+        hx-get="{% url 'regularizable-attendance-list' %}"
+        hx-trigger="load"
+    >
+        <div class="animated-background"></div>
+    </div>
+
+    <hr class="my-4">
+
+    <div hx-get="{% url 'regularization-request-nav' %}" hx-trigger="load"></div>
+
+    <div class="oh-wrapper" id="listContainer">
+        <div class="animated-background"></div>
+    </div>
+{% endblock content %}

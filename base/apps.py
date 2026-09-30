@@ -15,10 +15,11 @@ class BaseConfig(AppConfig):
     name = "base"
 
     def ready(self) -> None:
-        from base import sidebar, signals  # noqa: F401
+        from base import caching, sidebar, signals  # noqa: F401
 
         super().ready()
         check_for_no_permissions_models()
+        caching.register_attendance_general_setting_signals()
 
 
 def check_for_no_permissions_models():

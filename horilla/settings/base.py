@@ -3,6 +3,7 @@ base.py — Main Django settings for Horilla
 """
 
 import os
+import sys
 from datetime import timedelta
 from os.path import join
 from pathlib import Path
@@ -346,8 +347,146 @@ LANGUAGES = (
 LOCALE_PATHS = [join(BASE_DIR, "horilla", "locale")]
 
 # ========================================
+# CELERY (background work off the clock-in/clock-out hot path --
+# see attendance/tasks.py, horilla/celery.py)
+# ========================================
+# Same "Redis is optional" shape as CACHE above: reuses REDIS_URL as the
+# broker, no separate infrastructure. Without it (bare venv/runserver,
+# and CI -- unit-tests.yml runs against SQLite defaults with no
+# REDIS_URL) tasks run synchronously in-process via
+# CELERY_TASK_ALWAYS_EAGER, so neither a worker nor a broker is ever
+# required to run the app or its test suite.
+CELERY_BROKER_URL = REDIS_URL or "memory://"
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_TASK_ALWAYS_EAGER = env.bool(
+    "CELERY_TASK_ALWAYS_EAGER",
+    # `manage.py test` must never depend on a live external worker
+    # actually consuming a task within the test's own lifetime -- forced
+    # eager here regardless of REDIS_URL, same reasoning as CI
+    # (unit-tests.yml) staying correct simply by never setting REDIS_URL
+    # at all. A local dev environment with REDIS_URL configured (for
+    # real async testing outside of `test`) hit exactly this gap before.
+    default=not bool(REDIS_URL) or "test" in sys.argv,
+)
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TIMEZONE = TIME_ZONE
+# How often sweep_stuck_background_tasks (attendance/tasks.py) re-enqueues
+# any BackgroundAttendanceTask still PENDING/FAILED -- the retry path for
+# a task whose .delay() never reached a worker, or whose handler raised.
+CELERY_BEAT_SWEEP_INTERVAL_SECONDS = env.int(
+    "CELERY_BEAT_SWEEP_INTERVAL_SECONDS", default=300
+)
+CELERY_BEAT_SCHEDULE = {
+    "sweep-stuck-attendance-background-tasks": {
+        "task": "attendance.tasks.sweep_stuck_background_tasks",
+        "schedule": CELERY_BEAT_SWEEP_INTERVAL_SECONDS,
+    },
+}
+
+# Shared TTL (seconds) for the hot-path caches in base/config_tiers.py
+# (tiered AttendanceRuleSet/GeoFencing resolution) and attendance/caching.py
+# (AttendanceGeneralSetting, shift schedule) -- a safety net only, since
+# both are actually kept fresh by signal-based invalidation; this just
+# bounds how long a missed signal (e.g. a bulk .update() that bypasses
+# save()) could serve a stale value.
+CACHE_TTL_SECONDS = env.int("CACHE_TTL_SECONDS", default=300)
+
+# Automatic-retry cap for BackgroundAttendanceTask (attendance/models.py,
+# attendance/tasks.py) -- both the periodic sweep and a manual retry read
+# this as the attempt ceiling.
+MAX_RETRIES = env.int("MAX_RETRIES", default=5)
+
+# How long process_background_attendance_task's per-task lock (a Redis
+# SETNX via cache.add(), attendance/tasks.py) is held before it's
+# considered abandoned. This is a safety net for a worker that died mid-
+# task, not the normal release path -- the task releases its own lock in
+# a finally block the moment it finishes. Should comfortably exceed the
+# slowest realistic run of late_come()/early_out()/flexible_shortfall().
+BACKGROUND_TASK_LOCK_TTL_SECONDS = env.int(
+    "BACKGROUND_TASK_LOCK_TTL_SECONDS", default=60
+)
+
+# ========================================
 # LOGGING, MESSAGES, OTHER GLOBALS
 # ========================================
+
+# Without this, `logging.getLogger(__name__)` calls throughout the
+# project (e.g. attendance/tasks.py) have no handler anywhere in their
+# hierarchy -- Python's own "handler of last resort" then applies, which
+# only prints WARNING and above, so every logger.info()/logger.debug()
+# call in the codebase silently goes nowhere. LOG_LEVEL controls the
+# project's OWN loggers (root, minus the exceptions below); bump it to
+# DEBUG in .env for the more granular per-request tracing some call
+# sites use (e.g. attendance/tasks.py's per-branch traces).
+LOG_LEVEL = env("LOG_LEVEL", default="DEBUG" if DEBUG else "INFO")
+
+LOGGING = {
+    "version": 1,
+    # Preserves Django's own already-working loggers (notably
+    # django.server, which prints runserver's request access log lines
+    # via its own separate handler/formatter) -- only loggers actually
+    # redefined below are affected.
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(levelname)s %(name)s: %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        # Kept quiet even at LOG_LEVEL=DEBUG -- SQL query logging in
+        # particular (one line per query) would otherwise drown out
+        # everything else the project's own code logs.
+        "django.db.backends": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.utils.autoreload": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        # django_apscheduler's own polling loop (attendance/scheduler.py's
+        # Auto Punch-out job, and payroll's) logs "looking for jobs to
+        # run"/"next wakeup" on every poll -- INFO+ only, even at
+        # LOG_LEVEL=DEBUG.
+        "apscheduler": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        # Celery/Kombu's own internals (task registry dumps, broker
+        # connection chatter) -- dumps a burst of DEBUG noise the first
+        # time a task runs in a given process (attendance/tasks.py under
+        # CELERY_TASK_ALWAYS_EAGER). Not the project's own task logging,
+        # which uses attendance.tasks's own logger, unaffected by this.
+        "celery": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "kombu": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MESSAGE_TAGS = {

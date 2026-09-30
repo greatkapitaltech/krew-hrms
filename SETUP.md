@@ -241,6 +241,21 @@ Open <http://localhost:8000/> and sign in. Useful URLs:
 The first request after boot can take a few seconds while apps warm up; a 500
 during that window resolves on retry.
 
+### Optional — Celery (background attendance processing)
+
+Late-come/early-out flagging on clock-in/clock-out is deferred to a Celery
+task rather than run inline (see `attendance/tasks.py`). Without a worker
+running, `CELERY_TASK_ALWAYS_EAGER` defaults to `True` whenever `REDIS_URL`
+isn't set (`.env` at step 5, step 3's Redis service) — every task then just
+runs synchronously in-process, so this step is optional for local dev and
+skipped entirely by the test suite. To actually exercise the async path, run
+a worker and (for the periodic retry sweep) beat, each in its own terminal:
+
+```bash
+make celery-worker
+make celery-beat
+```
+
 ---
 
 ## 10. pgAdmin — the database viewer

@@ -14,7 +14,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from attendance.models import Attendance, AttendanceActivity, EmployeeShiftDay
+from attendance.models import (
+    ApprovalDelegate,
+    Attendance,
+    AttendanceActivity,
+    EmployeeShiftDay,
+    RegularizationRequest,
+)
 from attendance.views.clock_in_out import *
 from attendance.views.clock_in_out import clock_out
 from attendance.views.dashboard import (
@@ -40,6 +46,7 @@ from ...api_serializers.attendance.serializers import (
     AttendanceRequestSerializer,
     AttendanceSerializer,
     MailTemplateSerializer,
+    RegularizationRequestSerializer,
     UserAttendanceDetailedSerializer,
     UserAttendanceListSerializer,
 )
@@ -70,16 +77,21 @@ class ClockInAPIView(APIView):
 
     def post(self, request):
         if not request.user.employee_get.check_online():
-            try:
-                if request.user.employee_get.get_company().geo_fencing.start:
-                    from geofencing.views import GeoFencingEmployeeLocationCheckAPIView
+            from geofencing.methods import check_geo_fence
 
-                    location_api_view = GeoFencingEmployeeLocationCheckAPIView()
-                    response = location_api_view.post(request)
-                    if response.status_code != 200:
-                        return response
-            except:
-                pass
+            latitude = request.data.get("latitude")
+            longitude = request.data.get("longitude")
+            geo_result = check_geo_fence(
+                request.user.employee_get, latitude, longitude
+            )
+            if not geo_result.allowed:
+                message = (
+                    _("Unable to verify your location for check-in.")
+                    if geo_result.reason == "missing_location"
+                    else _("You are outside the allowed check-in location.")
+                )
+                return Response({"error": message}, status=400)
+
             employee, work_info = employee_exists(request)
             datetime_now = datetime.now()
             if request.__dict__.get("datetime"):
@@ -128,6 +140,10 @@ class ClockInAPIView(APIView):
                     start_time=start_time_sec,
                     end_time=end_time_sec,
                     in_datetime=datetime_now,
+                    latitude=latitude,
+                    longitude=longitude,
+                    geo_fence_violation=geo_result.violation,
+                    geo_fence_unverified=geo_result.unverified,
                 )
                 return Response({"message": "Clocked-In"}, status=200)
             return Response(
@@ -151,17 +167,19 @@ class ClockOutAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        from geofencing.methods import check_geo_fence
 
-        try:
-            if request.user.employee_get.get_company().geo_fencing.start:
-                from geofencing.views import GeoFencingEmployeeLocationCheckAPIView
+        latitude = request.data.get("latitude")
+        longitude = request.data.get("longitude")
+        geo_result = check_geo_fence(request.user.employee_get, latitude, longitude)
+        if not geo_result.allowed:
+            message = (
+                _("Unable to verify your location for check-out.")
+                if geo_result.reason == "missing_location"
+                else _("You are outside the allowed check-out location.")
+            )
+            return Response({"error": message}, status=400)
 
-                location_api_view = GeoFencingEmployeeLocationCheckAPIView()
-                response = location_api_view.post(request)
-                if response.status_code != 200:
-                    return response
-        except:
-            pass
         if request.user.employee_get.check_online():
             current_date = date.today()
             current_time = datetime.now().time()
@@ -174,6 +192,10 @@ class ClockOutAPIView(APIView):
                         date=current_date,
                         time=current_time,
                         datetime=current_datetime,
+                        latitude=latitude,
+                        longitude=longitude,
+                        geo_fence_violation=geo_result.violation,
+                        geo_fence_unverified=geo_result.unverified,
                     )
                 )
                 return Response({"message": "Clocked-Out"}, status=200)
@@ -1122,4 +1144,135 @@ class UserAttendanceDetailedView(APIView):
             return Response(serializer.data, status=200)
         return Response(
             {"error": _("Permission denied")}, status=status.HTTP_403_FORBIDDEN
+        )
+
+
+class RegularizationRequestView(APIView):
+    """
+    The new correction-flow endpoint (#8 Regularization) -- distinct
+    from the older AttendanceRequestView above, which stays as-is for
+    ordinary attendance edits. See RegularizationRequest's docstring in
+    attendance/models.py for why this is a separate mechanism.
+
+    Methods:
+        get(request, pk=None): a specific request, or the caller's own
+            requests plus any they can approve (direct reports and
+            active delegations).
+        post(request): raise a new request, gated by
+            RegularizationRequest.can_raise() (opt-in + monthly cap).
+    """
+
+    serializer_class = RegularizationRequestSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk=None):
+        employee = request.user.employee_get
+        if pk:
+            reg_request = get_object_or_404(RegularizationRequest, pk=pk)
+            can_view = (
+                reg_request.employee == employee
+                or ApprovalDelegate.can_approve(
+                    employee, reg_request.employee, target=reg_request
+                )
+                or request.user.has_perm("attendance.view_regularizationrequest")
+            )
+            if not can_view:
+                return Response(
+                    {"error": _("You do not have permission to view this request.")},
+                    status=403,
+                )
+            serializer = self.serializer_class(reg_request)
+            return Response(serializer.data, status=200)
+
+        own = RegularizationRequest.objects.filter(employee=employee)
+        subordinates = filtersubordinates(
+            request=request,
+            queryset=RegularizationRequest.objects.all(),
+            perm="attendance.view_regularizationrequest",
+            field="employee",
+        )
+        queryset = (own | subordinates).distinct().order_by("-created_at")
+
+        pagenation = PageNumberPagination()
+        page = pagenation.paginate_queryset(queryset, request)
+        serializer = self.serializer_class(page, many=True)
+        return pagenation.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        employee = request.user.employee_get
+        allowed, reason = RegularizationRequest.can_raise(employee)
+        if not allowed:
+            return Response({"error": str(reason)}, status=400)
+
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        data["employee"] = employee.pk
+        serializer = self.serializer_class(data=data)
+        if serializer.is_valid():
+            instance = serializer.save(employee=employee)
+            return Response(self.serializer_class(instance).data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class RegularizationRequestApproveView(APIView):
+    """
+    Approves a Regularization request -- the direct reporting manager,
+    an active ApprovalDelegate, or attendance.change_attendance.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        reg_request = get_object_or_404(RegularizationRequest, pk=pk)
+        approver = request.user.employee_get
+        authorized = (
+            request.user.has_perm("attendance.change_attendance")
+            or ApprovalDelegate.can_approve(
+                approver, reg_request.employee, target=reg_request
+            )
+        )
+        if not authorized:
+            return Response(
+                {"error": _("You do not have permission to approve this request.")},
+                status=403,
+            )
+        if reg_request.status != RegularizationRequest.STATUS_PENDING:
+            return Response(
+                {"error": _("This request has already been resolved.")}, status=400
+            )
+        resolution_note = request.data.get("resolution_note", "")
+        reg_request.approve(approver, resolution_note=resolution_note)
+        return Response(
+            RegularizationRequestSerializer(reg_request).data, status=200
+        )
+
+
+class RegularizationRequestRejectView(APIView):
+    """
+    Rejects a Regularization request. Same authorization as approve.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, pk):
+        reg_request = get_object_or_404(RegularizationRequest, pk=pk)
+        approver = request.user.employee_get
+        authorized = (
+            request.user.has_perm("attendance.change_attendance")
+            or ApprovalDelegate.can_approve(
+                approver, reg_request.employee, target=reg_request
+            )
+        )
+        if not authorized:
+            return Response(
+                {"error": _("You do not have permission to reject this request.")},
+                status=403,
+            )
+        if reg_request.status != RegularizationRequest.STATUS_PENDING:
+            return Response(
+                {"error": _("This request has already been resolved.")}, status=400
+            )
+        resolution_note = request.data.get("resolution_note", "")
+        reg_request.reject(approver, resolution_note=resolution_note)
+        return Response(
+            RegularizationRequestSerializer(reg_request).data, status=200
         )

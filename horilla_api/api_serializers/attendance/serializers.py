@@ -231,3 +231,60 @@ class UserAttendanceDetailedSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attendance
         fields = "__all__"
+
+
+class RegularizationRequestSerializer(serializers.ModelSerializer):
+    employee_first_name = serializers.CharField(
+        source="employee.employee_first_name", read_only=True
+    )
+    employee_last_name = serializers.CharField(
+        source="employee.employee_last_name", read_only=True
+    )
+    reason_code_display = serializers.CharField(
+        source="get_reason_code_display", read_only=True
+    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = RegularizationRequest
+        fields = [
+            "id",
+            "employee",
+            "employee_first_name",
+            "employee_last_name",
+            "attendance",
+            "reason_code",
+            "reason_code_display",
+            "reason",
+            "corrected_clock_in",
+            "corrected_clock_in_date",
+            "corrected_clock_out",
+            "corrected_clock_out_date",
+            "status",
+            "status_display",
+            "overtime_decision",
+            "resolved_by",
+            "resolved_at",
+            "resolution_note",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id",
+            "status",
+            "overtime_decision",
+            "resolved_by",
+            "resolved_at",
+            "resolution_note",
+            "created_at",
+        ]
+
+    def validate_reason_code(self, value):
+        # Auto Punch-out disputes have no backing flag to clear yet (see
+        # RegularizationRequest.approve()) -- kept selectable in the
+        # model for later, but not exposed through this API per the
+        # "remove it from UI but let it be in backend" instruction.
+        if value == RegularizationRequest.REASON_AUTO_CLOSE_DISPUTE:
+            raise serializers.ValidationError(
+                _("This dispute type isn't available yet.")
+            )
+        return value

@@ -501,6 +501,17 @@
                                                             </a>
                                                         </div>
                                                     {% endif %}
+
+                                                    {% if perms.geofencing.view_geofencing %}
+                                                        <div class="oh-input-group">
+                                                            <a
+                                                                id="geo_fencing_rules"
+                                                                href='{% url "geo-fencing-rule-view" %}'
+                                                                class="oh-inner-sidebar__link oh-dropdown__link"
+                                                            >{% trans "Geo-Mark Rules" %}
+                                                            </a>
+                                                        </div>
+                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </div>

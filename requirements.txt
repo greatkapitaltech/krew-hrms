@@ -4,6 +4,7 @@ asgiref
 asn1crypto
 bs4
 bleach==6.2.0
+celery
 certifi
 cffi
 chardet

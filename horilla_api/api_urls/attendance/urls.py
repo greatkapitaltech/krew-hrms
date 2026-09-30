@@ -38,6 +38,26 @@ urlpatterns = [
         AttendanceRequestCancelView.as_view(),
         name="api-",
     ),
+    path(
+        "regularization-request/",
+        RegularizationRequestView.as_view(),
+        name="api-regularization-request-view",
+    ),
+    path(
+        "regularization-request/<int:pk>",
+        RegularizationRequestView.as_view(),
+        name="api-regularization-request-detail",
+    ),
+    path(
+        "regularization-request-approve/<int:pk>",
+        RegularizationRequestApproveView.as_view(),
+        name="api-regularization-request-approve",
+    ),
+    path(
+        "regularization-request-reject/<int:pk>",
+        RegularizationRequestRejectView.as_view(),
+        name="api-regularization-request-reject",
+    ),
     path("overtime-approve/<int:pk>", OvertimeApproveView.as_view(), name="api-"),
     path(
         "attendance-hour-account/<int:pk>/",

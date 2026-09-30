@@ -10,10 +10,60 @@ from django.utils import timezone
 from base.backends import logger
 
 
-def auto_punch_out():
+def _auto_punch_out_company(employee):
+    """
+    The company an open attendance's employee belongs to, or None. Same
+    lookup shape as TieredConfigResolutionMixin.resolve_for_employee() in
+    attendance/config_tiers.py.
+    """
+    work_info = getattr(employee, "employee_work_info", None)
+    return getattr(work_info, "company_id", None)
+
+
+def _is_auto_punch_out_enabled_for(company):
+    """
+    The company-wide master switch (AttendanceGeneralSetting.
+    auto_punch_out_enabled), falling back to the global (company_id=None)
+    row -- same fallback shape as the per-request lookup in
+    attendance/views/clock_in_out.py's clock_in()/clock_out(). Off by
+    default is never possible (field defaults True), so a missing row
+    (shouldn't happen -- attendance.signals.create_attendance_setting
+    creates one per company) fails open rather than silently disabling
+    Auto Punch-out everywhere.
+    """
+    from attendance.models import AttendanceGeneralSetting
+
+    setting = AttendanceGeneralSetting.objects.filter(company_id=company).first()
+    if setting is None:
+        setting = AttendanceGeneralSetting.objects.filter(company_id=None).first()
+    return setting is None or setting.auto_punch_out_enabled
+
+
+def _close_attendance(attendance, at_datetime, at_time):
     from attendance.methods.utils import Request
-    from attendance.models import Attendance, AttendanceActivity
     from attendance.views.clock_in_out import clock_out
+
+    try:
+        clock_out(
+            Request(
+                user=attendance.employee_id.employee_user_id,
+                date=at_datetime.date(),
+                time=at_time,
+                datetime=at_datetime,
+            )
+        )
+    except Exception as e:
+        logger.error(f"auto_punch_out error: {e}")
+
+
+def _auto_punch_out_shift_based():
+    """
+    Existing behavior: an employee on a shift whose EmployeeShiftSchedule
+    has is_auto_punch_out_enabled=True gets auto-closed at that
+    schedule's own auto_punch_out_time. Gated by the new company-wide
+    master switch -- everything else here is unchanged.
+    """
+    from attendance.models import Attendance, AttendanceActivity
     from base.models import EmployeeShiftSchedule
 
     automatic_check_out_shifts = EmployeeShiftSchedule.objects.filter(
@@ -37,32 +87,124 @@ def auto_punch_out():
                 attendance_date=activity.attendance_date,
             ).first()
 
-            if attendance:
-                date = activity.attendance_date
-                if (
-                    shift_schedule.is_night_shift
-                    and shift_schedule.start_time
-                    and shift_schedule.end_time
-                    and shift_schedule.start_time > shift_schedule.end_time
-                ):
-                    date += timedelta(days=1)
+            if not attendance:
+                continue
 
-                combined_datetime = timezone.make_aware(
-                    datetime.datetime.combine(date, shift_schedule.auto_punch_out_time)
+            if not _is_auto_punch_out_enabled_for(
+                _auto_punch_out_company(attendance.employee_id)
+            ):
+                continue
+
+            date = activity.attendance_date
+            if (
+                shift_schedule.is_night_shift
+                and shift_schedule.start_time
+                and shift_schedule.end_time
+                and shift_schedule.start_time > shift_schedule.end_time
+            ):
+                date += timedelta(days=1)
+
+            combined_datetime = timezone.make_aware(
+                datetime.datetime.combine(date, shift_schedule.auto_punch_out_time)
+            )
+
+            if combined_datetime < timezone.now():
+                _close_attendance(
+                    attendance, combined_datetime, shift_schedule.auto_punch_out_time
                 )
 
-                if combined_datetime < timezone.now():
-                    try:
-                        clock_out(
-                            Request(
-                                user=attendance.employee_id.employee_user_id,
-                                date=date,
-                                time=shift_schedule.auto_punch_out_time,
-                                datetime=combined_datetime,
-                            )
-                        )
-                    except Exception as e:
-                        logger.error(f"auto_punch_out error: {e}")
+
+def _auto_punch_out_flexible_and_no_shift():
+    """
+    The two cases the shift-based sweep above structurally can't cover,
+    since both key off a real EmployeeShiftSchedule that doesn't exist
+    for these employees:
+      - Flexible mode: cutoff is resolved from attendance_rule_set_
+        snapshot's "auto_punch_out_cutoff_time" -- frozen once at this
+        day's first clock-in (see clock_in_attendance_and_activity()) --
+        via AttendanceRuleSet.resolve_effective_value(), never by
+        calling get_effective_values() live here. That call can fall
+        through to a live Company Default lookup for an inherited field;
+        resolving from the frozen snapshot instead is what actually
+        keeps an open Flexible session's cutoff from drifting if the
+        Company Default gets superseded mid-session.
+      - No shift at all: a flat cutoff from AttendanceGeneralSetting.
+        no_shift_auto_punch_out_time.
+    Deliberately skips any attendance with a real shift assigned (even one
+    without is_auto_punch_out_enabled) -- that's the shift-based sweep's
+    job to leave alone or not, this loop never overrides that choice.
+    """
+    from attendance.models import Attendance, AttendanceGeneralSetting, AttendanceRuleSet
+
+    open_attendances = Attendance.objects.filter(
+        attendance_clock_out=None, attendance_clock_out_date=None,
+    )
+
+    for attendance in open_attendances:
+        company = _auto_punch_out_company(attendance.employee_id)
+        if not _is_auto_punch_out_enabled_for(company):
+            continue
+
+        if attendance.is_flexible_mode():
+            cutoff_time = AttendanceRuleSet.resolve_effective_value(
+                attendance.attendance_rule_set_snapshot, "auto_punch_out_cutoff_time"
+            )
+            if cutoff_time is None:
+                continue
+            if isinstance(cutoff_time, str):
+                # JSONField round-trips a TimeField value through
+                # DjangoJSONEncoder as an ISO string, not a real time
+                # object -- see the field's comment.
+                cutoff_time = datetime.time.fromisoformat(cutoff_time)
+        elif attendance.shift_id is None:
+            setting = AttendanceGeneralSetting.objects.filter(
+                company_id=company
+            ).first() or AttendanceGeneralSetting.objects.filter(
+                company_id=None
+            ).first()
+            cutoff_time = (
+                setting.no_shift_auto_punch_out_time
+                if setting is not None
+                else datetime.time(23, 59)
+            )
+        else:
+            # Has a real shift and isn't Flexible -- the shift-based
+            # sweep owns this row.
+            continue
+
+        combined_datetime = timezone.make_aware(
+            datetime.datetime.combine(attendance.attendance_date, cutoff_time)
+        )
+        if combined_datetime < timezone.now():
+            _close_attendance(attendance, combined_datetime, cutoff_time)
+
+
+def auto_punch_out():
+    _auto_punch_out_shift_based()
+    _auto_punch_out_flexible_and_no_shift()
+
+
+def apply_pending_config_changes():
+    """
+    Finds every PendingConfigChange whose effective_date has arrived and
+    applies it. `__lte` (not exact-match) makes this self-healing if a
+    scheduler run was missed -- a change just applies on the next run
+    instead of being skipped. `apply()` itself is a no-op on anything not
+    still `pending`, so re-running this job is always safe.
+    """
+    from datetime import date
+
+    from attendance.models import PendingConfigChange
+
+    due = PendingConfigChange.objects.filter(
+        status=PendingConfigChange.STATUS_PENDING,
+        effective_date__lte=date.today(),
+    )
+    for change in due:
+        try:
+            change.apply()
+        except Exception as e:
+            logger.error(f"apply_pending_config_changes error for change {change.pk}: {e}")
 
 
 def create_work_record():
@@ -128,6 +270,15 @@ if not any(
         minutes=5,
         misfire_grace_time=600,
         id="auto_punch_out",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        apply_pending_config_changes,
+        "cron",
+        hour=0,
+        minute=45,
+        misfire_grace_time=3600 * 9,
+        id="apply_pending_config_changes",
         replace_existing=True,
     )
 

@@ -97,6 +97,7 @@ __pypackages__/
 
 # Celery stuff
 celerybeat-schedule
+celerybeat-schedule-*
 celerybeat.pid
 
 # SageMath parsed files
@@ -167,3 +168,12 @@ CLAUDE.md
 
 # Local pgAdmin credentials file (dev only)
 docker/pgadmin/pgpass
+
+# Load-test-only scripts (see loadtest/ for the locustfiles themselves,
+# which do stay committed) -- not real application management commands,
+# and prep_load_test_pool.py writes tokens.json/tokens_clocked_in.json
+# (real JWTs) alongside itself, also excluded below.
+attendance/management/commands/seed_load_test_employees.py
+attendance/management/commands/prep_load_test_pool.py
+loadtest/tokens.json
+loadtest/tokens_clocked_in.json
