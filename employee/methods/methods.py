@@ -731,7 +731,7 @@ def create_contracts_in_thread(new_work_info_list, update_work_info_list):
     """
     Creates employee contracts in bulk based on provided work information.
     """
-    from payroll.models.models import Contract
+    from krew_payroll.models.models import Contract
 
     contracts_list = [
         Contract(
@@ -961,7 +961,7 @@ def bulk_create_work_info_import(success_lists):
             ],
             batch_size=None if is_postgres else 999,
         )
-    if apps.is_installed("payroll"):
+    if apps.is_installed("krew_payroll"):
 
         contract_creation_thread = threading.Thread(
             target=create_contracts_in_thread,

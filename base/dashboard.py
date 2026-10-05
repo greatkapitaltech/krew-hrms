@@ -957,7 +957,7 @@ def dashboard_recruitment_pipeline(request):
 @login_required
 def dashboard_payroll_summary(request):
     """Payroll summary — selected period vs previous period."""
-    if not (request.user.is_superuser or request.user.has_perm("payroll.view_payslip")):
+    if not (request.user.is_superuser or request.user.has_perm("krew_payroll.view_payslip")):
         return JsonResponse({"no_permission": True})
     from_date, to_date = _parse_period(request)
     today = to_date
@@ -972,7 +972,7 @@ def dashboard_payroll_summary(request):
     try:
         from django.db.models import Sum
 
-        from payroll.models.models import Payslip
+        from krew_payroll.models.models import Payslip
 
         def _aggregate(qs):
             agg = qs.aggregate(
@@ -1036,7 +1036,7 @@ def dashboard_pending_approvals(request):
     has_asset_perm = user.has_perm("asset.change_assetrequest")
     has_shift_perm = user.has_perm("base.change_shiftrequest")
     has_wt_perm = user.has_perm("base.change_worktyperequest")
-    has_reimb_perm = user.has_perm("payroll.change_reimbursement")
+    has_reimb_perm = user.has_perm("krew_payroll.change_reimbursement")
     is_mgr = _is_manager(user)
 
     can_approve = any(
@@ -1198,7 +1198,7 @@ def dashboard_pending_approvals(request):
 
     # Reimbursement requests
     try:
-        from payroll.models.models import Reimbursement
+        from krew_payroll.models.models import Reimbursement
 
         if can_approve and has_reimb_perm:
             reimb_count = Reimbursement.objects.filter(status="requested").count()

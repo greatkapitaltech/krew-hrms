@@ -1543,7 +1543,7 @@
                         </div>
                     {% endif %}
 
-                    {% if perms.payroll.view_payslip or request.user.is_superuser %}
+                    {% if perms.krew_payroll.view_payslip or request.user.is_superuser %}
                         <!-- Payroll Summary (NEW) -->
                         <div
                             class="md-chart-card"
@@ -2778,7 +2778,7 @@
             loadEmployeeTurnover();
             {% endif %}
 
-            {% if perms.payroll.view_payslip or request.user.is_superuser %}
+            {% if perms.krew_payroll.view_payslip or request.user.is_superuser %}
             // ─── PAYROLL SUMMARY ───
             function loadPayrollSummary() {
                 fetchP("{% url 'dashboard-payroll-summary' %}")

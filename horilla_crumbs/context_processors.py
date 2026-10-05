@@ -269,6 +269,22 @@ def breadcrumbs(request):
             }
         ]
 
+    # A view can set request.page_breadcrumbs = [(name, path), ...] when its URL
+    # segments don't read well (e.g. the earnings / deductions editor).
+    page_breadcrumbs = getattr(request, "page_breadcrumbs", None)
+    if page_breadcrumbs:
+        root = request.session["breadcrumbs"][0]
+        request.session["breadcrumbs"] = [root] + [
+            {
+                "url": base_url.rstrip("/") + crumb_path,
+                "name": str(name),
+                "found": True,
+                "clickable": True,
+            }
+            for name, crumb_path in page_breadcrumbs
+        ]
+        return {"breadcrumbs": request.session["breadcrumbs"]}
+
     try:
         breadcrumbs = request.session["breadcrumbs"]
 

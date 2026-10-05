@@ -354,11 +354,6 @@ urlpatterns = [
         views.employee_note_delete,
         name="employee-note-delete",
     ),
-    path(
-        "allowances-deductions-tab/<int:emp_id>/",
-        views.allowances_deductions_tab,
-        name="allowances-deductions-tab",
-    ),
     path("shift-tab/<int:pk>/", views.shift_tab, name="shift-tab"),
     # path(
     #     "about-tab/<int:obj_id>",
@@ -884,26 +879,3 @@ if app_installed("leave"):
         ),
     ]
 
-if app_installed("payroll"):
-    urlpatterns += [
-        path(
-            "allocation-allowance/",
-            allocations.AllowanceView.as_view(),
-            name="allocation-allowance",
-        ),
-        path(
-            "allocation-allowance-list/",
-            allocations.AllowanceList.as_view(),
-            name="allocation-allowance-list",
-        ),
-        path(
-            "allocation-deduction/",
-            allocations.DeductionView.as_view(),
-            name="allocation-deduction",
-        ),
-        path(
-            "allocation-deduction-list/",
-            allocations.DeductionList.as_view(),
-            name="allocation-deduction-list",
-        ),
-    ]

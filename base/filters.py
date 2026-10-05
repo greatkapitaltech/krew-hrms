@@ -676,3 +676,28 @@ class RosterFilter(django_filters.FilterSet):
         from base.models import Department
 
         self.form.fields["department"].queryset = Department.objects.all()
+
+
+class CodeNameMasterFilter(HorillaFilterSet):
+    """Search a code / name master (worker class, grade)."""
+
+    search = django_filters.CharFilter(method="search_method")
+
+    def search_method(self, queryset, _name, value):
+        return queryset.filter(Q(name__icontains=value) | Q(code__icontains=value))
+
+
+class WorkerClassFilter(CodeNameMasterFilter):
+    class Meta:
+        from base.models import WorkerClass
+
+        model = WorkerClass
+        fields = ["code", "name"]
+
+
+class GradeFilter(CodeNameMasterFilter):
+    class Meta:
+        from base.models import Grade
+
+        model = Grade
+        fields = ["code", "name"]

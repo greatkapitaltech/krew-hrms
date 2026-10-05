@@ -30,7 +30,7 @@ def system_preferences_accessibility(request, submenu, user_perms, *args, **kwar
             "horilla_audit.view_accountblockunblock",
             "employee.change_employeegeneralsetting",
             "horilla_audit.view_historytrackingfields",
-            "payroll.view_payrollsettings",
+            "krew_payroll.view_payrollsettings",
             "base.view_company",
             "base.view_companylanguagesetting",
         ]

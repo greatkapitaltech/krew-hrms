@@ -1,6 +1,6 @@
 [
  {
-  "model": "payroll.filingstatus",
+  "model": "krew_payroll.filingstatus",
   "pk": 1,
   "fields": {
    "created_at": "2025-07-21T08:42:22.725Z",
@@ -16,7 +16,7 @@
   }
  },
  {
-  "model": "payroll.filingstatus",
+  "model": "krew_payroll.filingstatus",
   "pk": 2,
   "fields": {
    "created_at": "2025-07-21T08:42:28.019Z",
@@ -32,7 +32,7 @@
   }
  },
  {
-  "model": "payroll.filingstatus",
+  "model": "krew_payroll.filingstatus",
   "pk": 3,
   "fields": {
    "created_at": "2025-07-21T08:42:34.764Z",
@@ -48,7 +48,7 @@
   }
  },
  {
-  "model": "payroll.filingstatus",
+  "model": "krew_payroll.filingstatus",
   "pk": 4,
   "fields": {
    "created_at": "2025-07-21T08:42:40.096Z",
@@ -64,7 +64,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 1,
   "fields": {
    "created_at": "2025-07-21T08:38:13.177Z",
@@ -103,7 +103,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 2,
   "fields": {
    "created_at": "2025-07-21T08:38:56.869Z",
@@ -142,7 +142,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 3,
   "fields": {
    "created_at": "2025-07-21T08:39:35.476Z",
@@ -181,7 +181,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 4,
   "fields": {
    "created_at": "2025-07-21T08:40:56.257Z",
@@ -222,7 +222,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 5,
   "fields": {
    "created_at": "2025-07-21T08:40:56.311Z",
@@ -263,7 +263,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 6,
   "fields": {
    "created_at": "2025-07-21T08:40:56.359Z",
@@ -304,7 +304,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 7,
   "fields": {
    "created_at": "2025-07-21T08:40:56.407Z",
@@ -345,7 +345,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 8,
   "fields": {
    "created_at": "2025-07-21T08:40:56.455Z",
@@ -386,7 +386,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 9,
   "fields": {
    "created_at": "2025-07-21T08:40:56.506Z",
@@ -427,7 +427,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 10,
   "fields": {
    "created_at": "2025-07-21T08:40:56.557Z",
@@ -468,7 +468,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 11,
   "fields": {
    "created_at": "2025-07-21T08:40:56.608Z",
@@ -509,7 +509,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 12,
   "fields": {
    "created_at": "2025-07-21T08:40:56.657Z",
@@ -550,7 +550,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 13,
   "fields": {
    "created_at": "2025-07-21T08:40:56.708Z",
@@ -591,7 +591,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 14,
   "fields": {
    "created_at": "2025-07-21T08:40:56.758Z",
@@ -632,7 +632,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 15,
   "fields": {
    "created_at": "2025-07-21T08:40:56.822Z",
@@ -673,7 +673,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 16,
   "fields": {
    "created_at": "2025-07-21T08:40:56.903Z",
@@ -714,7 +714,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 17,
   "fields": {
    "created_at": "2025-07-21T08:40:56.970Z",
@@ -755,7 +755,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 18,
   "fields": {
    "created_at": "2025-07-21T08:40:57.023Z",
@@ -796,7 +796,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 19,
   "fields": {
    "created_at": "2025-07-21T08:40:57.089Z",
@@ -837,7 +837,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 20,
   "fields": {
    "created_at": "2025-07-21T08:40:57.139Z",
@@ -878,7 +878,7 @@
   }
  },
  {
-  "model": "payroll.deduction",
+  "model": "krew_payroll.deduction",
   "pk": 21,
   "fields": {
    "created_at": "2025-07-21T08:40:57.185Z",
@@ -919,14 +919,14 @@
   }
  },
  {
-  "model": "payroll.reimbursementmultipleattachment",
+  "model": "krew_payroll.reimbursementmultipleattachment",
   "pk": 1,
   "fields": {
    "attachment": "payroll/reimbursements/Passport.pdf"
   }
  },
  {
-  "model": "payroll.payrollsettings",
+  "model": "krew_payroll.payrollsettings",
   "pk": 1,
   "fields": {
    "created_at": "2025-07-21T07:16:03.794Z",
@@ -939,7 +939,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 1,
   "fields": {
    "created_at": "2025-07-21T08:44:26.050Z",
@@ -953,7 +953,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 2,
   "fields": {
    "created_at": "2025-07-21T08:44:36.408Z",
@@ -967,7 +967,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 3,
   "fields": {
    "created_at": "2025-07-21T08:44:45.023Z",
@@ -981,7 +981,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 4,
   "fields": {
    "created_at": "2025-07-21T08:45:07.251Z",
@@ -995,7 +995,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 5,
   "fields": {
    "created_at": "2025-07-21T08:45:28.220Z",
@@ -1009,7 +1009,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 6,
   "fields": {
    "created_at": "2025-07-21T08:45:42.610Z",
@@ -1023,7 +1023,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 7,
   "fields": {
    "created_at": "2025-07-21T08:45:58.234Z",
@@ -1037,7 +1037,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 8,
   "fields": {
    "created_at": "2025-07-21T08:46:40.497Z",
@@ -1051,7 +1051,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 9,
   "fields": {
    "created_at": "2025-07-21T08:46:49.039Z",
@@ -1065,7 +1065,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 10,
   "fields": {
    "created_at": "2025-07-21T08:46:59.265Z",
@@ -1079,7 +1079,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 11,
   "fields": {
    "created_at": "2025-07-21T08:47:12.204Z",
@@ -1093,7 +1093,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 12,
   "fields": {
    "created_at": "2025-07-21T08:47:26.068Z",
@@ -1107,7 +1107,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 13,
   "fields": {
    "created_at": "2025-07-21T08:47:40.309Z",
@@ -1121,7 +1121,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 14,
   "fields": {
    "created_at": "2025-07-21T08:47:48.308Z",
@@ -1135,7 +1135,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 15,
   "fields": {
    "created_at": "2025-07-21T08:48:13.578Z",
@@ -1149,7 +1149,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 16,
   "fields": {
    "created_at": "2025-07-21T08:48:22.948Z",
@@ -1163,7 +1163,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 17,
   "fields": {
    "created_at": "2025-07-21T08:48:38.104Z",
@@ -1177,7 +1177,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 18,
   "fields": {
    "created_at": "2025-07-21T08:48:52.625Z",
@@ -1191,7 +1191,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 19,
   "fields": {
    "created_at": "2025-07-21T08:49:09.192Z",
@@ -1205,7 +1205,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 20,
   "fields": {
    "created_at": "2025-07-21T08:49:23.918Z",
@@ -1219,7 +1219,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 21,
   "fields": {
    "created_at": "2025-07-21T08:49:32.982Z",
@@ -1233,7 +1233,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 22,
   "fields": {
    "created_at": "2025-07-21T08:49:55.138Z",
@@ -1247,7 +1247,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 23,
   "fields": {
    "created_at": "2025-07-21T08:50:07.112Z",
@@ -1261,7 +1261,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 24,
   "fields": {
    "created_at": "2025-07-21T08:50:16.831Z",
@@ -1275,7 +1275,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 25,
   "fields": {
    "created_at": "2025-07-21T08:50:44.001Z",
@@ -1289,7 +1289,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 26,
   "fields": {
    "created_at": "2025-07-21T08:50:56.700Z",
@@ -1303,7 +1303,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 27,
   "fields": {
    "created_at": "2025-07-21T08:51:10.920Z",
@@ -1317,7 +1317,7 @@
   }
  },
  {
-  "model": "payroll.taxbracket",
+  "model": "krew_payroll.taxbracket",
   "pk": 28,
   "fields": {
    "created_at": "2025-07-21T08:51:25.104Z",
@@ -1331,7 +1331,7 @@
   }
  },
  {
-  "model": "payroll.allowance",
+  "model": "krew_payroll.allowance",
   "pk": 1,
   "fields": {
    "created_at": "2025-07-21T08:35:27.289Z",
@@ -1387,7 +1387,7 @@
   }
  },
  {
-  "model": "payroll.allowance",
+  "model": "krew_payroll.allowance",
   "pk": 2,
   "fields": {
    "created_at": "2025-07-21T08:36:39.003Z",
@@ -1430,7 +1430,7 @@
   }
  },
  {
-  "model": "payroll.allowance",
+  "model": "krew_payroll.allowance",
   "pk": 3,
   "fields": {
    "created_at": "2025-07-21T08:37:32.308Z",
@@ -1473,7 +1473,7 @@
   }
  },
  {
-  "model": "payroll.allowance",
+  "model": "krew_payroll.allowance",
   "pk": 4,
   "fields": {
    "created_at": "2025-07-21T08:40:56.185Z",
@@ -1518,7 +1518,7 @@
   }
  },
  {
-  "model": "payroll.allowance",
+  "model": "krew_payroll.allowance",
   "pk": 5,
   "fields": {
    "created_at": "2026-07-31T18:14:18.184Z",
@@ -1563,7 +1563,7 @@
   }
  },
  {
-  "model": "payroll.allowance",
+  "model": "krew_payroll.allowance",
   "pk": 6,
   "fields": {
    "created_at": "2026-07-31T18:30:34.574Z",
@@ -1608,7 +1608,7 @@
   }
  },
  {
-  "model": "payroll.allowance",
+  "model": "krew_payroll.allowance",
   "pk": 7,
   "fields": {
    "created_at": "2026-07-31T18:30:34.617Z",
@@ -1653,7 +1653,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 1,
   "fields": {
    "created_at": "2026-07-31T14:33:44.559Z",
@@ -1683,7 +1683,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 2,
   "fields": {
    "created_at": "2026-07-31T14:33:44.575Z",
@@ -1713,7 +1713,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 3,
   "fields": {
    "created_at": "2026-07-31T14:33:44.583Z",
@@ -1743,7 +1743,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 4,
   "fields": {
    "created_at": "2026-07-31T14:33:44.591Z",
@@ -1773,7 +1773,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 5,
   "fields": {
    "created_at": "2026-07-31T14:33:44.599Z",
@@ -1803,7 +1803,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 6,
   "fields": {
    "created_at": "2026-07-31T14:33:44.607Z",
@@ -1833,7 +1833,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 7,
   "fields": {
    "created_at": "2026-07-31T14:33:44.614Z",
@@ -1863,7 +1863,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 8,
   "fields": {
    "created_at": "2026-07-31T14:33:44.622Z",
@@ -1893,7 +1893,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 9,
   "fields": {
    "created_at": "2026-07-31T14:33:44.630Z",
@@ -1923,7 +1923,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 10,
   "fields": {
    "created_at": "2026-07-31T14:33:44.637Z",
@@ -1953,7 +1953,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 11,
   "fields": {
    "created_at": "2026-07-31T14:33:44.645Z",
@@ -1983,7 +1983,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 12,
   "fields": {
    "created_at": "2026-07-31T14:33:44.653Z",
@@ -2013,7 +2013,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 13,
   "fields": {
    "created_at": "2026-07-31T14:33:44.661Z",
@@ -2043,7 +2043,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 14,
   "fields": {
    "created_at": "2026-07-31T14:33:44.669Z",
@@ -2073,7 +2073,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 15,
   "fields": {
    "created_at": "2026-07-31T14:33:44.676Z",
@@ -2103,7 +2103,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 16,
   "fields": {
    "created_at": "2026-07-31T14:33:44.684Z",
@@ -2133,7 +2133,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 17,
   "fields": {
    "created_at": "2026-07-31T14:33:44.692Z",
@@ -2163,7 +2163,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 18,
   "fields": {
    "created_at": "2026-07-31T14:33:44.700Z",
@@ -2193,7 +2193,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 19,
   "fields": {
    "created_at": "2026-07-31T14:33:44.708Z",
@@ -2223,7 +2223,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 20,
   "fields": {
    "created_at": "2026-07-31T14:33:44.715Z",
@@ -2253,7 +2253,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 21,
   "fields": {
    "created_at": "2026-07-31T14:33:44.723Z",
@@ -2283,7 +2283,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 22,
   "fields": {
    "created_at": "2026-07-31T14:33:44.730Z",
@@ -2313,7 +2313,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 23,
   "fields": {
    "created_at": "2026-07-31T14:33:44.738Z",
@@ -2343,7 +2343,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 24,
   "fields": {
    "created_at": "2026-07-31T14:33:44.746Z",
@@ -2373,7 +2373,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 25,
   "fields": {
    "created_at": "2026-07-31T14:33:44.753Z",
@@ -2403,7 +2403,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 26,
   "fields": {
    "created_at": "2026-07-31T14:33:44.761Z",
@@ -2433,7 +2433,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 27,
   "fields": {
    "created_at": "2026-07-31T14:33:44.770Z",
@@ -2463,7 +2463,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 28,
   "fields": {
    "created_at": "2026-07-31T14:33:44.777Z",
@@ -2493,7 +2493,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 29,
   "fields": {
    "created_at": "2026-07-31T14:33:44.785Z",
@@ -2523,7 +2523,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 30,
   "fields": {
    "created_at": "2026-07-31T14:33:44.793Z",
@@ -2553,7 +2553,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 31,
   "fields": {
    "created_at": "2026-07-31T14:33:44.801Z",
@@ -2583,7 +2583,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 32,
   "fields": {
    "created_at": "2026-07-31T14:33:44.809Z",
@@ -2613,7 +2613,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 33,
   "fields": {
    "created_at": "2026-07-31T14:33:44.817Z",
@@ -2643,7 +2643,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 34,
   "fields": {
    "created_at": "2026-07-31T14:33:44.825Z",
@@ -2673,7 +2673,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 35,
   "fields": {
    "created_at": "2026-07-31T14:33:44.833Z",
@@ -2703,7 +2703,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 36,
   "fields": {
    "created_at": "2026-07-31T14:33:44.845Z",
@@ -2733,7 +2733,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 37,
   "fields": {
    "created_at": "2026-07-31T14:33:44.853Z",
@@ -2763,7 +2763,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 38,
   "fields": {
    "created_at": "2026-07-31T14:33:44.861Z",
@@ -2793,7 +2793,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 39,
   "fields": {
    "created_at": "2026-07-31T14:33:44.869Z",
@@ -2823,7 +2823,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 40,
   "fields": {
    "created_at": "2026-07-31T14:33:44.877Z",
@@ -2853,7 +2853,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 41,
   "fields": {
    "created_at": "2026-07-31T14:33:44.885Z",
@@ -2883,7 +2883,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 42,
   "fields": {
    "created_at": "2026-07-31T14:33:44.893Z",
@@ -2913,7 +2913,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 43,
   "fields": {
    "created_at": "2026-07-31T14:33:44.901Z",
@@ -2943,7 +2943,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 44,
   "fields": {
    "created_at": "2026-07-31T14:33:44.909Z",
@@ -2973,7 +2973,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 45,
   "fields": {
    "created_at": "2026-07-31T14:33:44.918Z",
@@ -3003,7 +3003,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 46,
   "fields": {
    "created_at": "2026-07-31T14:33:44.926Z",
@@ -3033,7 +3033,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 47,
   "fields": {
    "created_at": "2026-07-31T14:33:44.934Z",
@@ -3063,7 +3063,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 48,
   "fields": {
    "created_at": "2026-07-31T14:33:44.941Z",
@@ -3093,7 +3093,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 49,
   "fields": {
    "created_at": "2026-07-31T14:33:44.950Z",
@@ -3123,7 +3123,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 50,
   "fields": {
    "created_at": "2026-07-31T14:33:44.962Z",
@@ -3153,7 +3153,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 51,
   "fields": {
    "created_at": "2026-07-31T14:33:44.974Z",
@@ -3183,7 +3183,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 52,
   "fields": {
    "created_at": "2026-07-31T14:33:44.986Z",
@@ -3213,7 +3213,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 53,
   "fields": {
    "created_at": "2026-07-31T14:33:44.999Z",
@@ -3243,7 +3243,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 54,
   "fields": {
    "created_at": "2026-07-31T14:33:45.012Z",
@@ -3273,7 +3273,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 55,
   "fields": {
    "created_at": "2026-07-31T14:33:45.026Z",
@@ -3303,7 +3303,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 56,
   "fields": {
    "created_at": "2026-07-31T14:33:45.039Z",
@@ -3333,7 +3333,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 57,
   "fields": {
    "created_at": "2026-07-31T14:33:45.052Z",
@@ -3363,7 +3363,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 58,
   "fields": {
    "created_at": "2026-07-31T14:33:45.065Z",
@@ -3393,7 +3393,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 59,
   "fields": {
    "created_at": "2026-07-31T14:33:45.078Z",
@@ -3423,7 +3423,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 60,
   "fields": {
    "created_at": "2026-07-31T14:33:45.091Z",
@@ -3453,7 +3453,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 61,
   "fields": {
    "created_at": "2026-07-31T14:33:45.104Z",
@@ -3483,7 +3483,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 62,
   "fields": {
    "created_at": "2026-07-31T14:33:45.117Z",
@@ -3513,7 +3513,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 63,
   "fields": {
    "created_at": "2026-07-31T14:33:45.130Z",
@@ -3543,7 +3543,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 64,
   "fields": {
    "created_at": "2026-07-31T14:33:45.143Z",
@@ -3573,7 +3573,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 65,
   "fields": {
    "created_at": "2026-07-31T14:33:45.155Z",
@@ -3603,7 +3603,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 66,
   "fields": {
    "created_at": "2026-07-31T14:33:45.168Z",
@@ -3633,7 +3633,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 67,
   "fields": {
    "created_at": "2026-07-31T14:33:45.181Z",
@@ -3663,7 +3663,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 68,
   "fields": {
    "created_at": "2026-07-31T14:33:45.194Z",
@@ -3693,7 +3693,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 69,
   "fields": {
    "created_at": "2026-07-31T14:33:45.206Z",
@@ -3723,7 +3723,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 70,
   "fields": {
    "created_at": "2026-07-31T14:33:45.218Z",
@@ -3753,7 +3753,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 71,
   "fields": {
    "created_at": "2026-07-31T14:33:45.230Z",
@@ -3783,7 +3783,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 72,
   "fields": {
    "created_at": "2026-07-31T14:33:45.243Z",
@@ -3813,7 +3813,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 73,
   "fields": {
    "created_at": "2026-07-31T14:33:45.252Z",
@@ -3843,7 +3843,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 74,
   "fields": {
    "created_at": "2026-07-31T14:33:45.260Z",
@@ -3873,7 +3873,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 75,
   "fields": {
    "created_at": "2026-07-31T14:33:45.268Z",
@@ -3903,7 +3903,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 76,
   "fields": {
    "created_at": "2026-07-31T14:33:45.275Z",
@@ -3933,7 +3933,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 77,
   "fields": {
    "created_at": "2026-07-31T14:33:45.284Z",
@@ -3963,7 +3963,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 78,
   "fields": {
    "created_at": "2026-07-31T14:33:45.292Z",
@@ -3993,7 +3993,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 79,
   "fields": {
    "created_at": "2026-07-31T14:33:45.300Z",
@@ -4023,7 +4023,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 80,
   "fields": {
    "created_at": "2026-07-31T14:33:45.308Z",
@@ -4053,7 +4053,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 81,
   "fields": {
    "created_at": "2026-07-31T14:33:45.316Z",
@@ -4083,7 +4083,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 82,
   "fields": {
    "created_at": "2026-07-31T14:33:45.324Z",
@@ -4113,7 +4113,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 83,
   "fields": {
    "created_at": "2026-07-31T14:33:45.332Z",
@@ -4143,7 +4143,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 84,
   "fields": {
    "created_at": "2026-07-31T14:33:45.340Z",
@@ -4173,7 +4173,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 85,
   "fields": {
    "created_at": "2026-07-31T14:33:45.348Z",
@@ -4203,7 +4203,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 86,
   "fields": {
    "created_at": "2026-07-31T14:33:45.356Z",
@@ -4233,7 +4233,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 87,
   "fields": {
    "created_at": "2026-07-31T14:33:45.364Z",
@@ -4263,7 +4263,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 88,
   "fields": {
    "created_at": "2026-07-31T14:33:45.372Z",
@@ -4293,7 +4293,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 89,
   "fields": {
    "created_at": "2026-07-31T14:33:45.380Z",
@@ -4323,7 +4323,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 90,
   "fields": {
    "created_at": "2026-07-31T14:33:45.388Z",
@@ -4353,7 +4353,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 91,
   "fields": {
    "created_at": "2026-07-31T14:33:45.395Z",
@@ -4383,7 +4383,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 92,
   "fields": {
    "created_at": "2026-07-31T14:33:45.403Z",
@@ -4413,7 +4413,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 93,
   "fields": {
    "created_at": "2026-07-31T14:33:45.411Z",
@@ -4443,7 +4443,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 94,
   "fields": {
    "created_at": "2026-07-31T14:33:45.419Z",
@@ -4473,7 +4473,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 95,
   "fields": {
    "created_at": "2026-07-31T14:33:45.427Z",
@@ -4503,7 +4503,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 96,
   "fields": {
    "created_at": "2026-07-31T14:33:45.435Z",
@@ -4533,7 +4533,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 97,
   "fields": {
    "created_at": "2026-07-31T14:33:45.442Z",
@@ -4563,7 +4563,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 98,
   "fields": {
    "created_at": "2026-07-31T14:33:45.450Z",
@@ -4593,7 +4593,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 99,
   "fields": {
    "created_at": "2026-07-31T14:33:45.458Z",
@@ -4623,7 +4623,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 100,
   "fields": {
    "created_at": "2026-07-31T14:33:45.466Z",
@@ -4653,7 +4653,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 101,
   "fields": {
    "created_at": "2026-07-31T14:33:45.473Z",
@@ -4683,7 +4683,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 102,
   "fields": {
    "created_at": "2026-07-31T14:33:45.481Z",
@@ -4713,7 +4713,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 103,
   "fields": {
    "created_at": "2026-07-31T14:33:45.488Z",
@@ -4743,7 +4743,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 104,
   "fields": {
    "created_at": "2026-07-31T14:33:45.496Z",
@@ -4773,7 +4773,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 105,
   "fields": {
    "created_at": "2026-07-31T14:33:45.504Z",
@@ -4803,7 +4803,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 106,
   "fields": {
    "created_at": "2026-07-31T14:33:45.512Z",
@@ -4833,7 +4833,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 107,
   "fields": {
    "created_at": "2026-07-31T14:33:45.519Z",
@@ -4863,7 +4863,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 108,
   "fields": {
    "created_at": "2026-07-31T14:33:45.527Z",
@@ -4893,7 +4893,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 109,
   "fields": {
    "created_at": "2026-07-31T14:33:45.535Z",
@@ -4923,7 +4923,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 110,
   "fields": {
    "created_at": "2026-07-31T14:33:45.543Z",
@@ -4953,7 +4953,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 111,
   "fields": {
    "created_at": "2026-07-31T14:33:45.550Z",
@@ -4983,7 +4983,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 112,
   "fields": {
    "created_at": "2026-07-31T14:33:45.558Z",
@@ -5013,7 +5013,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 113,
   "fields": {
    "created_at": "2026-07-31T14:33:45.566Z",
@@ -5043,7 +5043,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 114,
   "fields": {
    "created_at": "2026-07-31T14:33:45.573Z",
@@ -5073,7 +5073,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 115,
   "fields": {
    "created_at": "2026-07-31T14:33:45.581Z",
@@ -5103,7 +5103,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 116,
   "fields": {
    "created_at": "2026-07-31T14:33:45.589Z",
@@ -5133,7 +5133,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 117,
   "fields": {
    "created_at": "2026-07-31T14:33:45.597Z",
@@ -5163,7 +5163,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 118,
   "fields": {
    "created_at": "2026-07-31T14:33:45.604Z",
@@ -5193,7 +5193,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 119,
   "fields": {
    "created_at": "2026-07-31T14:33:45.612Z",
@@ -5223,7 +5223,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 120,
   "fields": {
    "created_at": "2026-07-31T14:33:45.620Z",
@@ -5253,7 +5253,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 121,
   "fields": {
    "created_at": "2026-07-31T14:33:45.628Z",
@@ -5283,7 +5283,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 122,
   "fields": {
    "created_at": "2026-07-31T14:33:45.636Z",
@@ -5313,7 +5313,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 123,
   "fields": {
    "created_at": "2026-07-31T14:33:45.643Z",
@@ -5343,7 +5343,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 124,
   "fields": {
    "created_at": "2026-07-31T14:33:45.651Z",
@@ -5373,7 +5373,7 @@
   }
  },
  {
-  "model": "payroll.contract",
+  "model": "krew_payroll.contract",
   "pk": 125,
   "fields": {
    "created_at": "2026-07-31T14:33:45.659Z",
@@ -5403,7 +5403,7 @@
   }
  },
  {
-  "model": "payroll.reimbursement",
+  "model": "krew_payroll.reimbursement",
   "pk": 1,
   "fields": {
    "created_at": "2025-07-21T08:42:06.139Z",
@@ -5430,7 +5430,7 @@
   }
  },
  {
-  "model": "payroll.reimbursement",
+  "model": "krew_payroll.reimbursement",
   "pk": 2,
   "fields": {
    "created_at": "2024-10-15T04:38:48.945Z",
@@ -5455,7 +5455,7 @@
   }
  },
  {
-  "model": "payroll.reimbursement",
+  "model": "krew_payroll.reimbursement",
   "pk": 3,
   "fields": {
    "created_at": "2024-10-15T04:39:28.342Z",
@@ -5480,7 +5480,7 @@
   }
  },
  {
-  "model": "payroll.reimbursement",
+  "model": "krew_payroll.reimbursement",
   "pk": 4,
   "fields": {
    "created_at": "2024-10-15T04:39:56.670Z",
@@ -5505,7 +5505,7 @@
   }
  },
  {
-  "model": "payroll.reimbursement",
+  "model": "krew_payroll.reimbursement",
   "pk": 5,
   "fields": {
    "created_at": "2024-10-15T04:40:31.350Z",
@@ -5530,7 +5530,7 @@
   }
  },
  {
-  "model": "payroll.reimbursement",
+  "model": "krew_payroll.reimbursement",
   "pk": 6,
   "fields": {
    "created_at": "2026-07-31T18:30:34.668Z",
@@ -5555,7 +5555,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 91,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -5641,7 +5641,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 92,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -5721,7 +5721,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 93,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -5801,7 +5801,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 94,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -5881,7 +5881,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 95,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -5961,7 +5961,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 96,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6041,7 +6041,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 97,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6121,7 +6121,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 98,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6201,7 +6201,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 99,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6281,7 +6281,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 100,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6361,7 +6361,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 101,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6441,7 +6441,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 102,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6521,7 +6521,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 103,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6608,7 +6608,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 104,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6688,7 +6688,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 105,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6768,7 +6768,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 106,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6848,7 +6848,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 107,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -6928,7 +6928,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 108,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7015,7 +7015,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 109,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7095,7 +7095,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 110,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7175,7 +7175,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 111,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7255,7 +7255,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 112,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7335,7 +7335,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 113,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7415,7 +7415,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 114,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7495,7 +7495,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 115,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7575,7 +7575,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 116,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7655,7 +7655,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 117,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7735,7 +7735,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 118,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7815,7 +7815,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 119,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7895,7 +7895,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 120,
   "fields": {
    "created_at": "2025-02-28T18:00:00Z",
@@ -7975,7 +7975,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 121,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8061,7 +8061,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 122,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8141,7 +8141,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 123,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8221,7 +8221,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 124,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8301,7 +8301,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 125,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8381,7 +8381,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 126,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8461,7 +8461,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 127,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8541,7 +8541,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 128,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8621,7 +8621,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 129,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8701,7 +8701,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 130,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8781,7 +8781,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 131,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8861,7 +8861,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 132,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -8941,7 +8941,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 133,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9021,7 +9021,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 134,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9101,7 +9101,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 135,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9181,7 +9181,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 136,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9261,7 +9261,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 137,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9341,7 +9341,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 138,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9428,7 +9428,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 139,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9508,7 +9508,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 140,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9588,7 +9588,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 141,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9668,7 +9668,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 142,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9748,7 +9748,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 143,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9828,7 +9828,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 144,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9908,7 +9908,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 145,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -9988,7 +9988,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 146,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -10068,7 +10068,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 147,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -10148,7 +10148,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 148,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -10228,7 +10228,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 149,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -10308,7 +10308,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 150,
   "fields": {
    "created_at": "2025-03-28T18:00:00Z",
@@ -10388,7 +10388,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 151,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -10474,7 +10474,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 152,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -10554,7 +10554,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 153,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -10634,7 +10634,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 154,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -10714,7 +10714,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 155,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -10794,7 +10794,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 156,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -10874,7 +10874,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 157,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -10954,7 +10954,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 158,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11034,7 +11034,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 159,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11114,7 +11114,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 160,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11194,7 +11194,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 161,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11274,7 +11274,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 162,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11354,7 +11354,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 163,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11441,7 +11441,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 164,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11521,7 +11521,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 165,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11601,7 +11601,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 166,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11681,7 +11681,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 167,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11761,7 +11761,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 168,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11848,7 +11848,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 169,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -11928,7 +11928,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 170,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12008,7 +12008,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 171,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12088,7 +12088,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 172,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12168,7 +12168,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 173,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12248,7 +12248,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 174,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12328,7 +12328,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 175,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12408,7 +12408,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 176,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12488,7 +12488,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 177,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12568,7 +12568,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 178,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12648,7 +12648,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 179,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12728,7 +12728,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 180,
   "fields": {
    "created_at": "2025-04-28T18:00:00Z",
@@ -12808,7 +12808,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 181,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -12894,7 +12894,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 182,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -12974,7 +12974,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 183,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13054,7 +13054,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 184,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13134,7 +13134,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 185,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13214,7 +13214,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 186,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13294,7 +13294,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 187,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13374,7 +13374,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 188,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13454,7 +13454,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 189,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13534,7 +13534,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 190,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13614,7 +13614,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 191,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13694,7 +13694,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 192,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13774,7 +13774,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 193,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13861,7 +13861,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 194,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -13941,7 +13941,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 195,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14021,7 +14021,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 196,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14101,7 +14101,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 197,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14181,7 +14181,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 198,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14268,7 +14268,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 199,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14348,7 +14348,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 200,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14428,7 +14428,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 201,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14508,7 +14508,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 202,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14588,7 +14588,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 203,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14668,7 +14668,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 204,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14748,7 +14748,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 205,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14828,7 +14828,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 206,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14908,7 +14908,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 207,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -14988,7 +14988,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 208,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -15068,7 +15068,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 209,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -15148,7 +15148,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 210,
   "fields": {
    "created_at": "2025-05-28T18:00:00Z",
@@ -15228,7 +15228,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 211,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15314,7 +15314,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 212,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15400,7 +15400,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 213,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15480,7 +15480,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 214,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15560,7 +15560,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 215,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15640,7 +15640,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 216,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15726,7 +15726,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 217,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15806,7 +15806,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 218,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15892,7 +15892,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 219,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -15978,7 +15978,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 220,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16064,7 +16064,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 221,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16144,7 +16144,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 222,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16224,7 +16224,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 223,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16304,7 +16304,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 224,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16384,7 +16384,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 225,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16464,7 +16464,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 226,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16544,7 +16544,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 227,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16630,7 +16630,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 228,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16717,7 +16717,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 229,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16797,7 +16797,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 230,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16883,7 +16883,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 231,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -16963,7 +16963,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 232,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17043,7 +17043,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 233,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17123,7 +17123,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 234,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17203,7 +17203,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 235,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17283,7 +17283,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 236,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17363,7 +17363,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 237,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17443,7 +17443,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 238,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17523,7 +17523,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 239,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17603,7 +17603,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 240,
   "fields": {
    "created_at": "2025-06-28T18:00:00Z",
@@ -17683,7 +17683,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 241,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -17769,7 +17769,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 242,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -17855,7 +17855,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 243,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -17935,7 +17935,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 244,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18015,7 +18015,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 245,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18095,7 +18095,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 246,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18181,7 +18181,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 247,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18261,7 +18261,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 248,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18347,7 +18347,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 249,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18433,7 +18433,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 250,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18519,7 +18519,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 251,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18599,7 +18599,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 252,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18679,7 +18679,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 253,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18807,7 +18807,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 254,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18887,7 +18887,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 255,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -18967,7 +18967,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 256,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19047,7 +19047,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 257,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19133,7 +19133,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 258,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19226,7 +19226,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 259,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19306,7 +19306,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 260,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19392,7 +19392,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 261,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19472,7 +19472,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 262,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19552,7 +19552,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 263,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19632,7 +19632,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 264,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19712,7 +19712,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 265,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19792,7 +19792,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 266,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19872,7 +19872,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 267,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -19952,7 +19952,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 268,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -20032,7 +20032,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 269,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",
@@ -20112,7 +20112,7 @@
   }
  },
  {
-  "model": "payroll.payslip",
+  "model": "krew_payroll.payslip",
   "pk": 270,
   "fields": {
    "created_at": "2025-07-28T18:00:00Z",

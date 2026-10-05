@@ -27,6 +27,7 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+            {% if instance %}
             <div class="flex items-center flex-wrap gap-2">
                 <a hx-confirm="{% trans 'Do you want to send the payslip by mail?' %}"
                     hx-get="{% url 'send-slip' %}?id={{instance.id}}&view=individual-payslip"
@@ -40,7 +41,7 @@
                     <img src="{% static 'horilla_theme/assets/img/icons/download.svg' %}" alt="{% trans 'Download' %}"
                         width="18" class="filter brightness-0 invert">
                 </a>
-                {% if perms.payroll.change_payslip %}
+                {% if perms.krew_payroll.change_payslip %}
                     <div class="relative dropdown-wrapper" style="width:120px;">
                         <select name="status" class="oh-select" id="id_status" hx-trigger="change" hx-post="{% url 'payslip-status-update' instance.id %}" hx-target="#payslipBody" >
                             {% for choice in instance.status_choices %}
@@ -49,6 +50,7 @@
                         </select>
                     </div>
                 {% endif %}
+            {% endif %}
             </div>
         </div>
     </div>

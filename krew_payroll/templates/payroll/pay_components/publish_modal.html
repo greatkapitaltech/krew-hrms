@@ -1,0 +1,37 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <h2 class="text-md font-semibold">{% blocktrans with name=component.name v=details.version_no %}Publish {{ name }} v{{ v }}?{% endblocktrans %}</h2>
+    <button type="button" class="oh-modal__close--custom" onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')" aria-label="{% trans 'Close' %}">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    <div class="bg-[white] rounded-md border border-dark-50 p-[20px] text-sm">
+        {% if saved_now %}<p class="pc-text-ok mb-2">{% trans "Your changes were saved." %}</p>{% endif %}
+        {% if errors %}
+            <p class="font-semibold pc-text-bad">{% trans "Fix these before publishing:" %}</p>
+            <ul class="pc-list pc-text-bad">
+                {% for key, problems in errors.items %}{% for p in problems %}<li>{{ p }}</li>{% endfor %}{% endfor %}
+            </ul>
+            <div class="flex justify-end mt-4">
+                <a href="{{ editor_url }}" class="oh-btn oh-btn--secondary">{% trans "Back to the editor" %}</a>
+            </div>
+        {% else %}
+            <p>
+                {% if component.type == "EARNING" %}{% trans "This earning applies to all eligible workers starting" %}{% else %}{% trans "This deduction applies to all eligible workers starting" %}{% endif %}
+                <b>{{ details.effective_from|date:"d M Y" }}</b>.
+            </p>
+            {% for v in closing %}
+                <p class="pc-muted mt-2">{% blocktrans with v=v.version_no %}v{{ v }} stops on the last day of the previous month and stays on past payslips.{% endblocktrans %}</p>
+            {% endfor %}
+            {% if warnings %}
+                <ul class="pc-list pc-text-warn">{% for w in warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+            {% endif %}
+            <form hx-post="{{ publish_url }}" hx-swap="none" class="flex justify-end gap-2 mt-4">
+                {% csrf_token %}
+                <button type="button" class="oh-btn oh-btn--light-bkg" onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">{% trans "Cancel" %}</button>
+                <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Publish" %}</button>
+            </form>
+        {% endif %}
+    </div>
+</div>

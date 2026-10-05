@@ -453,7 +453,7 @@
                 				{% endif %}
               				{% endif %}
 
-							{% if "payroll"|app_installed %}
+							{% if "krew_payroll"|app_installed %}
 								<li data-cell-index="16" data-cell-title="{% trans 'Payroll' %}" class="oh-general__tab">
 									<a
 									href="#"
@@ -465,19 +465,6 @@
 								</li>
 							{% endif %}
 
-							{% if "payroll"|app_installed %}
-								<li data-cell-index="15" data-cell-title="{% trans 'Allowance & Deduction' %}" class="oh-general__tab">
-									<a
-									hx-get="{% url 'allowances-deductions-tab' employee.id %}"
-									hx-target="#allowance_deduction"
-									data-action="general-tab"
-									data-target="#allowance_deduction"
-									class="oh-general__tab-link"
-									role="button"
-									>{% trans "Allowance & Deduction" %}</a
-									>
-								</li>
-							{% endif %}
 
 							{% if "attendance"|app_installed %}
 							<li data-cell-index="14" data-cell-title="{% trans "Penalty Account" %}" class="oh-general__tab">
@@ -534,7 +521,7 @@
 								>
 							</li>
 
-							{% if "payroll"|app_installed %}
+							{% if "krew_payroll"|app_installed %}
 							<li data-cell-index="10" data-cell-title="{% trans 'Bonus Points' %}" class="oh-general__tab">
 								<a
 								hx-get="{% url 'bonus-points-tab' employee.id %}"
@@ -586,7 +573,7 @@
 							</div>
 						{% endif %}
 
-						{% if "payroll"|app_installed %}
+						{% if "krew_payroll"|app_installed %}
 							<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="payroll">
 								{% include 'tabs/payroll-tab.html' %}
 							</div>
@@ -597,7 +584,7 @@
 							</div>
 						{% endif %}
 
-						{% if "payroll"|app_installed %}
+						{% if "krew_payroll"|app_installed %}
 						<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="bonus_points_target">
 							{% include "tabs/bonus_points.html" %}
 						</div>
@@ -608,9 +595,6 @@
 							<div id="resignation_hx_target" class="mt-2"></div>
 						</div>
 
-						{% if "payroll"|app_installed %}
-							<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="allowance_deduction"></div>
-						{% endif %}
 
 						<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="shift_target"></div>
 
@@ -619,7 +603,6 @@
 						{% endif %}
 
 
-						<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="allowance_deduction"></div>
 
 						{% if "asset"|app_installed %}
 							<div class="oh-general__tab-target oh-profile__info-tab mb-4 d-none" id="asset_target"></div>

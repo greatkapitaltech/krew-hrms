@@ -405,8 +405,8 @@ class CashfreeApiLog(HorillaModel):
 
 class CompanyContract(HorillaModel):
     """
-    MSA / commercial contract. Mirrors payroll.Contract's one-active-at-a-time
-    pattern (payroll/models/models.py:155) — old contracts are terminated,
+    MSA / commercial contract. Mirrors krew_payroll.Contract's one-active-at-a-time
+    pattern (krew_payroll/models/models.py:155) — old contracts are terminated,
     never deleted, so contract history stays visible for audit.
     """
 

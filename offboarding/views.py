@@ -1148,10 +1148,10 @@ def update_status(request):
     employee_id = request.GET.get("employee_id")
     offboarding_id = request.GET.get("offboarding_id")
     contract_notice_end_date = (
-        get_horilla_model_class(app_label="payroll", model="contract")
+        get_horilla_model_class(app_label="krew_payroll", model="contract")
         .objects.filter(employee_id=employee_id, contract_status="active")
         .first()
-        if apps.is_installed("payroll")
+        if apps.is_installed("krew_payroll")
         else None
     )
 
@@ -1286,8 +1286,8 @@ def get_notice_period(request):
     This method is used to get initial details for notice period
     """
     employee_id = request.GET.get("employee_id")
-    if apps.is_installed("payroll"):
-        Contract = get_horilla_model_class(app_label="payroll", model="contract")
+    if apps.is_installed("krew_payroll"):
+        Contract = get_horilla_model_class(app_label="krew_payroll", model="contract")
         employee_contract = (
             (
                 Contract.objects.order_by("-id")

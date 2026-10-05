@@ -35,8 +35,8 @@ class Command(BaseCommand):
             ("onboarding", "onboarding_data.json"),
             ("offboarding", "offboarding_data.json"),
             ("pms", "pms_data.json"),
-            ("payroll", "payroll_data.json"),
-            ("payroll", "payroll_loanaccount_data.json"),
+            ("krew_payroll", "payroll_data.json"),
+            ("krew_payroll", "payroll_loanaccount_data.json"),
             ("project", "project_data.json"),
         ]
 

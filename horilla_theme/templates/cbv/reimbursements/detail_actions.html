@@ -1,7 +1,7 @@
 {% load static i18n %}
 
 <div class="flex items-center gap-2">
-    {% if perms.payroll.change_reimbursement or request.user == instance.employee_id.employee_user_id %}
+    {% if perms.krew_payroll.change_reimbursement or request.user == instance.employee_id.employee_user_id %}
         <!-- Start of Edit Button -->
         {% if instance.status == 'requested' %}
             <button
@@ -27,7 +27,7 @@
         <!-- End of Edit Button -->
     {% endif %}
 
-    {% if perms.payroll.delete_reimbursement %}
+    {% if perms.krew_payroll.delete_reimbursement %}
         <!-- Start of Delete Button -->
         <button
             type="button"

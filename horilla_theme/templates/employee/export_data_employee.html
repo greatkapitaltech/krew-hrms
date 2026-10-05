@@ -116,7 +116,7 @@
   {% endif %}
 
 
-  {% if "payroll"|app_installed %}
+  {% if "krew_payroll"|app_installed %}
     {% comment %} -----PAYROLL RECORDS----- {% endcomment %}
     <div id="ack-message-{{employee.id}}"></div>
     <form action="{%url 'payslip-info-export' %}"

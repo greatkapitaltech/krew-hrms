@@ -1,0 +1,55 @@
+/* Earnings / deductions configuration. Colours: the Krew theme variables where the
+   theme defines them, explicit values for status colours (the runtime Tailwind
+   palette only defines primary / secondary / dark / success / warning / danger). */
+.pc-card { background:#fff; border:1px solid #ebebeb; border-radius:.5rem; padding:1rem 1.25rem; margin-bottom:1rem; }
+.pc-card.pc-bad { border-color:#f87171; box-shadow:0 0 0 1px #fecaca; }
+.pc-card__title { font-size:.875rem; font-weight:600; color:#1f2937; margin-bottom:.75rem; display:flex; justify-content:space-between; align-items:center; gap:.5rem; }
+.pc-hint, .pc-muted { font-size:.75rem; color:#6b7280; }
+.pc-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.75rem 1rem; }
+.pc-cond { border:1px solid #ebebeb; border-radius:.375rem; padding:.75rem; margin-bottom:.5rem; background:#fafafa; }
+.pc-token { padding:.15rem .5rem; border:1px solid #e5e7eb; border-radius:9999px; font-size:.75rem; background:#fff; }
+.pc-token:hover { border-color:var(--primary-500, #C8C8FF); background:var(--primary-100, #F2F3FD); }
+.pc-savebar { position:sticky; bottom:0; z-index:5; display:flex; justify-content:space-between; align-items:center; gap:.75rem;
+    background:#fff; border:1px solid #ebebeb; border-radius:.5rem; padding:.6rem 1rem; padding-bottom:calc(.6rem + env(safe-area-inset-bottom, 0px));
+    box-shadow:0 -4px 16px rgba(15,25,35,.06); }
+.pc-layout { display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:1rem; align-items:start; }
+@media (max-width: 1100px) { .pc-layout { grid-template-columns:1fr; } }
+.pc-side { position:sticky; top:6rem; }
+.pc-version { display:inline-flex; align-items:center; gap:.25rem; padding:.2rem .6rem; border-radius:9999px; font-size:.75rem; border:1px solid #e5e7eb; background:#fff; color:#374151; }
+.pc-version--on { border-color:var(--primary-600, #3535C8); color:var(--primary-600, #3535C8); font-weight:600; }
+.pc-banner { padding:.75rem; border-radius:.375rem; font-size:.875rem; margin-bottom:.75rem; border:1px solid; }
+.pc-banner--live { background:var(--primary-100, #F2F3FD); border-color:var(--primary-400, #DFE2F9); color:#1f2937; }
+.pc-banner--error { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+.pc-text-ok { color:#15803d; }
+.pc-text-bad { color:#b91c1c; }
+.pc-text-warn { color:#b45309; }
+.pc-dirty { color:#b45309; font-weight:600; }
+.pc-list { list-style:disc; margin-left:1.25rem; margin-top:.25rem; }
+.pc-pill { display:inline-block; padding:.1rem .55rem; font-size:.75rem; font-weight:500; border-radius:9999px; border:1px solid; }
+.pc-pill--active { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+.pc-pill--draft { background:#fffbeb; color:#b45309; border-color:#fde68a; }
+.pc-pill--inactive { background:#f3f4f6; color:#6b7280; border-color:#e5e7eb; }
+.pc-panel { background:#0000000a; padding:.75rem; border-radius:.375rem; }
+
+/* Dark mode: the theme toggles body.dark and restyles its own classes in
+   horilla_theme/assets/css/dark.css (cards/.bg-white #242424, inner panels
+   #1b1b1b, borders #444, inputs #111 / #656565, text #ddd / #bbb, primary-300).
+   Cards and the save bar carry .bg-white so dark.css colours them; the rest
+   below uses the same values. */
+body.dark .pc-card, body.dark .pc-savebar, body.dark .pc-cond { border-color:#444444; }
+body.dark .pc-card.pc-bad { border-color:#e5533d; box-shadow:0 0 0 1px rgba(229,79,56,.35); }
+body.dark .pc-card__title { color:#f0f0f0; }
+body.dark .pc-hint, body.dark .pc-muted { color:#bbbbbb; }
+body.dark .pc-cond, body.dark .pc-panel { background:#1b1b1b; }
+body.dark .pc-savebar { box-shadow:0 -4px 16px rgba(0,0,0,.5); }
+body.dark .pc-token, body.dark .pc-version { background:#111111; border-color:#656565; color:#dfdfdf; }
+body.dark .pc-token:hover { background:#333333; border-color:var(--primary-300, #EBEDFB); }
+body.dark .pc-version--on { border-color:var(--primary-300, #EBEDFB); color:var(--primary-300, #EBEDFB); }
+body.dark .pc-banner--live { background:#1b1b1b; border-color:#444444; color:#dddddd; }
+body.dark .pc-banner--error { background:rgba(229,79,56,.12); border-color:rgba(229,79,56,.35); color:#fca5a5; }
+body.dark .pc-text-ok { color:#4ade80; }
+body.dark .pc-text-bad { color:#f87171; }
+body.dark .pc-text-warn, body.dark .pc-dirty { color:#fbbf24; }
+body.dark .pc-pill--active { background:rgba(34,197,94,.12); color:#4ade80; border-color:rgba(34,197,94,.35); }
+body.dark .pc-pill--draft { background:rgba(234,179,8,.12); color:#fcd34d; border-color:rgba(234,179,8,.35); }
+body.dark .pc-pill--inactive { background:#333333; color:#bbbbbb; border-color:#444444; }

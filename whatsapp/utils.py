@@ -799,8 +799,8 @@ def bonus_point_create(employee, flow_response):
         Message indicating the success or failure of the request.
     """
 
-    from payroll.forms.component_forms import ReimbursementForm
-    from payroll.views.component_views import create_reimbursement
+    from krew_payroll.forms.component_forms import ReimbursementForm
+    from krew_payroll.views.component_views import create_reimbursement
 
     data = {
         "employee_id": employee.id,
@@ -832,8 +832,8 @@ def reimbursement_create(employee, flow_response):
         Message indicating the success or failure of the request.
     """
 
-    from payroll.forms.component_forms import ReimbursementForm
-    from payroll.views.component_views import create_reimbursement
+    from krew_payroll.forms.component_forms import ReimbursementForm
+    from krew_payroll.views.component_views import create_reimbursement
 
     data = get_meta_details_from_number(employee.phone)
     attachments = [

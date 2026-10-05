@@ -39,7 +39,7 @@
                                             <div class="oh-accordion-header">{% trans "Payslip" %}</div>
                                             <div class="oh-accordion-body">
                                                 <div class="row">
-                                                    {% if perms.payroll.view_payslip %}
+                                                    {% if perms.krew_payroll.view_payslip %}
                                                         <div class="col-sm-12">
                                                             <div class="oh-input-group">
                                                                 <label
@@ -313,8 +313,8 @@
             // centralized has_export_access() check.
             const exportAccessMap = JSON.parse(document.getElementById("export-access-map").textContent);
             const modelPathMap = {
-                payslip: "payroll.Payslip",
-                allowance: "payroll.Payslip",
+                payslip: "krew_payroll.Payslip",
+                allowance: "krew_payroll.Payslip",
             };
 
             // Shared "no records" empty state (same illustration/wording used

@@ -46,7 +46,7 @@ if apps.is_installed("leave"):
         }
     )
 
-if apps.is_installed("payroll"):
+if apps.is_installed("krew_payroll"):
     SUBMENUS.append(
         {
             "menu": "Payroll",
@@ -82,7 +82,7 @@ def menu_accessibility(request, submenu, user_perms, *args, **kwargs):
         or request.user.has_perm("pms.view_objective")
         or request.user.has_perm("attendance.view_attendance")
         or request.user.has_perm("leave.view_leaverequest")
-        or request.user.has_perm("payroll.view_payslip")
+        or request.user.has_perm("krew_payroll.view_payslip")
         or request.user.has_perm("asset.view_asset")
     )
 
@@ -108,7 +108,7 @@ def leave_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 
 def payroll_accessibility(request, submenu, user_perms, *args, **kwargs):
-    return request.user.is_superuser or request.user.has_perm("payroll.view_payslip")
+    return request.user.is_superuser or request.user.has_perm("krew_payroll.view_payslip")
 
 
 def asset_accessibility(request, submenu, user_perms, *args, **kwargs):

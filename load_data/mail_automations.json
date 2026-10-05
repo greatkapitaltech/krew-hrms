@@ -441,7 +441,7 @@
       "is_active": true,
       "title": "Reimbursement Approved {{ instance.title }}",
       "method_title": "reimbursement_approved__{{_instance.title_}}",
-      "model": "payroll.models.models.Reimbursement",
+      "model": "krew_payroll.models.models.Reimbursement",
       "mail_to": "['employee_id__get_email']",
       "mail_details": "employee_id__pk",
       "mail_detail_choice": "",

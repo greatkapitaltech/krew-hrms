@@ -1,0 +1,31 @@
+{% load i18n %}
+{# Editor header: back to Configuration, version tabs. Re-sent out-of-band after every save / re-render so it never shows stale dates. #}
+<div id="pcHeader" class="flex flex-wrap items-center justify-between gap-3 mb-4"{% if oob %} hx-swap-oob="true"{% endif %}>
+    <div class="flex items-center gap-3">
+        <a href="{{ settings_url }}" class="oh-btn oh-btn--light-bkg" data-pc-leave>
+            <ion-icon name="chevron-back-outline" class="mr-1"></ion-icon>{% trans "Configuration" %}
+        </a>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+        {% for v in versions %}
+            <a href="?v={{ v.version_no }}" data-pc-leave class="pc-version {% if v.pk == details.pk %}pc-version--on{% endif %}">
+                v{{ v.version_no }} · {{ v.get_publish_state_display }}{% if v.effective_from %} · {{ v.effective_from|date:"d M Y" }}{% endif %}{% if v.effective_to %} → {{ v.effective_to|date:"d M Y" }}{% endif %}
+            </a>
+        {% endfor %}
+        {% if can_edit %}
+            {% if not has_published %}
+                <button type="button" class="oh-btn oh-btn--secondary oh-btn--small" disabled title="{% trans 'Publish v1 first.' %}">
+                    <ion-icon name="add-outline" class="mr-1"></ion-icon>{% trans "New version" %}
+                </button>
+            {% elif draft %}
+                <button type="button" class="oh-btn oh-btn--secondary oh-btn--small" disabled title="{% blocktrans with v=draft.version_no %}Publish or delete the v{{ v }} draft first: only one draft at a time.{% endblocktrans %}">
+                    <ion-icon name="add-outline" class="mr-1"></ion-icon>{% trans "New version" %}
+                </button>
+            {% else %}
+                <button type="button" class="oh-btn oh-btn--secondary oh-btn--small" data-pc-leave data-pc-post="{{ new_version_url }}" title="{% trans 'Copy the latest published version into a new draft' %}">
+                    <ion-icon name="add-outline" class="mr-1"></ion-icon>{% trans "New version" %}
+                </button>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>

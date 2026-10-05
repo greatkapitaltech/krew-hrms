@@ -1,0 +1,296 @@
+{% load i18n %}
+<div id="payComponentEditor">
+    {% if error_total %}
+        <div class="pc-banner pc-banner--error">
+            <b>{% if is_published %}{% trans "Not saved: fix these first." %}{% else %}{% trans "Not saved:" %}{% endif %}</b>
+            <ul class="pc-list">
+                {% for key, problems in errors.items %}{% for p in problems %}<li>{{ p }}{% if key != "detail" and key not in "identity frequency eligibility calculation employer tax publish" %} <span class="pc-muted">({{ key }})</span>{% endif %}</li>{% endfor %}{% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <div class="pc-layout">
+        <form id="pcForm" autocomplete="off" hx-post="{{ save_url }}" hx-target="#payComponentEditor" hx-swap="outerHTML" hx-include="#pcForm" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="dirty" autocomplete="off" value="{% if dirty %}1{% else %}0{% endif %}">
+            <fieldset {% if not can_edit %}disabled{% endif %}>
+
+            {# ---------------- Identity ---------------- #}
+            <div class="pc-card bg-white {% if errors.identity or errors.name %}pc-bad{% endif %}">
+                <div class="pc-card__title">{% trans "Identity" %}</div>
+                <div class="pc-row">
+                    <div class="oh-input-group">
+                        <label class="oh-label required-star" for="pc_name">{% trans "Name" %}</label>
+                        <input id="pc_name" name="name" type="text" maxlength="100" class="oh-input w-100" value="{{ state.name }}">
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans "Code (system-generated, never changes)" %}</label>
+                        <div class="text-sm py-2">{{ component.code }}</div>
+                    </div>
+                </div>
+            </div>
+
+            {# ---------------- Frequency ---------------- #}
+            <div class="pc-card bg-white {% if errors.frequency %}pc-bad{% endif %}">
+                <div class="pc-card__title">{% if is_earning %}{% trans "Frequency & disbursement timing" %}{% else %}{% trans "Frequency" %}{% endif %}</div>
+                <div class="pc-row">
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="pc_freq">{% trans "When" %}</label>
+                        <select id="pc_freq" name="freq" class="oh-select oh-select-2" hx-post="{{ render_url }}" hx-trigger="change">
+                            {% for value, label in freq_options %}<option value="{{ value }}" {% if freq_value == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    {% if state.frequency == "ONE_TIME" %}
+                        <div class="oh-input-group">
+                            <label class="oh-label" for="pc_otd">{% trans "One-time date" %}</label>
+                            <input id="pc_otd" name="one_time_date" type="date" class="oh-input w-100" value="{{ state.one_time_date|default_if_none:'' }}">
+                        </div>
+                    {% endif %}
+                    {% if is_earning %}
+                        <div class="oh-input-group">
+                            <label class="oh-label" for="pc_disb">{% trans "Disbursement timing" %}</label>
+                            <select id="pc_disb" name="disbursement_timing" class="oh-select oh-select-2">
+                                {% for value, label in disbursement_options %}<option value="{{ value }}" {% if state.disbursement_timing == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    {% endif %}
+                </div>
+                {% if state.frequency == "RECURRING" and state.recurring_interval != "EVERY_CYCLE" and state.recurring_interval != "MONTHLY" %}
+                    <p class="pc-hint mt-2">{% trans "Financial-year months: quarterly in Jun, Sep, Dec, Mar; half-yearly in Sep, Mar; annual in Mar." %}</p>
+                {% endif %}
+            </div>
+
+            {# ---------------- Eligibility ---------------- #}
+            <div class="pc-card bg-white {% if errors.eligibility or errors.conditions or errors.employees %}pc-bad{% endif %}">
+                <div class="pc-card__title">{% trans "Eligibility" %}</div>
+                <div class="pc-row">
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="pc_elig">{% trans "Who gets it" %}</label>
+                        <select id="pc_elig" name="eligibility_mode" class="oh-select oh-select-2" hx-post="{{ render_url }}" hx-trigger="change">
+                            {% for value, label in eligibility_options %}<option value="{{ value }}" {% if state.eligibility_mode == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                {% if state.eligibility_mode == "CONDITION" %}
+                    <p class="pc-hint mt-2 mb-2">{% trans "Every rule must match (AND). Inside a rule, IN means any of the picked values." %}</p>
+                    {% for row in condition_rows %}
+                        <div class="pc-cond">
+                            <input type="hidden" name="cond_fields" value="{{ row.field }}">
+                            <div class="flex justify-between items-center mb-2">
+                                <b class="text-sm">{{ row.label }}</b>
+                                <button type="button" class="oh-btn oh-btn--danger oh-btn--sq-sm" name="op_remove_condition" value="{{ row.field }}" hx-post="{{ render_url }}" hx-trigger="click" title="{% trans 'Remove rule' %}"><ion-icon name="trash-outline"></ion-icon></button>
+                            </div>
+                            {% if row.is_list %}
+                                <select name="cond_{{ row.field }}_values" class="oh-select oh-select-2" multiple hx-post="{{ render_url }}" hx-trigger="change">
+                                    {% for value, label in row.options %}<option value="{{ value }}" {% if value in row.values %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                                </select>
+                            {% else %}
+                                {% if row.field == "WAGE_BASE" %}
+                                    <label class="oh-label">{% trans "Add up these earnings" %}</label>
+                                    <select name="cond_{{ row.field }}_values" class="oh-select oh-select-2" multiple>
+                                        {% for id, name, code in earning_options %}<option value="{{ id }}" {% if id in row.values %}selected{% endif %}>{{ name }} ({{ code }})</option>{% endfor %}
+                                    </select>
+                                {% endif %}
+                                <div class="pc-row mt-2">
+                                    <select name="cond_{{ row.field }}_operator" class="oh-select oh-select-2" hx-post="{{ render_url }}" hx-trigger="change">
+                                        {% for value, label in row.operators %}<option value="{{ value }}" {% if row.operator == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                                    </select>
+                                    <input name="cond_{{ row.field }}_value_from" type="number" step="0.01" class="oh-input w-100" hx-post="{{ render_url }}" hx-trigger="change" value="{{ row.value_from|default_if_none:'' }}" placeholder="{% if row.field == 'CTC' %}{% trans '₹ annual' %}{% else %}{% trans '₹ per cycle' %}{% endif %}">
+                                    {% if row.operator == "BETWEEN" %}
+                                        <input name="cond_{{ row.field }}_value_to" type="number" step="0.01" class="oh-input w-100" hx-post="{{ render_url }}" hx-trigger="change" value="{{ row.value_to|default_if_none:'' }}" placeholder="{% trans 'and' %}">
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    {% if condition_add_options %}
+                        <div class="oh-input-group mt-2" style="max-width:320px">
+                            <select name="op_add_condition" class="oh-select oh-select-2" hx-post="{{ render_url }}" hx-trigger="change" data-pc-noop>
+                                <option value="">{% trans "+ Add a rule…" %}</option>
+                                {% for value, label in condition_add_options %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                {% if state.eligibility_mode == "SPECIFIC" %}
+                    <div class="oh-input-group mt-3">
+                        <label class="oh-label" for="pc_incl">{% trans "Only these employees" %}</label>
+                        <select id="pc_incl" name="include_ids" class="oh-select oh-select-2" multiple>
+                            {% for id, name in include_options %}<option value="{{ id }}" {% if id in include_ids %}selected{% endif %}>{{ name }}</option>{% endfor %}
+                        </select>
+                    </div>
+                {% else %}
+                    <div class="oh-input-group mt-3">
+                        <label class="oh-label" for="pc_excl">{% trans "Exclude these employees (optional)" %}</label>
+                        <select id="pc_excl" name="exclude_ids" class="oh-select oh-select-2" multiple>
+                            {% for id, name in exclude_options %}<option value="{{ id }}" {% if id in exclude_ids %}selected{% endif %}>{{ name }}</option>{% endfor %}
+                        </select>
+                        {% if state.eligibility_mode == "CONDITION" %}
+                            <p class="pc-hint mt-1">
+                                {% blocktrans count n=exclude_options|length %}{{ n }} employee matches the rules above.{% plural %}{{ n }} employees match the rules above.{% endblocktrans %}
+                                {% if wage_base_pending %}{% trans "Wage Base is checked during the pay run, so it isn't applied to this list." %}{% endif %}
+                            </p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
+            {# ---------------- Calculation ---------------- #}
+            <div class="pc-card bg-white {% if errors.calculation or errors.calculations %}pc-bad{% endif %}">
+                <div class="pc-card__title">{% trans "Calculation" %}</div>
+                {% include "payroll/pay_components/calc_block.html" with key="value" c=calc.value modes=value_modes %}
+                <div class="pc-row mt-3">
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="pc_min">{% trans "Min limit (₹, optional)" %}</label>
+                        <input id="pc_min" name="min_amount" type="number" min="0" step="0.01" class="oh-input w-100" value="{{ state.min_amount|default_if_none:'' }}">
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="pc_max">{% trans "Max limit (₹, optional)" %}</label>
+                        <input id="pc_max" name="max_amount" type="number" min="0" step="0.01" class="oh-input w-100" value="{{ state.max_amount|default_if_none:'' }}">
+                    </div>
+                </div>
+                <p class="pc-hint mt-2">{% trans "Every component's amount is rounded to the nearest rupee (₹0.50 rounds up) first; then the min / max limit applies." %}</p>
+            </div>
+
+            {# ---------------- Employer share (deductions) ---------------- #}
+            {% if not is_earning %}
+                <div class="pc-card bg-white {% if errors.employer %}pc-bad{% endif %}">
+                    <div class="pc-card__title">{% trans "Employer share" %}</div>
+                    <div class="pc-row">
+                        <div class="oh-input-group">
+                            <label class="oh-label" for="calc_employer_mode">{% trans "Employer pays" %}</label>
+                            <select id="calc_employer_mode" name="calc_employer_mode" class="oh-select oh-select-2" hx-post="{{ render_url }}" hx-trigger="change">
+                                {% for value, label in employer_modes %}<option value="{{ value }}" {% if calc.employer.mode == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        {% if calc.employer.mode == "FLAT" %}
+                            <div class="oh-input-group">
+                                <label class="oh-label" for="calc_employer_flat_amount">{% trans "Amount (₹)" %}</label>
+                                <input id="calc_employer_flat_amount" name="calc_employer_flat_amount" type="number" min="0" step="0.01" class="oh-input w-100" value="{{ calc.employer.flat_amount|default_if_none:'' }}">
+                            </div>
+                        {% elif calc.employer.mode == "PERCENTAGE" %}
+                            <div class="oh-input-group">
+                                <label class="oh-label" for="calc_employer_rate">{% trans "Rate (%) of the same base" %}</label>
+                                <input id="calc_employer_rate" name="calc_employer_rate" type="number" min="0" max="100" step="0.01" class="oh-input w-100" value="{{ calc.employer.rate|default_if_none:'' }}">
+                            </div>
+                        {% endif %}
+                    </div>
+                    <p class="pc-hint mt-2">{% trans "Paid on top of salary: not taken from net pay. The max / min limit applies to the employee share only." %}</p>
+                </div>
+            {% endif %}
+
+            {# ---------------- Tax ---------------- #}
+            <div class="pc-card bg-white {% if errors.tax %}pc-bad{% endif %}">
+                <div class="pc-card__title">{% if is_earning %}{% trans "Taxable / Tax-Free" %}{% else %}{% trans "Tax" %}{% endif %}</div>
+                {% if is_earning %}
+                    <div class="pc-row">
+                        <div class="oh-input-group">
+                            <label class="oh-label" for="pc_tax">{% trans "Tax treatment" %}</label>
+                            <select id="pc_tax" name="tax_treatment" class="oh-select oh-select-2" hx-post="{{ render_url }}" hx-trigger="change">
+                                {% for value, label in tax_options %}<option value="{{ value }}" {% if state.tax_treatment == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        {% if state.tax_treatment == "TAX_FREE" %}
+                            <div class="oh-input-group">
+                                <label class="oh-label" for="pc_exempt">{% trans "Exemption" %}</label>
+                                <select id="pc_exempt" name="exemption_type" class="oh-select oh-select-2" hx-post="{{ render_url }}" hx-trigger="change">
+                                    {% for value, label in exemption_options %}<option value="{{ value }}" {% if state.exemption_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                                </select>
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% if state.tax_treatment == "TAX_FREE" %}
+                        {% if state.exemption_type == "UP_TO_LIMIT" %}
+                            <div class="mt-3 pc-panel">
+                                <div class="text-sm font-medium mb-2">{% trans "Tax-free limit" %}</div>
+                                {% include "payroll/pay_components/calc_block.html" with key="exemption" c=calc.exemption modes=exemption_modes %}
+                            </div>
+                        {% endif %}
+                        <label class="flex items-center gap-2 mt-3 text-sm">
+                            <div class="oh-switch"><input type="checkbox" class="oh-switch__checkbox" name="requires_proof" {% if state.requires_proof %}checked{% endif %}></div>
+                            {% trans "Requires proof (bills, receipts)" %}
+                        </label>
+                    {% endif %}
+                {% else %}
+                    <label class="flex items-center gap-2 text-sm">
+                        <div class="oh-switch"><input type="checkbox" class="oh-switch__checkbox" name="reduces_taxable_income" {% if state.reduces_taxable_income %}checked{% endif %}></div>
+                        {% trans "Reduces taxable income (e.g. PF under 80C)" %}
+                    </label>
+                {% endif %}
+            </div>
+
+            {# ---------------- Display ---------------- #}
+            <div class="pc-card bg-white">
+                <div class="pc-card__title">{% trans "Payslip display" %}</div>
+                <div class="pc-row">
+                    <label class="flex items-center gap-2 text-sm self-end pb-2">
+                        <div class="oh-switch"><input type="checkbox" class="oh-switch__checkbox" name="show_on_payslip" {% if state.show_on_payslip %}checked{% endif %}></div>
+                        {% trans "Show on payslip" %}
+                    </label>
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="pc_label">{% trans "Payslip label" %}</label>
+                        <input id="pc_label" name="payslip_label" type="text" maxlength="100" class="oh-input w-100" value="{{ state.payslip_label|default:state.name }}">
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="pc_order">{% trans "Display order" %}</label>
+                        <input id="pc_order" name="display_order" type="number" min="0" class="oh-input w-100" value="{{ state.display_order|default_if_none:'' }}">
+                    </div>
+                </div>
+            </div>
+
+            {# ---------------- Effective dates & publish ---------------- #}
+            <div class="pc-card bg-white {% if errors.publish or errors.effective_from or errors.effective_to %}pc-bad{% endif %}">
+                <div class="pc-card__title">{% trans "Effective dates" %}{% if not is_published %} &amp; {% trans "publish" %}{% endif %}</div>
+                <div class="pc-row">
+                    <div class="oh-input-group">
+                        <label class="oh-label required-star" for="pc_from">{% trans "Effective From" %}</label>
+                        <input id="pc_from" name="effective_from" type="date" class="oh-input w-100" data-pc-date="from" value="{{ state.effective_from|default_if_none:''|stringformat:'s' }}">
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label" for="pc_to">{% trans "Effective To (optional)" %}</label>
+                        <input id="pc_to" name="effective_to" type="date" class="oh-input w-100" data-pc-date="to" {% if to_min %}min="{{ to_min }}"{% endif %} value="{{ state.effective_to|default_if_none:''|stringformat:'s' }}">
+                    </div>
+                </div>
+                {% if not is_published and can_edit %}
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <button type="button" class="oh-btn oh-btn--secondary" data-toggle="oh-modal-toggle" data-target="#genericModal" hx-post="{{ publish_url }}" hx-target="#genericModalBody" hx-swap="innerHTML">
+                            {% if dirty %}{% trans "Save & publish" %}{% else %}{% trans "Publish" %}{% endif %}
+                        </button>
+                        <button type="button" class="oh-btn oh-btn--danger" hx-post="{{ delete_draft_url }}" hx-swap="none" hx-confirm="{% trans 'Delete this draft? Its calculation and eligibility rows are removed.' %}">{% trans "Delete draft" %}</button>
+                    </div>
+                {% endif %}
+            </div>
+            </fieldset>
+
+            {% if can_edit %}
+                <div class="pc-savebar bg-white">
+                    <span id="pcSaveState" class="text-sm {% if dirty %}pc-dirty{% elif message %}pc-text-ok{% else %}pc-muted{% endif %}">
+                        {% if error_total and is_published %}{% trans "Not saved: fix the highlighted sections" %}{% elif dirty %}{% trans "Unsaved changes" %}{% elif message %}{{ message }}{% else %}{% trans "No changes" %}{% endif %}
+                    </span>
+                    <span class="flex gap-2">
+                        <a href="{{ settings_url }}" class="oh-btn oh-btn--light-bkg" data-pc-leave>
+                            <ion-icon name="chevron-back-outline" class="mr-1"></ion-icon>{% trans "Back" %}
+                        </a>
+                        <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Save" %}</button>
+                    </span>
+                </div>
+            {% endif %}
+        </form>
+
+        {# ---------------- Side: summary of the form as it is now ---------------- #}
+        <aside class="pc-side">
+            <div class="pc-card bg-white">
+                <div class="pc-card__title">{% trans "Summary" %}</div>
+                <dl class="text-sm space-y-2">
+                    <div><dt class="pc-muted">{% if is_earning %}{% trans "Pays" %}{% else %}{% trans "Deducts" %}{% endif %}</dt><dd>{{ summary_value }}{% if state.min_amount is not None %}, {% trans "min" %} ₹{{ state.min_amount|floatformat:0 }}{% endif %}{% if state.max_amount is not None %}, {% trans "max" %} ₹{{ state.max_amount|floatformat:0 }}{% endif %}</dd></div>
+                    <div><dt class="pc-muted">{% trans "When" %}</dt><dd>{{ summary_when }}</dd></div>
+                    <div><dt class="pc-muted">{% trans "Who" %}</dt><dd>{{ summary_who }}</dd></div>
+                    <div><dt class="pc-muted">{% trans "Uses" %}</dt><dd>{% if summary_depends %}{{ summary_depends|join:", " }}{% else %}-{% endif %}</dd></div>
+                </dl>
+            </div>
+        </aside>
+    </div>
+</div>
+{% if oob_header %}{% include "payroll/pay_components/editor_header.html" with oob=True %}{% endif %}

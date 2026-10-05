@@ -287,9 +287,9 @@ def intial_notice_period(request):
     """
     initial = 30
     first = None
-    if apps.is_installed("payroll"):
+    if apps.is_installed("krew_payroll"):
         PayrollGeneralSetting = get_horilla_model_class(
-            app_label="payroll", model="payrollgeneralsetting"
+            app_label="krew_payroll", model="payrollgeneralsetting"
         )
         first = PayrollGeneralSetting.objects.first()
     if first:

@@ -133,7 +133,7 @@
             </div>
 
             <div class="flex justify-end mt-3">
-                {% if perms.horilla_audit.change_historytrackingfields or perms.payroll.change_payrollsettings %}
+                {% if perms.horilla_audit.change_historytrackingfields or perms.krew_payroll.change_payrollsettings %}
                     <button class="btn h-[36px]" type="submit">
                         {% if tracking_is_all_companies %}
                             {% trans "Save & Assign" %}

@@ -1,5 +1,5 @@
 {% load static i18n %}
-{% if perms.payroll.change_contract %}
+{% if perms.krew_payroll.change_contract %}
     <!-- Start of Edit a Tag -->
     <a
         href="#"
@@ -15,7 +15,7 @@
     <!-- End of Edit a Tag -->
 {% endif %}
 
-{% if perms.payroll.delete_contract %}
+{% if perms.krew_payroll.delete_contract %}
     <!-- Start of Delete Form -->
     <form
         hx-confirm="{% trans 'Do you want to delete this Contract?' %}"

@@ -12,29 +12,23 @@ from rest_framework.views import APIView
 
 from base.backends import ConfiguredEmailBackend
 from base.methods import eval_validate
-from payroll.filters import (
-    AllowanceFilter,
+from krew_payroll.filters import (
     ContractFilter,
-    DeductionFilter,
     PayslipFilter,
 )
-from payroll.models.models import (
-    Allowance,
+from krew_payroll.models.models import (
     Contract,
-    Deduction,
     LoanAccount,
     Payslip,
     Reimbursement,
 )
-from payroll.models.tax_models import TaxBracket
-from payroll.threadings.mail import MailSendThread
-from payroll.views.views import payslip_pdf
+from krew_payroll.models.tax_models import TaxBracket
+from krew_payroll.threadings.mail import MailSendThread
+from krew_payroll.views.views import payslip_pdf
 
 from ...api_methods.base.methods import groupby_queryset
 from ...api_serializers.payroll.serializers import (
-    AllowanceSerializer,
     ContractSerializer,
-    DeductionSerializer,
     LoanAccountSerializer,
     PayslipSerializer,
     ReimbursementSerializer,
@@ -51,13 +45,13 @@ class PayslipView(APIView):
             if payslip is None:
                 return Response({"detail": "Not found."}, status=404)
             if (
-                request.user.has_perm("payroll.view_payslip")
+                request.user.has_perm("krew_payroll.view_payslip")
                 or payslip.employee_id == request.user.employee_get
             ):
                 serializer = PayslipSerializer(payslip)
                 return Response(serializer.data, status=200)
             return Response({"detail": _("Permission denied.")}, status=403)
-        if request.user.has_perm("payroll.view_payslip"):
+        if request.user.has_perm("krew_payroll.view_payslip"):
             payslips = Payslip.objects.all()
         else:
             payslips = Payslip.objects.filter(
@@ -81,7 +75,7 @@ class PayslipDownloadView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, id):
-        if request.user.has_perm("payroll.view_payslip"):
+        if request.user.has_perm("krew_payroll.view_payslip"):
             return payslip_pdf(request, id)
 
         if Payslip.objects.filter(id=id, employee_id=request.user.employee_get):
@@ -93,7 +87,7 @@ class PayslipDownloadView(APIView):
 class PayslipSendMailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @method_decorator(permission_required("payroll.add_payslip"))
+    @method_decorator(permission_required("krew_payroll.add_payslip"))
     def post(self, request):
         email_backend = ConfiguredEmailBackend()
         if not getattr(
@@ -122,7 +116,7 @@ class ContractView(APIView):
 
     def get(self, request, id=None):
         if id:
-            if request.user.has_perm("payroll.view_contract"):
+            if request.user.has_perm("krew_payroll.view_contract"):
                 contract = Contract.objects.filter(id=id).first()
             else:
                 contract = Contract.objects.filter(
@@ -132,7 +126,7 @@ class ContractView(APIView):
                 return Response({"error": _("Contract not found.")}, status=404)
             serializer = ContractSerializer(contract)
             return Response(serializer.data, status=200)
-        if request.user.has_perm("payroll.view_contract"):
+        if request.user.has_perm("krew_payroll.view_contract"):
             contracts = Contract.objects.all()
         else:
             contracts = Contract.objects.filter(employee_id=request.user.employee_get)
@@ -147,7 +141,7 @@ class ContractView(APIView):
         serializer = ContractSerializer(page, many=True)
         return pagination.get_paginated_response(serializer.data)
 
-    @method_decorator(permission_required("payroll.add_contract"))
+    @method_decorator(permission_required("krew_payroll.add_contract"))
     def post(self, request):
         serializer = ContractSerializer(data=request.data)
         if serializer.is_valid():
@@ -155,7 +149,7 @@ class ContractView(APIView):
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 
-    @method_decorator(permission_required("payroll.change_contract"))
+    @method_decorator(permission_required("krew_payroll.change_contract"))
     def put(self, request, pk):
         contract = Contract.objects.get(id=pk)
         serializer = ContractSerializer(instance=contract, data=request.data)
@@ -164,89 +158,9 @@ class ContractView(APIView):
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 
-    @method_decorator(permission_required("payroll.delete_contract"))
+    @method_decorator(permission_required("krew_payroll.delete_contract"))
     def delete(self, request, pk):
         contract = Contract.objects.get(id=pk)
-        contract.delete()
-        return Response({"status": "deleted"}, status=200)
-
-
-class AllowanceView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @method_decorator(permission_required("payroll.view_allowance"))
-    def get(self, request, pk=None):
-        if pk:
-            allowance = Allowance.objects.get(id=pk)
-            serializer = AllowanceSerializer(instance=allowance)
-            return Response(serializer.data, status=200)
-        allowance = Allowance.objects.all()
-        filter_queryset = AllowanceFilter(request.GET, allowance).qs
-        pagination = PageNumberPagination()
-        page = pagination.paginate_queryset(filter_queryset, request)
-        serializer = AllowanceSerializer(page, many=True)
-        return pagination.get_paginated_response(serializer.data)
-
-    @method_decorator(permission_required("payroll.add_allowance"))
-    def post(self, request):
-        serializer = AllowanceSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
-
-    @method_decorator(permission_required("payroll.change_allowance"))
-    def put(self, request, pk):
-        contract = Allowance.objects.get(id=pk)
-        serializer = AllowanceSerializer(instance=contract, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
-
-    @method_decorator(permission_required("payroll.delete_allowance"))
-    def delete(self, request, pk):
-        contract = Allowance.objects.get(id=pk)
-        contract.delete()
-        return Response({"status": "deleted"}, status=200)
-
-
-class DeductionView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @method_decorator(permission_required("payroll.view_deduction"))
-    def get(self, request, pk=None):
-        if pk:
-            deduction = Deduction.objects.get(id=pk)
-            serializer = DeductionSerializer(instance=deduction)
-            return Response(serializer.data, status=200)
-        deduction = Deduction.objects.all()
-        filter_queryset = DeductionFilter(request.GET, deduction).qs
-        pagination = PageNumberPagination()
-        page = pagination.paginate_queryset(filter_queryset, request)
-        serializer = DeductionSerializer(page, many=True)
-        return pagination.get_paginated_response(serializer.data)
-
-    @method_decorator(permission_required("payroll.add_deduction"))
-    def post(self, request):
-        serializer = DeductionSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
-
-    @method_decorator(permission_required("payroll.change_deduction"))
-    def put(self, request, pk):
-        contract = Deduction.objects.get(id=pk)
-        serializer = DeductionSerializer(instance=contract, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
-
-    @method_decorator(permission_required("payroll.delete_deduction"))
-    def delete(self, request, pk):
-        contract = Deduction.objects.get(id=pk)
         contract.delete()
         return Response({"status": "deleted"}, status=200)
 
@@ -254,7 +168,7 @@ class DeductionView(APIView):
 class LoanAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @method_decorator(permission_required("payroll.add_loanaccount"))
+    @method_decorator(permission_required("krew_payroll.add_loanaccount"))
     def post(self, request):
         serializer = LoanAccountSerializer(data=request.data)
         if serializer.is_valid():
@@ -262,7 +176,7 @@ class LoanAccountView(APIView):
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 
-    @method_decorator(permission_required("payroll.view_loanaccount"))
+    @method_decorator(permission_required("krew_payroll.view_loanaccount"))
     def get(self, request, pk=None):
         if pk:
             loan_account = LoanAccount.objects.get(id=pk)
@@ -274,7 +188,7 @@ class LoanAccountView(APIView):
         serializer = LoanAccountSerializer(page, many=True)
         return pagination.get_paginated_response(serializer.data)
 
-    @method_decorator(permission_required("payroll.change_loanaccount"))
+    @method_decorator(permission_required("krew_payroll.change_loanaccount"))
     def put(self, request, pk):
         loan_account = LoanAccount.objects.get(id=pk)
         serializer = LoanAccountSerializer(loan_account, data=request.data)
@@ -283,7 +197,7 @@ class LoanAccountView(APIView):
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 
-    @method_decorator(permission_required("payroll.delete_loanaccount"))
+    @method_decorator(permission_required("krew_payroll.delete_loanaccount"))
     def delete(self, request, pk):
         loan_account = LoanAccount.objects.get(id=pk)
         loan_account.delete()
@@ -296,7 +210,7 @@ class ReimbursementView(APIView):
 
     def get(self, request, pk=None):
         if pk:
-            if request.user.has_perm("payroll.view_reimbursement"):
+            if request.user.has_perm("krew_payroll.view_reimbursement"):
                 reimbursement = Reimbursement.objects.filter(id=pk).first()
             else:
                 reimbursement = Reimbursement.objects.filter(
@@ -308,7 +222,7 @@ class ReimbursementView(APIView):
             return Response(serializer.data, status=200)
         reimbursements = Reimbursement.objects.all()
 
-        if request.user.has_perm("payroll.view_reimbursement"):
+        if request.user.has_perm("krew_payroll.view_reimbursement"):
             reimbursements = Reimbursement.objects.all()
         else:
             reimbursements = Reimbursement.objects.filter(
@@ -328,7 +242,7 @@ class ReimbursementView(APIView):
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 
-    @method_decorator(permission_required("payroll.change_reimbursement"))
+    @method_decorator(permission_required("krew_payroll.change_reimbursement"))
     def put(self, request, pk):
         reimbursement = Reimbursement.objects.get(id=pk)
         serializer = self.serializer_class(instance=reimbursement, data=request.data)
@@ -337,7 +251,7 @@ class ReimbursementView(APIView):
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 
-    @method_decorator(permission_required("payroll.delete_reimbursement"))
+    @method_decorator(permission_required("krew_payroll.delete_reimbursement"))
     def delete(self, request, pk):
         reimbursement = Reimbursement.objects.get(id=pk)
         reimbursement.delete()
@@ -413,10 +327,10 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 # Your models / helpers
-from payroll.models.models import Company, EmployeeWorkInformation, Payslip
-from payroll.models.tax_models import PayrollSettings
-from payroll.views.component_views import filter_payslip
-from payroll.views.views import equalize_lists_length
+from krew_payroll.models.models import Company, EmployeeWorkInformation, Payslip
+from krew_payroll.models.tax_models import PayrollSettings
+from krew_payroll.views.component_views import filter_payslip
+from krew_payroll.views.views import equalize_lists_length
 
 try:
     import pdfkit
@@ -444,7 +358,7 @@ class PayslipPDFAPIView(APIView):
         # authorization: same logic as your view
         user = request.user
         if not (
-            user.has_perm("payroll.view_payslip")
+            user.has_perm("krew_payroll.view_payslip")
             or payslip.employee_id.employee_user_id == user
         ):
             return Response(

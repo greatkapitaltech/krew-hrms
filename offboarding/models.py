@@ -532,9 +532,9 @@ class ResignationLetter(HorillaModel):
         )
         default_notice_end = (
             get_horilla_model_class(
-                app_label="payroll", model="payrollgeneralsetting"
+                app_label="krew_payroll", model="payrollgeneralsetting"
             ).objects.first()
-            if apps.is_installed("payroll")
+            if apps.is_installed("krew_payroll")
             else None
         )
 

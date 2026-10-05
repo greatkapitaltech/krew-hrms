@@ -317,9 +317,9 @@ def on_off(value):
 
 @register.filter(name="currency_symbol_position")
 def currency_symbol_position(amount):
-    if apps.is_installed("payroll"):
+    if apps.is_installed("krew_payroll"):
         PayrollSettings = get_horilla_model_class(
-            app_label="payroll", model="payrollsettings"
+            app_label="krew_payroll", model="payrollsettings"
         )
     symbol = PayrollSettings.objects.first()
 

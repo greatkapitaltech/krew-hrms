@@ -7,13 +7,13 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.dateparse import parse_date
 
-if apps.is_installed("payroll"):
+if apps.is_installed("krew_payroll"):
 
     from base.methods import has_export_access
     from base.models import Company
     from horilla.decorators import login_required, permission_required
-    from payroll.filters import PayslipFilter
-    from payroll.models.models import Payslip
+    from krew_payroll.filters import PayslipFilter
+    from krew_payroll.models.models import Payslip
     from report.dynamic_filter_utils import (
         RELATIVE_DATE_OPERATORS,
         parse_multi_value,
@@ -248,7 +248,7 @@ if apps.is_installed("payroll"):
         return combined if combined is not None else qs
 
     @login_required
-    @permission_required(perm="payroll.view_payslip")
+    @permission_required(perm="krew_payroll.view_payslip")
     def payroll_filter_field_options(request):
         """
         Distinct values available for a given dynamic-filter field, so the
@@ -260,7 +260,7 @@ if apps.is_installed("payroll"):
         model_type = request.GET.get("model", "payslip")
         field = request.GET.get("field")
 
-        if request.user.has_perm("payroll.view_payslip"):
+        if request.user.has_perm("krew_payroll.view_payslip"):
             qs = Payslip.objects.all()
         else:
             qs = Payslip.objects.filter(employee_id__employee_user_id=request.user)
@@ -290,14 +290,14 @@ if apps.is_installed("payroll"):
         return JsonResponse({"options": options})
 
     @login_required
-    @permission_required(perm="payroll.view_payslip")
+    @permission_required(perm="krew_payroll.view_payslip")
     def payroll_report(request):
         company = "all"
         selected_company = request.session.get("selected_company")
         if selected_company != "all":
             company = Company.objects.filter(id=selected_company).first()
 
-        if request.user.has_perm("payroll.view_payslip"):
+        if request.user.has_perm("krew_payroll.view_payslip"):
             payslips = Payslip.objects.all()
         else:
             payslips = Payslip.objects.filter(
@@ -323,7 +323,7 @@ if apps.is_installed("payroll"):
         )
 
     @login_required
-    @permission_required(perm="payroll.view_payslip")
+    @permission_required(perm="krew_payroll.view_payslip")
     def payroll_pivot(request):
         model_type = request.GET.get("model", "payslip")
 

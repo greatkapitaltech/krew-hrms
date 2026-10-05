@@ -540,10 +540,10 @@
                                     <hr>
                                 {% endif %}
                             {% endif %}
-                            {% if "payroll"|app_installed %}
+                            {% if "krew_payroll"|app_installed %}
                                 <li class="oh-inner-sidebar__item">
                                     <div class="oh-accordion ms-2">
-                                        {% if perms.payroll.view_payslipautogenerate %}
+                                        {% if perms.krew_payroll.view_payslipautogenerate %}
                                             <div class="oh-accordion-header" style="font-size: 16px">
                                                 <ion-icon name="wallet-outline" class="me-2"></ion-icon>
                                                 {% trans "Payroll" %}
@@ -553,7 +553,7 @@
                                             <div class="row">
                                                 <div class="col-sm-12 col-md-12 col-lg-12">
                                                     <div class="oh-input-group">
-                                                        {% if perms.payroll.view_payslipautogenerate %}
+                                                        {% if perms.krew_payroll.view_payslipautogenerate %}
                                                             <a
                                                                 id="autoGeneratePayslip"
                                                                 href="{% url 'auto-payslip-settings-view' %}"
@@ -566,7 +566,7 @@
                                         </div>
                                     </div>
                                 </li>
-                                {% if perms.payroll.view_payslipautogenerate %}
+                                {% if perms.krew_payroll.view_payslipautogenerate %}
                                     <hr>
                                 {% endif %}
                             {% endif %}

@@ -44,7 +44,7 @@ def dynamic_attr(obj, attribute_path):
 
     for attr in attributes:
         with contextlib.suppress(Exception):
-            Contract = get_horilla_model_class(app_label="payroll", model="contract")
+            Contract = get_horilla_model_class(app_label="krew_payroll", model="contract")
             if isinstance(obj.first(), Contract):
                 obj = obj.filter(is_active=True).first()
 

@@ -1,0 +1,28 @@
+{% load i18n static %}
+<link rel="stylesheet" href="{% static 'payroll/pay_components.css' %}">
+<div id="payProfileTab" class="oh-inner-sidebar-content border border-[#ebebeb] rounded-md p-4">
+    <div class="pc-card__title">
+        {% trans "Pay profile" %}
+        {% if profile.pk %}<span class="pc-muted">{% blocktrans with m=profile.ctc_monthly|floatformat:0 %}Monthly CTC ₹{{ m }}{% endblocktrans %}</span>{% endif %}
+    </div>
+    <p class="pc-hint mb-3">{% trans "Earnings and deductions use these values in their eligibility rules and calculations (e.g. Basic = 50% of CTC)." %}</p>
+    {% if saved %}<div class="pc-banner pc-banner--live">{% trans "Pay profile saved." %}</div>{% endif %}
+    <form hx-post="{{ save_url }}" hx-target="#payProfileTab" hx-swap="outerHTML" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="pc-banner pc-banner--error">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="row">
+            {% for field in form.visible_fields %}
+                <div class="col-12 col-md-6 mb-3">
+                    <label class="oh-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}<div class="text-xs pc-text-bad mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+        {% if can_edit %}
+            <div class="flex justify-end">
+                <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Save" %}</button>
+            </div>
+        {% endif %}
+    </form>
+</div>

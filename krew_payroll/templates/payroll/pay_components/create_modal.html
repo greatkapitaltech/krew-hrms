@@ -1,0 +1,27 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <h2 class="text-md font-semibold">{% if is_earning %}{% trans "New Earning" %}{% else %}{% trans "New Deduction" %}{% endif %}</h2>
+    <button type="button" class="oh-modal__close--custom" onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')" aria-label="{% trans 'Close' %}">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    <form hx-post="{% url 'pay-component-create' route %}" hx-target="#genericModalBody" class="bg-[white] rounded-md border border-dark-50 p-[20px]">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="text-sm pc-text-bad mb-2">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="oh-input-group mb-3">
+            <label class="oh-label required-star" for="id_name">{% trans "Name" %}</label>
+            {{ form.name }}
+            {% for error in form.name.errors %}<div class="text-xs pc-text-bad mt-1">{{ error }}</div>{% endfor %}
+            <p class="pc-hint mt-1">{% trans "The code is generated from the name and never changes. Everything else is set in the editor that opens next." %}</p>
+        </div>
+        <div class="oh-input-group mb-3">
+            <label class="oh-label" for="id_display_order">{% trans "Display order" %}</label>
+            {{ form.display_order }}
+            {% for error in form.display_order.errors %}<div class="text-xs pc-text-bad mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <div class="flex justify-end">
+            <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Create draft" %}</button>
+        </div>
+    </form>
+</div>

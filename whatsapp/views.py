@@ -519,12 +519,12 @@ def flow_conversion(number, flow_response_json):
         else:
             message = "Attendance module is not installed."
     elif type == "bonus_point":
-        if apps.is_installed("payroll"):
+        if apps.is_installed("krew_payroll"):
             message = bonus_point_create(employee, flow_response)
         else:
             message = "Payroll module is not installed."
     elif type == "reimbursement":
-        if apps.is_installed("payroll"):
+        if apps.is_installed("krew_payroll"):
             message = reimbursement_create(employee, flow_response)
         else:
             message = "Payroll module is not installed."

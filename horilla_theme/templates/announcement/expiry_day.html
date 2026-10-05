@@ -25,7 +25,7 @@
                 value="{{form.instance.days}}"
                 id="id_days"
             >
-            {% if perms.payroll.change_payrollsettings %}
+            {% if perms.krew_payroll.change_payrollsettings %}
                 <button class="btn" type="submit">{% trans "Save" %}</button>
             {% endif %}
         </div>

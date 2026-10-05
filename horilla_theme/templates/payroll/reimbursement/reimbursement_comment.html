@@ -74,7 +74,7 @@
 		</a>
 		<span class="oh-activity-sidebar__title fw-bold">{% trans "Comments" %}</span>
 	</div>
-	{% if request.user.employee_get == req.employee_id or perms.payroll.add_reimbursement or request.user|is_reportingmanager %}
+	{% if request.user.employee_get == req.employee_id or perms.krew_payroll.add_reimbursement or request.user|is_reportingmanager %}
 		<form
 			hx-target="#activitySidebar"
 			hx-post="{% url 'payroll-request-add-comment' request_id %}?{{pd}}"
@@ -110,7 +110,7 @@
 				<div class="flex justify-between">
 					<h3 class="font-semibold text-sm">{{ comment.comment }}</h3>
 
-					{% if request.user.employee_get == comment.employee_id or perms.payroll.delete_reimbursement or request.user|is_reportingmanager %}
+					{% if request.user.employee_get == comment.employee_id or perms.krew_payroll.delete_reimbursement or request.user|is_reportingmanager %}
 						<form
 							method="POST"
 							hx-post="{% url 'payroll-request-delete-comment' comment.id %}"

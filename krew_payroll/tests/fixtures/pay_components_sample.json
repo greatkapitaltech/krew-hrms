@@ -1,0 +1,1314 @@
+{
+ "pay_component": [
+  {
+   "id": 1,
+   "company_id": 2,
+   "type": "EARNING",
+   "code": "BASIC",
+   "name": "Basic",
+   "is_active": true
+  },
+  {
+   "id": 2,
+   "company_id": 2,
+   "type": "EARNING",
+   "code": "DA",
+   "name": "Dearness Allowance",
+   "is_active": true
+  },
+  {
+   "id": 3,
+   "company_id": 2,
+   "type": "EARNING",
+   "code": "HRA",
+   "name": "House Rent Allowance",
+   "is_active": true
+  },
+  {
+   "id": 4,
+   "company_id": 2,
+   "type": "EARNING",
+   "code": "NSA",
+   "name": "Night Shift Allowance",
+   "is_active": true
+  },
+  {
+   "id": 5,
+   "company_id": 2,
+   "type": "EARNING",
+   "code": "CONV",
+   "name": "Conveyance Allowance",
+   "is_active": true
+  },
+  {
+   "id": 6,
+   "company_id": 2,
+   "type": "EARNING",
+   "code": "SPL",
+   "name": "Special Allowance",
+   "is_active": true
+  },
+  {
+   "id": 7,
+   "company_id": 2,
+   "type": "EARNING",
+   "code": "QBONUS",
+   "name": "Quarterly Performance Bonus",
+   "is_active": true
+  },
+  {
+   "id": 8,
+   "company_id": 2,
+   "type": "DEDUCTION",
+   "code": "PF",
+   "name": "Provident Fund",
+   "is_active": true
+  },
+  {
+   "id": 9,
+   "company_id": 2,
+   "type": "DEDUCTION",
+   "code": "ESI",
+   "name": "Employee State Insurance",
+   "is_active": true
+  },
+  {
+   "id": 10,
+   "company_id": 2,
+   "type": "DEDUCTION",
+   "code": "PTKA",
+   "name": "Professional Tax – Karnataka",
+   "is_active": true
+  },
+  {
+   "id": 11,
+   "company_id": 2,
+   "type": "DEDUCTION",
+   "code": "PTMH",
+   "name": "Professional Tax – Maharashtra",
+   "is_active": true
+  },
+  {
+   "id": 12,
+   "company_id": 2,
+   "type": "DEDUCTION",
+   "code": "LWFKA",
+   "name": "Labour Welfare Fund – Karnataka",
+   "is_active": true
+  },
+  {
+   "id": 13,
+   "company_id": 2,
+   "type": "DEDUCTION",
+   "code": "TDS",
+   "name": "Income Tax (TDS)",
+   "is_active": true
+  },
+  {
+   "id": 14,
+   "company_id": 2,
+   "type": "DEDUCTION",
+   "code": "SCANR",
+   "name": "Scanner Damage Recovery",
+   "is_active": true
+  }
+ ],
+ "pay_component_details": [
+  {
+   "id": 1,
+   "component_id": 1,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "EVERY_CYCLE",
+   "one_time_date": null,
+   "disbursement_timing": "FOLLOW_CADENCE",
+   "eligibility_mode": "ALL",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": "TAXABLE",
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "Basic Salary",
+   "display_order": 1,
+   "depends_on": []
+  },
+  {
+   "id": 2,
+   "component_id": 2,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "EVERY_CYCLE",
+   "one_time_date": null,
+   "disbursement_timing": "FOLLOW_CADENCE",
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": "TAXABLE",
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "Dearness Allowance",
+   "display_order": 2,
+   "depends_on": [
+    1
+   ]
+  },
+  {
+   "id": 3,
+   "component_id": 3,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "EVERY_CYCLE",
+   "one_time_date": null,
+   "disbursement_timing": "FOLLOW_CADENCE",
+   "eligibility_mode": "ALL",
+   "min_amount": null,
+   "max_amount": 25000,
+   "tax_treatment": "TAX_FREE",
+   "exemption_type": "UP_TO_LIMIT",
+   "requires_proof": true,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "HRA",
+   "display_order": 3,
+   "depends_on": [
+    1,
+    2
+   ]
+  },
+  {
+   "id": 4,
+   "component_id": 4,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "EVERY_CYCLE",
+   "one_time_date": null,
+   "disbursement_timing": "INSTANT",
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": "TAXABLE",
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "Night Shift Allowance",
+   "display_order": 4,
+   "depends_on": []
+  },
+  {
+   "id": 5,
+   "component_id": 5,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "EVERY_CYCLE",
+   "one_time_date": null,
+   "disbursement_timing": "FOLLOW_CADENCE",
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": "TAXABLE",
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "Conveyance",
+   "display_order": 5,
+   "depends_on": []
+  },
+  {
+   "id": 6,
+   "component_id": 6,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "EVERY_CYCLE",
+   "one_time_date": null,
+   "disbursement_timing": "FOLLOW_CADENCE",
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": "TAXABLE",
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "Special Allowance",
+   "display_order": 6,
+   "depends_on": [
+    1,
+    2,
+    3,
+    5
+   ]
+  },
+  {
+   "id": 7,
+   "component_id": 7,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "QUARTERLY",
+   "one_time_date": null,
+   "disbursement_timing": "FOLLOW_CADENCE",
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": "TAXABLE",
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "Performance Bonus",
+   "display_order": 7,
+   "depends_on": [
+    1,
+    2
+   ]
+  },
+  {
+   "id": 8,
+   "component_id": 3,
+   "version_no": 2,
+   "publish_state": "DRAFT",
+   "effective_from": "2027-04-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "EVERY_CYCLE",
+   "one_time_date": null,
+   "disbursement_timing": "FOLLOW_CADENCE",
+   "eligibility_mode": "ALL",
+   "min_amount": null,
+   "max_amount": 25000,
+   "tax_treatment": "TAX_FREE",
+   "exemption_type": "UP_TO_LIMIT",
+   "requires_proof": true,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "HRA",
+   "display_order": 3,
+   "depends_on": [
+    1,
+    2
+   ]
+  },
+  {
+   "id": 9,
+   "component_id": 8,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "MONTHLY",
+   "one_time_date": null,
+   "disbursement_timing": null,
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": 1800,
+   "tax_treatment": null,
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": true,
+   "show_on_payslip": true,
+   "payslip_label": "PF",
+   "display_order": 1,
+   "depends_on": [
+    1,
+    2
+   ]
+  },
+  {
+   "id": 10,
+   "component_id": 9,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "MONTHLY",
+   "one_time_date": null,
+   "disbursement_timing": null,
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": null,
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "ESI",
+   "display_order": 2,
+   "depends_on": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ]
+  },
+  {
+   "id": 11,
+   "component_id": 10,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "MONTHLY",
+   "one_time_date": null,
+   "disbursement_timing": null,
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": null,
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": true,
+   "show_on_payslip": true,
+   "payslip_label": "Professional Tax",
+   "display_order": 3,
+   "depends_on": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  {
+   "id": 12,
+   "component_id": 11,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "MONTHLY",
+   "one_time_date": null,
+   "disbursement_timing": null,
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": null,
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": true,
+   "show_on_payslip": true,
+   "payslip_label": "Professional Tax",
+   "display_order": 3,
+   "depends_on": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  {
+   "id": 13,
+   "component_id": 12,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "ANNUAL",
+   "one_time_date": null,
+   "disbursement_timing": null,
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": null,
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "LWF",
+   "display_order": 4,
+   "depends_on": []
+  },
+  {
+   "id": 14,
+   "component_id": 13,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "MONTHLY",
+   "one_time_date": null,
+   "disbursement_timing": null,
+   "eligibility_mode": "ALL",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": null,
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "Income Tax",
+   "display_order": 5,
+   "depends_on": []
+  },
+  {
+   "id": 15,
+   "component_id": 8,
+   "version_no": 2,
+   "publish_state": "DRAFT",
+   "effective_from": "2027-04-01",
+   "effective_to": null,
+   "frequency": "RECURRING",
+   "recurring_interval": "MONTHLY",
+   "one_time_date": null,
+   "disbursement_timing": null,
+   "eligibility_mode": "CONDITION",
+   "min_amount": null,
+   "max_amount": 2100,
+   "tax_treatment": null,
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": true,
+   "show_on_payslip": true,
+   "payslip_label": "PF",
+   "display_order": 1,
+   "depends_on": [
+    1,
+    2
+   ]
+  },
+  {
+   "id": 16,
+   "component_id": 14,
+   "version_no": 1,
+   "publish_state": "PUBLISHED",
+   "effective_from": "2026-10-01",
+   "effective_to": "2026-12-31",
+   "frequency": "RECURRING",
+   "recurring_interval": "MONTHLY",
+   "one_time_date": null,
+   "disbursement_timing": null,
+   "eligibility_mode": "SPECIFIC",
+   "min_amount": null,
+   "max_amount": null,
+   "tax_treatment": null,
+   "exemption_type": null,
+   "requires_proof": false,
+   "reduces_taxable_income": false,
+   "show_on_payslip": true,
+   "payslip_label": "Damage recovery",
+   "display_order": 6,
+   "depends_on": []
+  }
+ ],
+ "calculation": [
+  {
+   "id": 1,
+   "component_details_id": 1,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 50,
+   "base_component_ids": [],
+   "base_includes_ctc": true,
+   "formula": null
+  },
+  {
+   "id": 2,
+   "component_details_id": 2,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 10,
+   "base_component_ids": [
+    1
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 3,
+   "component_details_id": 3,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 40,
+   "base_component_ids": [
+    1,
+    2
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 4,
+   "component_details_id": 3,
+   "purpose": "EXEMPTION_LIMIT",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 40,
+   "base_component_ids": [
+    1
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 5,
+   "component_details_id": 4,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "FLAT",
+   "flat_amount": 2000,
+   "rate": null,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 6,
+   "component_details_id": 5,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "FLAT",
+   "flat_amount": 1600,
+   "rate": null,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 7,
+   "component_details_id": 6,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "FORMULA",
+   "flat_amount": null,
+   "rate": null,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": "max( CTC - BASIC - DA - HRA - CONV , 0 )"
+  },
+  {
+   "id": 8,
+   "component_details_id": 7,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "FLAT",
+   "flat_amount": 3000,
+   "rate": null,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 9,
+   "component_details_id": 8,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 50,
+   "base_component_ids": [
+    1,
+    2
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 10,
+   "component_details_id": 8,
+   "purpose": "EXEMPTION_LIMIT",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 40,
+   "base_component_ids": [
+    1
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 11,
+   "component_details_id": 9,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 12,
+   "base_component_ids": [
+    1,
+    2
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 12,
+   "component_details_id": 9,
+   "purpose": "EMPLOYER_SHARE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 12,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 13,
+   "component_details_id": 10,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 0.75,
+   "base_component_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 14,
+   "component_details_id": 10,
+   "purpose": "EMPLOYER_SHARE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 3.25,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 15,
+   "component_details_id": 11,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "SLAB",
+   "flat_amount": null,
+   "rate": null,
+   "base_component_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 16,
+   "component_details_id": 12,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "SLAB",
+   "flat_amount": null,
+   "rate": null,
+   "base_component_ids": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 17,
+   "component_details_id": 13,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "FLAT",
+   "flat_amount": 20,
+   "rate": null,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 18,
+   "component_details_id": 14,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "SYSTEM_COMPUTED",
+   "flat_amount": null,
+   "rate": null,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 19,
+   "component_details_id": 15,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 12,
+   "base_component_ids": [
+    1,
+    2
+   ],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 20,
+   "component_details_id": 15,
+   "purpose": "EMPLOYER_SHARE",
+   "mode": "PERCENTAGE",
+   "flat_amount": null,
+   "rate": 12,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  },
+  {
+   "id": 21,
+   "component_details_id": 16,
+   "purpose": "COMPONENT_VALUE",
+   "mode": "FLAT",
+   "flat_amount": 1000,
+   "rate": null,
+   "base_component_ids": [],
+   "base_includes_ctc": false,
+   "formula": null
+  }
+ ],
+ "calculation_slab": [
+  {
+   "id": 1,
+   "calculation_id": 15,
+   "range_from": 0,
+   "range_to": 24999.99,
+   "amount": 0,
+   "applies_in_month": null
+  },
+  {
+   "id": 2,
+   "calculation_id": 15,
+   "range_from": 25000,
+   "range_to": null,
+   "amount": 200,
+   "applies_in_month": null
+  },
+  {
+   "id": 3,
+   "calculation_id": 16,
+   "range_from": 0,
+   "range_to": 7500,
+   "amount": 0,
+   "applies_in_month": null
+  },
+  {
+   "id": 4,
+   "calculation_id": 16,
+   "range_from": 7500.01,
+   "range_to": 10000,
+   "amount": 175,
+   "applies_in_month": null
+  },
+  {
+   "id": 5,
+   "calculation_id": 16,
+   "range_from": 10000.01,
+   "range_to": null,
+   "amount": 200,
+   "applies_in_month": null
+  },
+  {
+   "id": 6,
+   "calculation_id": 16,
+   "range_from": 10000.01,
+   "range_to": null,
+   "amount": 300,
+   "applies_in_month": 2
+  }
+ ],
+ "eligibility_condition": [
+  {
+   "id": 1,
+   "component_details_id": 2,
+   "field": "WORKER_CLASS",
+   "operator": "IN",
+   "values": [
+    1,
+    2
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 2,
+   "component_details_id": 4,
+   "field": "SHIFT",
+   "operator": "IN",
+   "values": [
+    2
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 3,
+   "component_details_id": 5,
+   "field": "EMPLOYMENT_TYPE",
+   "operator": "IN",
+   "values": [
+    "PAYROLL"
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 4,
+   "component_details_id": 6,
+   "field": "WORKER_CLASS",
+   "operator": "IN",
+   "values": [
+    2,
+    3
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 5,
+   "component_details_id": 7,
+   "field": "WORKER_CLASS",
+   "operator": "IN",
+   "values": [
+    1,
+    2
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 6,
+   "component_details_id": 7,
+   "field": "WAGE_BASE",
+   "operator": "LT",
+   "values": [
+    1,
+    2
+   ],
+   "value_from": 21000,
+   "value_to": null
+  },
+  {
+   "id": 7,
+   "component_details_id": 9,
+   "field": "EMPLOYMENT_TYPE",
+   "operator": "IN",
+   "values": [
+    "PAYROLL"
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 8,
+   "component_details_id": 10,
+   "field": "EMPLOYMENT_TYPE",
+   "operator": "IN",
+   "values": [
+    "PAYROLL"
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 9,
+   "component_details_id": 10,
+   "field": "WAGE_BASE",
+   "operator": "BETWEEN",
+   "values": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+   ],
+   "value_from": 0,
+   "value_to": 21000
+  },
+  {
+   "id": 10,
+   "component_details_id": 11,
+   "field": "STATE",
+   "operator": "IN",
+   "values": [
+    29
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 11,
+   "component_details_id": 12,
+   "field": "STATE",
+   "operator": "IN",
+   "values": [
+    27
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 12,
+   "component_details_id": 13,
+   "field": "STATE",
+   "operator": "IN",
+   "values": [
+    29
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 13,
+   "component_details_id": 13,
+   "field": "EMPLOYMENT_TYPE",
+   "operator": "IN",
+   "values": [
+    "PAYROLL"
+   ],
+   "value_from": null,
+   "value_to": null
+  },
+  {
+   "id": 14,
+   "component_details_id": 15,
+   "field": "EMPLOYMENT_TYPE",
+   "operator": "IN",
+   "values": [
+    "PAYROLL"
+   ],
+   "value_from": null,
+   "value_to": null
+  }
+ ],
+ "eligibility_employee": [
+  {
+   "id": 1,
+   "component_details_id": 5,
+   "employee_id": 104,
+   "list_type": "EXCLUDE"
+  },
+  {
+   "id": 2,
+   "component_details_id": 16,
+   "employee_id": 101,
+   "list_type": "INCLUDE"
+  }
+ ],
+ "employee_pay_profile": [
+  {
+   "id": 1,
+   "employee_id": 101,
+   "company_id": 2,
+   "worker_class_id": 1,
+   "employment_type": "PAYROLL",
+   "grade_id": 1,
+   "work_state_id": 29,
+   "work_site_id": 2,
+   "ctc_annual": 240000,
+   "payout_cadence": "WEEKLY"
+  },
+  {
+   "id": 2,
+   "employee_id": 102,
+   "company_id": 2,
+   "worker_class_id": 1,
+   "employment_type": "CONTRACTOR_GIG",
+   "grade_id": 1,
+   "work_state_id": 33,
+   "work_site_id": 3,
+   "ctc_annual": 180000,
+   "payout_cadence": "WEEKLY"
+  },
+  {
+   "id": 3,
+   "employee_id": 103,
+   "company_id": 2,
+   "worker_class_id": 2,
+   "employment_type": "PAYROLL",
+   "grade_id": 2,
+   "work_state_id": 29,
+   "work_site_id": 1,
+   "ctc_annual": 480000,
+   "payout_cadence": "MONTHLY"
+  },
+  {
+   "id": 4,
+   "employee_id": 104,
+   "company_id": 2,
+   "worker_class_id": 3,
+   "employment_type": "PAYROLL",
+   "grade_id": 3,
+   "work_state_id": 29,
+   "work_site_id": 1,
+   "ctc_annual": 1200000,
+   "payout_cadence": "MONTHLY"
+  },
+  {
+   "id": 5,
+   "employee_id": 105,
+   "company_id": 2,
+   "worker_class_id": 3,
+   "employment_type": "PAYROLL",
+   "grade_id": 4,
+   "work_state_id": 27,
+   "work_site_id": 4,
+   "ctc_annual": 2400000,
+   "payout_cadence": "MONTHLY"
+  }
+ ],
+ "employee_work_information": [
+  {
+   "id": 1,
+   "employee_id": 101,
+   "company_id": 2,
+   "shift_id": 2,
+   "job_position_id": 1
+  },
+  {
+   "id": 2,
+   "employee_id": 102,
+   "company_id": 2,
+   "shift_id": 1,
+   "job_position_id": 2
+  },
+  {
+   "id": 3,
+   "employee_id": 103,
+   "company_id": 2,
+   "shift_id": 3,
+   "job_position_id": 3
+  },
+  {
+   "id": 4,
+   "employee_id": 104,
+   "company_id": 2,
+   "shift_id": 3,
+   "job_position_id": 4
+  },
+  {
+   "id": 5,
+   "employee_id": 105,
+   "company_id": 2,
+   "shift_id": 3,
+   "job_position_id": 5
+  }
+ ],
+ "base_employeeshift": [
+  {
+   "id": 1,
+   "employee_shift": "Morning"
+  },
+  {
+   "id": 2,
+   "employee_shift": "Night"
+  },
+  {
+   "id": 3,
+   "employee_shift": "General"
+  }
+ ],
+ "worker_class": [
+  {
+   "id": 1,
+   "company_id": 2,
+   "code": "BLUE",
+   "name": "Blue Collar"
+  },
+  {
+   "id": 2,
+   "company_id": 2,
+   "code": "GREY",
+   "name": "Grey Collar"
+  },
+  {
+   "id": 3,
+   "company_id": 2,
+   "code": "WHITE",
+   "name": "White Collar"
+  }
+ ],
+ "grade": [
+  {
+   "id": 1,
+   "company_id": 2,
+   "code": "G1",
+   "name": "Associate"
+  },
+  {
+   "id": 2,
+   "company_id": 2,
+   "code": "G2",
+   "name": "Senior Associate"
+  },
+  {
+   "id": 3,
+   "company_id": 2,
+   "code": "G3",
+   "name": "Lead"
+  },
+  {
+   "id": 4,
+   "company_id": 2,
+   "code": "M1",
+   "name": "Manager"
+  }
+ ],
+ "work_site": [
+  {
+   "id": 1,
+   "company_id": 2,
+   "state_id": 29,
+   "name": "Bengaluru – Whitefield"
+  },
+  {
+   "id": 2,
+   "company_id": 2,
+   "state_id": 29,
+   "name": "Mysuru Plant"
+  },
+  {
+   "id": 3,
+   "company_id": 2,
+   "state_id": 33,
+   "name": "Chennai – Guindy"
+  },
+  {
+   "id": 4,
+   "company_id": 2,
+   "state_id": 27,
+   "name": "Pune – Chakan"
+  }
+ ],
+ "base_jobposition": [
+  {
+   "id": 1,
+   "job_position": "Machine Operator"
+  },
+  {
+   "id": 2,
+   "job_position": "Warehouse Picker"
+  },
+  {
+   "id": 3,
+   "job_position": "Floor Supervisor"
+  },
+  {
+   "id": 4,
+   "job_position": "Software Engineer"
+  },
+  {
+   "id": 5,
+   "job_position": "HR Manager"
+  }
+ ],
+ "employee_employee": [
+  {
+   "id": 101,
+   "employee_first_name": "Ravi",
+   "employee_last_name": "Kumar"
+  },
+  {
+   "id": 102,
+   "employee_first_name": "Lakshmi",
+   "employee_last_name": "Devi"
+  },
+  {
+   "id": 103,
+   "employee_first_name": "Arjun",
+   "employee_last_name": "Rao"
+  },
+  {
+   "id": 104,
+   "employee_first_name": "Priya",
+   "employee_last_name": "Nair"
+  },
+  {
+   "id": 105,
+   "employee_first_name": "Sameer",
+   "employee_last_name": "Joshi"
+  }
+ ],
+ "gst_state_config": [
+  {
+   "id": 29,
+   "code": "29"
+  },
+  {
+   "id": 33,
+   "code": "33"
+  },
+  {
+   "id": 27,
+   "code": "27"
+  }
+ ],
+ "expected_december": {
+  "Ravi Kumar": {
+   "gross": 22000,
+   "ded": 2463,
+   "net": 19537,
+   "er": 1938
+  },
+  "Lakshmi Devi": {
+   "gross": 14550,
+   "ded": 0,
+   "net": 14550,
+   "er": 0
+  },
+  "Arjun Rao": {
+   "gross": 40000,
+   "ded": 2000,
+   "net": 38000,
+   "er": 2640
+  },
+  "Priya Nair": {
+   "gross": 100000,
+   "ded": 2000,
+   "net": 98000,
+   "er": 6000
+  },
+  "Sameer Joshi": {
+   "gross": 200000,
+   "ded": 2000,
+   "net": 198000,
+   "er": 12000
+  }
+ }
+}

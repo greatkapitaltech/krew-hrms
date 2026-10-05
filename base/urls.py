@@ -1973,3 +1973,18 @@ urlpatterns = [
 urlpatterns.append(
     re_path(r"^media/(?P<path>.*)$", views.protected_media, name="protected_media"),
 )
+
+# Worker class / grade masters (used by payroll eligibility conditions)
+from base.cbv import pay_masters  # noqa: E402
+
+for _label, _views in (
+    ("workerclass", (pay_masters.WorkerClassListView, pay_masters.WorkerClassNavView, pay_masters.WorkerClassFormView)),
+    ("grade", (pay_masters.GradeListView, pay_masters.GradeNavView, pay_masters.GradeFormView)),
+):
+    _list, _nav, _form = _views
+    urlpatterns += [
+        path(f"settings/{_label}-list/", _list.as_view(), name=f"{_label}-list"),
+        path(f"settings/{_label}-nav/", _nav.as_view(), name=f"{_label}-nav"),
+        path(f"settings/{_label}-create-view/", _form.as_view(), name=f"{_label}-create-view"),
+        path(f"settings/{_label}-update-view/<int:pk>/", _form.as_view(), name=f"{_label}-update-view"),
+    ]

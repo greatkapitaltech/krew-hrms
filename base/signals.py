@@ -26,28 +26,29 @@ def create_deduction_cutleave_from_penalty(sender, instance, created, **kwargs):
     # only work when creating
     if created:
         penalty_amount = instance.penalty_amount
-        if apps.is_installed("payroll") and penalty_amount:
-            Deduction = get_horilla_model_class(app_label="payroll", model="deduction")
-            penalty = Deduction()
+        if apps.is_installed("krew_payroll") and penalty_amount:
+            # The penalty becomes a one-off deduction line on the employee's payslip.
+            Adjustment = get_horilla_model_class(
+                app_label="krew_payroll", model="employeepayadjustment"
+            )
             if instance.late_early_id:
-                penalty.title = f"{instance.late_early_id.get_type_display()} penalty"
-                penalty.one_time_date = (
-                    instance.late_early_id.attendance_id.attendance_date
-                )
+                title = f"{instance.late_early_id.get_type_display()} penalty"
+                pay_date = instance.late_early_id.attendance_id.attendance_date
             elif instance.leave_request_id:
-                penalty.title = f"Leave penalty {instance.leave_request_id.end_date}"
-                penalty.one_time_date = instance.leave_request_id.end_date
+                title = f"Leave penalty {instance.leave_request_id.end_date}"
+                pay_date = instance.leave_request_id.end_date
             else:
-                penalty.title = f"Penalty on {datetime.today()}"
-                penalty.one_time_date = datetime.today()
-            penalty.include_active_employees = False
-            penalty.is_fixed = True
-            penalty.amount = instance.penalty_amount
-            penalty.only_show_under_employee = True
-            penalty.save()
-            penalty.include_active_employees = False
-            penalty.specific_employees.add(instance.employee_id)
-            penalty.save()
+                title = f"Penalty on {datetime.today().date()}"
+                pay_date = datetime.today().date()
+            Adjustment.objects.create(
+                employee=instance.employee_id,
+                type="DEDUCTION",
+                title=title,
+                amount=instance.penalty_amount,
+                pay_date=pay_date,
+                source="PENALTY",
+                source_id=instance.pk,
+            )
 
         if (
             apps.is_installed("leave")
@@ -73,38 +74,14 @@ def delete_deduction_cutleave_from_penalty(sender, instance, **kwargs):
     """
     This is a post delete method, used to delete the deduction and update available leave days.
     """
-    # Check if the deduction model is installed
-    if apps.is_installed("payroll"):
-        Deduction = get_horilla_model_class(app_label="payroll", model="deduction")
-
-        if instance.late_early_id:
-            title = f"{instance.late_early_id.get_type_display()} penalty"
-        elif instance.leave_request_id:
-            title = f"Leave penalty {instance.leave_request_id.end_date}"
-        else:
-            title = f"Penalty on {datetime.today()}"
-
-        # Attempt to retrieve the deduction specifically associated with the penalty account
-        deductions = Deduction.objects.filter(
-            specific_employees=instance.employee_id,
-            amount=instance.penalty_amount,
-            title=title,
+    # Remove the penalty's deduction line unless a payslip already includes it.
+    if apps.is_installed("krew_payroll"):
+        Adjustment = get_horilla_model_class(
+            app_label="krew_payroll", model="employeepayadjustment"
         )
-
-        # If you have a date or other unique field, add it to the filter
-        if instance.late_early_id:
-            deductions = deductions.filter(
-                one_time_date=instance.late_early_id.attendance_id.attendance_date
-            )
-        elif instance.leave_request_id:
-            deductions = deductions.filter(
-                one_time_date=instance.leave_request_id.end_date
-            )
-        else:
-            deductions = deductions.filter(one_time_date=datetime.today())
-
-        for deduction in deductions:
-            deduction.delete()
+        Adjustment.objects.entire().filter(
+            source="PENALTY", source_id=instance.pk, payslip__isnull=True
+        ).delete()
 
     if apps.is_installed("leave") and instance.leave_type_id and instance.minus_leaves:
         available = instance.employee_id.available_leave.filter(
@@ -177,7 +154,7 @@ _HRMS_GROUP_MIGRATE_APPS = {
     "employee",
     "leave",
     "attendance",
-    "payroll",
+    "krew_payroll",
     "recruitment",
     "onboarding",
     "offboarding",
@@ -216,7 +193,7 @@ _DEFAULT_HRMS_GROUPS = {
         "actions": ("add", "view", "change", "delete"),
     },
     "Payroll Manager": {
-        "apps": ("payroll", "employee", "attendance", "leave"),
+        "apps": ("krew_payroll", "employee", "attendance", "leave"),
         "actions": ("add", "view", "change", "delete"),
         # Payroll leads need full payroll; employee/attendance/leave mainly for context
         "app_actions": {
@@ -298,7 +275,7 @@ _ALL_HRMS_APP_LABELS = (
     "employee",
     "leave",
     "attendance",
-    "payroll",
+    "krew_payroll",
     "recruitment",
     "onboarding",
     "offboarding",

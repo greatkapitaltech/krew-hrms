@@ -168,7 +168,7 @@ CACHE_KEY = "horilla_company_models_cache_key"
 #                     "attendanceovertime",
 #                     "workrecords",
 #                 ],
-#                 "payroll": [
+#                 "krew_payroll": [
 #                     "contract",
 #                     "loanaccount",
 #                     "payslip",

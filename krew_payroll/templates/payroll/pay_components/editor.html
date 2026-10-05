@@ -1,0 +1,95 @@
+{% extends "index.html" %}
+{% load i18n static %}
+{% block content %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+{% include "generic/components.html" %}
+<link rel="stylesheet" href="{% static 'payroll/pay_components.css' %}">
+
+{% include "payroll/pay_components/editor_header.html" %}
+
+{% include "payroll/pay_components/editor_form.html" %}
+
+<script>
+(function () {
+    // Unsaved-changes guard. Nothing is stored until Save. "Edited" means the
+    // form's values differ from what was last loaded / saved (or the server
+    // says the form holds unsaved changes). Events alone are not trusted:
+    // Safari fires input/change for AutoFill and restores fields on Back.
+    var snapshot = null, serverDirty = false, leaving = false;
+    function editorForm() { return document.getElementById("pcForm"); }
+    function values(form) {
+        return $(form).serializeArray()
+            .filter(function (f) { return f.name !== "dirty" && f.name !== "csrfmiddlewaretoken"; })
+            .map(function (f) { return f.name + "=" + f.value; }).join("&");
+    }
+    function remember() {
+        var form = editorForm(); if (!form) return;
+        serverDirty = form.querySelector("input[name=dirty]").value === "1";
+        snapshot = values(form);
+    }
+    function isDirty() {
+        var form = editorForm();
+        return !!form && (serverDirty || (snapshot !== null && values(form) !== snapshot));
+    }
+    function refresh() {
+        var form = editorForm(); if (!form) return;
+        var dirty = isDirty();
+        form.querySelector("input[name=dirty]").value = dirty ? "1" : "0";
+        var status = document.getElementById("pcSaveState");
+        if (status && dirty) { status.className = "text-sm pc-dirty"; status.textContent = "{% trans 'Unsaved changes' %}"; }
+        else if (status && status.classList.contains("pc-dirty")) { status.className = "text-sm pc-muted"; status.textContent = "{% trans 'No changes' %}"; }
+    }
+    $(remember);
+    document.body.addEventListener("htmx:afterSettle", function (e) {
+        if (e.target && (e.target.id === "payComponentEditor" || e.target.querySelector && e.target.querySelector("#pcForm"))) remember();
+    });
+    document.addEventListener("input", function (e) { if (e.target.closest("#pcForm") && !e.target.closest("[data-pc-noop]")) refresh(); });
+    document.addEventListener("change", function (e) { if (e.target.closest("#pcForm") && !e.target.closest("[data-pc-noop]")) refresh(); });
+    $(document).on("change", "#pcForm select", refresh);
+    // Back / forward cache: start clean from what is on screen.
+    window.addEventListener("pageshow", function (e) { if (e.persisted) { leaving = false; remember(); } });
+    window.addEventListener("beforeunload", function (e) { if (!leaving && isDirty()) { e.preventDefault(); e.returnValue = ""; } });
+    // Leaving links ask once, in Horilla's own popup (window.confirm is replaced
+    // by an asynchronous SweetAlert in index.js, so it can't be used here); the
+    // page is only left after Confirm, with the browser's guard switched off.
+    window.addEventListener("click", function (e) {
+        var link = e.target.closest && e.target.closest("[data-pc-leave]");
+        if (!link) return;
+        function go() {
+            leaving = true;
+            if (link.dataset.pcPost) htmx.ajax("POST", link.dataset.pcPost, {source: link, swap: "none"});
+            else window.location.href = link.href;
+        }
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (!isDirty()) { go(); return; }
+        Swal.fire({
+            text: "{% trans 'Leave without saving? Your changes will be lost.' %}",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#008000",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: "{% trans 'Leave' %}",
+            cancelButtonText: "{% trans 'Stay' %}",
+        }).then(function (result) {
+            if (result.isConfirmed) go();
+        });
+    }, true);
+    // Effective dates: the pickers' min stops past dates; To can't be before From.
+    document.addEventListener("change", function (e) {
+        var input = e.target;
+        if (!input.matches || !input.matches("#pcForm input[data-pc-date]") || !input.value) return;
+        if (input.min && input.value < input.min) input.value = input.min;
+        if (input.dataset.pcDate === "from") {
+            var to = document.getElementById("pc_to");
+            if (to) {
+                to.min = input.value;
+                if (to.value && to.value < to.min) to.value = to.min;
+            }
+        }
+    }, true);
+    document.body.addEventListener("htmx:beforeRequest", function (e) {
+        if (e.detail.requestConfig && /\/(publish|delete-draft|new-version)\/$/.test(e.detail.requestConfig.path || "")) leaving = true;
+    });
+})();
+</script>
+{% endblock content %}

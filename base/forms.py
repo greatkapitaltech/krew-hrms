@@ -3498,3 +3498,27 @@ class RosterCellUpdateForm(ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["shift"].required = False
+
+
+class WorkerClassForm(ModelForm):
+    """Create / edit a worker class (company is set from the selected company)."""
+
+    cols = {"code": 12, "name": 12}
+
+    class Meta:
+        from base.models import WorkerClass
+
+        model = WorkerClass
+        fields = ["code", "name"]
+
+
+class GradeForm(ModelForm):
+    """Create / edit a grade (company is set from the selected company)."""
+
+    cols = {"code": 12, "name": 12}
+
+    class Meta:
+        from base.models import Grade
+
+        model = Grade
+        fields = ["code", "name"]

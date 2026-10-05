@@ -92,7 +92,7 @@
             <p class="w-1/2">{% trans "Allowances" %}</p>
             <p class="flex-1 flex justify-between">
                 {% trans "Amount" %}
-                {% if perms.payroll.add_allowance and instance.status != "paid" %}
+                {% if perms.krew_payroll.add_employeepayadjustment and instance and instance.status != "paid" %}
                     <button
                         title="{% trans 'Add Allowance' %}"
                         hx-get="{% url 'add-bonus' %}?employee_id={{ employee.id }}&payslip_id={{ instance.id }}"
@@ -153,7 +153,7 @@
             <p class="w-1/2">{% trans "Deductions" %}</p>
             <p class="flex-1 flex justify-between">
                 {% trans "Amount" %}
-                {% if perms.payroll.add_deduction and instance.status != "paid" %}
+                {% if perms.krew_payroll.add_employeepayadjustment and instance and instance.status != "paid" %}
                     <button
                         title="{% trans 'Add Deduction' %}"
                         hx-get="{% url 'add-payslip-deduction' %}?employee_id={{employee.id}}&payslip_id={{instance.id}}"

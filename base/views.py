@@ -323,10 +323,10 @@ def normalize_demo_payslips():
     label are recomputed from that tag instead. Returns the number of payslips
     updated.
     """
-    if not apps.is_installed("payroll"):
+    if not apps.is_installed("krew_payroll"):
         return 0
 
-    from payroll.models.models import Payslip
+    from krew_payroll.models.models import Payslip
 
     today = datetime.today().date()
     updated = 0
@@ -389,9 +389,9 @@ def load_demo_database(request):
                     ("offboarding", "offboarding_data.json"),
                     ("pms", "pms_data.json"),
                     ("pms", "pms_scenarios_data.json"),
-                    ("payroll", "payroll_scenarios_data.json"),
-                    ("payroll", "payroll_data.json"),
-                    ("payroll", "payroll_loanaccount_data.json"),
+                    ("krew_payroll", "payroll_scenarios_data.json"),
+                    ("krew_payroll", "payroll_data.json"),
+                    ("krew_payroll", "payroll_loanaccount_data.json"),
                     ("project", "project_data.json"),
                     ("project", "project_scenarios_data.json"),
                     ("helpdesk", "helpdesk_scenarios_data.json"),
@@ -5906,11 +5906,11 @@ def _system_preferences_context(request):
     """
     Build template context shared by the System Preferences settings page.
     """
-    if apps.is_installed("payroll"):
+    if apps.is_installed("krew_payroll"):
         PayrollSettings = get_horilla_model_class(
-            app_label="payroll", model="payrollsettings"
+            app_label="krew_payroll", model="payrollsettings"
         )
-        from payroll.forms.component_forms import PayrollSettingsForm
+        from krew_payroll.forms.component_forms import PayrollSettingsForm
 
         currency_instance = PayrollSettings.objects.first()
         currency_form = PayrollSettingsForm(instance=currency_instance)
@@ -6078,13 +6078,13 @@ def encashment_general_settings_view(request):
     """
     Encashment redeem condition settings (moved out of General Settings).
     """
-    if not apps.is_installed("payroll"):
+    if not apps.is_installed("krew_payroll"):
         return redirect("system-preferences-view")
 
     EncashmentGeneralSettings = get_horilla_model_class(
-        app_label="payroll", model="encashmentgeneralsettings"
+        app_label="krew_payroll", model="encashmentgeneralsettings"
     )
-    from payroll.forms.forms import EncashmentGeneralSettingsForm
+    from krew_payroll.forms.forms import EncashmentGeneralSettingsForm
 
     encashment_instance = EncashmentGeneralSettings.objects.first()
     encashment_form = EncashmentGeneralSettingsForm(instance=encashment_instance)

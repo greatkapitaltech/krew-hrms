@@ -165,9 +165,9 @@ def employee_data_export(request, emp_id=None):
             )
 
         # IF PAYROLL IS INSTALLED
-        if apps.is_installed("payroll"):
-            from payroll.filters import PayslipFilter
-            from payroll.forms.component_forms import PayslipExportColumnForm
+        if apps.is_installed("krew_payroll"):
+            from krew_payroll.filters import PayslipFilter
+            from krew_payroll.forms.component_forms import PayslipExportColumnForm
 
             context.update(
                 {

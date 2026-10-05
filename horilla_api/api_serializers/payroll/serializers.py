@@ -3,17 +3,14 @@ from rest_framework import serializers
 
 from employee.models import BonusPoint, Employee
 from leave.models import LeaveType
-from payroll.models.models import (
-    Allowance,
+from krew_payroll.models.models import (
     Contract,
-    Deduction,
     LoanAccount,
-    MultipleCondition,
     Payslip,
     Reimbursement,
     ReimbursementMultipleAttachment,
 )
-from payroll.models.tax_models import TaxBracket
+from krew_payroll.models.tax_models import TaxBracket
 
 
 class PayslipSerializer(serializers.ModelSerializer):
@@ -80,104 +77,6 @@ class ContractSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Contract
-        fields = "__all__"
-
-
-class MultipleConditionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MultipleCondition
-        fields = "__all__"
-
-
-class AllowanceSerializer(serializers.ModelSerializer):
-    specific_employees = serializers.PrimaryKeyRelatedField(
-        queryset=Employee.objects.all(), many=True, required=False
-    )
-    exclude_employees = serializers.PrimaryKeyRelatedField(
-        queryset=Employee.objects.all(), many=True, required=False
-    )
-    other_conditions = serializers.PrimaryKeyRelatedField(
-        queryset=MultipleCondition.objects.all(), many=True, required=False
-    )
-
-    class Meta:
-        model = Allowance
-        fields = "__all__"
-        read_only_fields = ["id", "company_id", "only_show_under_employee", "is_loan"]
-
-    def create(self, validated_data):
-        specific_employees = validated_data.pop("specific_employees", [])
-        exclude_employees = validated_data.pop("exclude_employees", [])
-        other_conditions = validated_data.pop("other_conditions", [])
-
-        allowance = Allowance.objects.create(**validated_data)
-
-        # Set the ManyToMany relationships after the instance is created
-        allowance.specific_employees.set(specific_employees)
-        allowance.exclude_employees.set(exclude_employees)
-        allowance.other_conditions.set(other_conditions)
-
-        return allowance
-
-    def validate(self, data):
-        is_fixed = data.get("is_fixed")
-        amount = data.get("amount")
-        based_on = data.get("based_on")
-        per_attendance_fixed_amount = data.get("per_attendance_fixed_amount")
-        shift_id = data.get("shift_id")
-        work_type_id = data.get("work_type_id")
-        is_condition_based = data.get("is_condition_based")
-        field = data.get("field")
-        condition = data.get("condition")
-        value = data.get("value")
-        has_max_limit = data.get("has_max_limit")
-        maximum_amount = data.get("maximum_amount")
-
-        if is_fixed and (amount is None or amount < 0):
-            raise serializers.ValidationError(
-                _("If 'is_fixed' is True, 'amount' must be a positive number.")
-            )
-
-        if not is_fixed and not based_on:
-            raise serializers.ValidationError(
-                _("If 'is_fixed' is False, 'based_on' is required.")
-            )
-
-        if based_on == "attendance" and not per_attendance_fixed_amount:
-            raise serializers.ValidationError(
-                _(
-                    "If 'based_on' is 'attendance', 'per_attendance_fixed_amount' is required."
-                )
-            )
-
-        if based_on == "shift_id" and not shift_id:
-            raise serializers.ValidationError(
-                _("If 'based_on' is 'shift_id', 'shift_id' is required.")
-            )
-
-        if based_on == "work_type_id" and not work_type_id:
-            raise serializers.ValidationError(
-                _("If 'based_on' is 'work_type_id', 'work_type_id' is required.")
-            )
-
-        if is_condition_based and (not field or not value or not condition):
-            raise serializers.ValidationError(
-                _(
-                    "If 'is_condition_based' is True, 'field', 'value', and 'condition' are required."
-                )
-            )
-
-        if has_max_limit and maximum_amount is None:
-            raise serializers.ValidationError(
-                _("If 'has_max_limit' is True, 'maximum_amount' is required.")
-            )
-
-        return data
-
-
-class DeductionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Deduction
         fields = "__all__"
 
 

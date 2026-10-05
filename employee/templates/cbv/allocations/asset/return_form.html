@@ -63,8 +63,8 @@
                 >
                     {% trans "Add Report" %}
                 </button>
-                {% if "payroll"|app_installed %}
-                    {% if perms.payroll.add_loanaccount %}
+                {% if "krew_payroll"|app_installed %}
+                    {% if perms.krew_payroll.add_loanaccount %}
                         <button
                             class="oh-btn oh-btn--secondary oh-btn--shadow w-100 ml-2"
                             type="button"

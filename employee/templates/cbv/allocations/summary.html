@@ -143,40 +143,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="oh-card mt-3">
-                            <div class="oh-card__header">
-                                <span
-                                    class="oh-card__title oh-card__title--sm fw-bold me-2"
-                                >{% trans "Allowance" %}</span>
-                            </div>
-                            <div class="oh-card__body">
-                                <div class="row">
-                                    <div
-                                        class="col-12 col-sm-12"
-                                        hx-get='{% url "allocation-allowance-list" %}?instance_id={{instance.pk}}&card_only=true'
-                                        hx-trigger="load"
-                                    >
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="oh-card mt-3">
-                            <div class="oh-card__header">
-                                <span
-                                    class="oh-card__title oh-card__title--sm fw-bold me-2"
-                                >{% trans "Deductions" %}</span>
-                            </div>
-                            <div class="oh-card__body">
-                                <div class="row">
-                                    <div
-                                        class="col-12 col-sm-12"
-                                        hx-get='{% url "allocation-deduction-list" %}?instance_id={{instance.pk}}&card_only=true'
-                                        hx-trigger="load"
-                                    >
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

@@ -124,7 +124,7 @@
             <div class="flex items-center gap-3">
                 {% if instance %}
                     <div class="flex gap-1">
-                        {% if perms.payroll.change_loanaccount or request.user %}
+                        {% if perms.krew_payroll.change_loanaccount or request.user %}
                             <button
                                 type="button"
                                 data-toggle="oh-modal-toggle"
@@ -137,7 +137,7 @@
                                 {% trans "Edit" %}
                             </button>
                         {% endif %}
-                        {% if perms.payroll.delete_loanaccount %}
+                        {% if perms.krew_payroll.delete_loanaccount %}
                             <button
                                 type="button"
                                 hx-get="{% url 'delete-loan' %}?ids={{ instance.id }}"

@@ -90,27 +90,6 @@
     </div>
 </div>
 
-<div class="border-b border-dark-50 p-3 mb-3 shadow-card rounded-md">
-    <h2 class="text-sm font-semibold mb-4">{% trans "Allowance" %}</h2>
-
-    <div
-        class="col-12 col-sm-12"
-        hx-get="{% url 'allocation-allowance-list' %}?instance_id={{instance.pk}}&card_only=true"
-        hx-trigger="load"
-    >
-    </div>
-</div>
-
-<div class="border-b border-dark-50 p-3 mb-3 shadow-card rounded-md">
-    <h2 class="text-sm font-semibold mb-4">{% trans "Deductions" %}</h2>
-
-    <div
-        class="col-12 col-sm-12"
-        hx-get="{% url 'allocation-deduction-list' %}?instance_id={{instance.pk}}&card_only=true"
-        hx-trigger="load"
-    >
-    </div>
-</div>
 <div class="flex gap-1 justify-end pt-0">
     <button
         class="px-4 py-2 bg-brand-600 text-white rounded-md text-xs flex items-center gap-2 hover:bg-brand-800 transition duration-300"

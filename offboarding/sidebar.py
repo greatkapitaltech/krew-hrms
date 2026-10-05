@@ -72,8 +72,8 @@ def dashboard_accessibility(request, *args):
 def offboarding_rules_accessibility(request, submenu, user_perms, *args, **kwargs):
     user = request.user
     return user.has_perm("offboarding.change_offboardinggeneralsetting") or (
-        apps.is_installed("payroll")
-        and user.has_perm("payroll.change_payrollgeneralsetting")
+        apps.is_installed("krew_payroll")
+        and user.has_perm("krew_payroll.change_payrollgeneralsetting")
     )
 
 

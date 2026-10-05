@@ -1,0 +1,90 @@
+{% load i18n %}
+{# One calculation: key = value | exemption; c = calc state; modes = allowed modes #}
+<div class="pc-row">
+    <div class="oh-input-group">
+        <label class="oh-label" for="calc_{{ key }}_mode">{% trans "Mode" %}</label>
+        <select id="calc_{{ key }}_mode" name="calc_{{ key }}_mode" class="oh-select oh-select-2" hx-post="{{ render_url }}" hx-trigger="change">
+            {% for value, label in modes %}<option value="{{ value }}" {% if c.mode == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    </div>
+    {% if c.mode == "FLAT" %}
+        <div class="oh-input-group">
+            <label class="oh-label" for="calc_{{ key }}_flat_amount">{% trans "Amount (₹)" %}</label>
+            <input id="calc_{{ key }}_flat_amount" name="calc_{{ key }}_flat_amount" type="number" min="0" step="0.01" class="oh-input w-100" value="{{ c.flat_amount|default_if_none:'' }}">
+        </div>
+    {% elif c.mode == "PERCENTAGE" %}
+        <div class="oh-input-group">
+            <label class="oh-label" for="calc_{{ key }}_rate">{% trans "Rate (%)" %}</label>
+            <input id="calc_{{ key }}_rate" name="calc_{{ key }}_rate" type="number" min="0" max="100" step="0.01" class="oh-input w-100" value="{{ c.rate|default_if_none:'' }}">
+        </div>
+    {% endif %}
+</div>
+
+{% if c.mode == "PERCENTAGE" or c.mode == "SLAB" %}
+    <div class="oh-input-group mt-3">
+        <label class="oh-label" for="calc_{{ key }}_bases">
+            {% if c.mode == "SLAB" %}{% trans "Wage figure: earnings added together" %}{% else %}{% trans "Of (added together)" %}{% endif %}
+        </label>
+        <select id="calc_{{ key }}_bases" name="calc_{{ key }}_bases" class="oh-select oh-select-2" multiple>
+            {% for id, name, code in earning_options %}<option value="{{ id }}" {% if id in c.base_component_ids %}selected{% endif %}>{{ name }} ({{ code }})</option>{% endfor %}
+        </select>
+        {% if c.mode == "PERCENTAGE" and is_earning %}
+            <label class="flex items-center gap-2 mt-2 text-sm">
+                <div class="oh-switch"><input type="checkbox" class="oh-switch__checkbox" name="calc_{{ key }}_ctc" {% if c.base_includes_ctc %}checked{% endif %}></div>
+                {% trans "Include monthly CTC in the base" %}
+            </label>
+        {% endif %}
+        <p class="pc-hint mt-1">{% trans "The base is the sum of the picked components' monthly values." %}</p>
+    </div>
+{% endif %}
+
+{% if c.mode == "FORMULA" %}
+    <div class="oh-input-group mt-3">
+        <label class="oh-label" for="calc_{{ key }}_formula">{% trans "Formula" %}</label>
+        <input id="calc_{{ key }}_formula" name="calc_{{ key }}_formula" type="text" class="oh-input w-100" value="{{ c.formula }}" placeholder="max( CTC - BASIC - HRA , 0 )">
+        <div class="flex flex-wrap gap-1 mt-2">
+            {% for code in formula_codes %}
+                <button type="button" class="pc-token" name="op_formula_token" value="{{ key }}:{{ code }}" hx-post="{{ render_url }}" hx-trigger="click">{{ code }}</button>
+            {% endfor %}
+            {% for op in "+-*/()," %}
+                <button type="button" class="pc-token" name="op_formula_token" value="{{ key }}:{{ op }}" hx-post="{{ render_url }}" hx-trigger="click">{{ op }}</button>
+            {% endfor %}
+            <button type="button" class="pc-token" name="op_formula_token" value="{{ key }}:min(" hx-post="{{ render_url }}" hx-trigger="click">min(</button>
+            <button type="button" class="pc-token" name="op_formula_token" value="{{ key }}:max(" hx-post="{{ render_url }}" hx-trigger="click">max(</button>
+            <button type="button" class="pc-token" name="op_formula_token" value="{{ key }}:BACK" hx-post="{{ render_url }}" hx-trigger="click">⌫</button>
+            <button type="button" class="pc-token" name="op_formula_token" value="{{ key }}:CLEAR" hx-post="{{ render_url }}" hx-trigger="click">{% trans "Clear" %}</button>
+        </div>
+        <p class="pc-hint mt-1">{% if is_earning %}{% trans "Use component codes, CTC, numbers, + − × ÷, brackets, min() and max()." %}{% else %}{% trans "Use earning codes, numbers, + − × ÷, brackets, min() and max()." %}{% endif %}</p>
+    </div>
+{% endif %}
+
+{% if c.mode == "SLAB" %}
+    <input type="hidden" name="calc_{{ key }}_slab_count" value="{{ c.slabs|length }}">
+    <div class="mt-3 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead><tr class="text-left pc-muted"><th class="py-1 pr-2">{% trans "From (₹)" %}</th><th class="py-1 pr-2">{% trans "To (₹)" %}</th><th class="py-1 pr-2">{% trans "Amount (₹)" %}</th><th class="py-1 pr-2">{% trans "Only in month" %}</th><th></th></tr></thead>
+            <tbody>
+                {% for s in c.slabs %}
+                    <tr>
+                        <td class="py-1 pr-2"><input name="calc_{{ key }}_slab_{{ forloop.counter0 }}_from" type="number" step="0.01" class="oh-input w-100" value="{{ s.range_from|default_if_none:'' }}"></td>
+                        <td class="py-1 pr-2"><input name="calc_{{ key }}_slab_{{ forloop.counter0 }}_to" type="number" step="0.01" class="oh-input w-100" value="{{ s.range_to|default_if_none:'' }}" placeholder="{% trans 'open-ended' %}"></td>
+                        <td class="py-1 pr-2"><input name="calc_{{ key }}_slab_{{ forloop.counter0 }}_amount" type="number" step="0.01" class="oh-input w-100" value="{{ s.amount|default_if_none:'' }}"></td>
+                        <td class="py-1 pr-2">
+                            <select name="calc_{{ key }}_slab_{{ forloop.counter0 }}_month" class="oh-select oh-select-2">
+                                <option value="">{% trans "Every month" %}</option>
+                                {% for n, m in month_options %}<option value="{{ n }}" {% if s.applies_in_month == n %}selected{% endif %}>{{ m }}</option>{% endfor %}
+                            </select>
+                        </td>
+                        <td class="py-1"><button type="button" class="oh-btn oh-btn--danger oh-btn--sq-sm" name="op_remove_slab" value="{{ key }}:{{ forloop.counter0 }}" hx-post="{{ render_url }}" hx-trigger="click" title="{% trans 'Remove row' %}"><ion-icon name="trash-outline"></ion-icon></button></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="button" class="oh-btn oh-btn--light-bkg mt-2" name="op_add_slab" value="{{ key }}" hx-post="{{ render_url }}" hx-trigger="click">+ {% trans "Add slab row" %}</button>
+        <p class="pc-hint mt-1">{% trans "Leave To empty on the last row. A row for one month (e.g. February) overrides the regular rows in that month." %}</p>
+    </div>
+{% endif %}
+
+{% if c.mode == "SYSTEM_COMPUTED" %}
+    <p class="pc-hint mt-2">{% trans "Calculated by the Income Tax / TDS engine; no figure until that engine is built." %}</p>
+{% endif %}

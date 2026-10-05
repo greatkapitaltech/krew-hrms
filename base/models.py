@@ -3346,3 +3346,99 @@ class CompanyLanguageSetting(HorillaModel):
 
 
 # User.add_to_class("is_new_employee", models.BooleanField(default=False))
+
+
+class _CompanyCodeNameMaster(HorillaModel):
+    """
+    A company-wise master list with a code and a name (worker class, grade).
+    Used by payroll eligibility conditions, which store these rows' ids.
+    """
+
+    company_id = models.ForeignKey(
+        Company,
+        null=True,
+        editable=False,
+        on_delete=models.PROTECT,
+        db_column="company_id",
+        verbose_name=_("Company"),
+    )
+    code = models.CharField(max_length=20, verbose_name=_("Code"))
+    name = models.CharField(max_length=100, verbose_name=_("Name"))
+    objects = HorillaCompanyManager(related_company_field="company_id")
+
+    class Meta:
+        abstract = True
+        ordering = ["code"]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        super().clean()
+        self.code = (self.code or "").strip().upper()
+        self.name = (self.name or "").strip()
+        from base.auth_backends import resolve_company_id_for_new_record
+
+        company_id = self.company_id_id or resolve_company_id_for_new_record()
+        if not company_id:
+            return
+        same = type(self).objects.entire().filter(company_id=company_id)
+        if self.pk:
+            same = same.exclude(pk=self.pk)
+        if same.filter(code=self.code).exists():
+            raise ValidationError({"code": _("This code is already used.")})
+        if same.filter(name__iexact=self.name).exists():
+            raise ValidationError({"name": _("This name is already used.")})
+
+    def save(self, *args, **kwargs):
+        from base.auth_backends import stamp_company_on_create
+
+        stamp_company_on_create(self)
+        self.code = (self.code or "").strip().upper()
+        super().save(*args, **kwargs)
+
+    def get_update_url(self):
+        return reverse(
+            f"{self._meta.model_name}-update-view", kwargs={"pk": self.pk}
+        )
+
+    def get_delete_url(self):
+        return (
+            reverse("generic-delete")
+            + f"?model={self._meta.app_label}.{self._meta.object_name}&pk={self.pk}"
+        )
+
+    def get_instance_id(self):
+        return self.id
+
+
+class WorkerClass(_CompanyCodeNameMaster):
+    """
+    Worker class (e.g. Blue / Grey / White Collar), maintained per company.
+    """
+
+    class Meta(_CompanyCodeNameMaster.Meta):
+        db_table = "krew_payroll_worker_class"
+        verbose_name = _("Worker Class")
+        verbose_name_plural = _("Worker Classes")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company_id", "code"], name="uq_worker_class_company_code"
+            )
+        ]
+
+
+class Grade(_CompanyCodeNameMaster):
+    """
+    Employee grade (e.g. G1 Associate, M1 Manager), maintained per company.
+    """
+
+    class Meta(_CompanyCodeNameMaster.Meta):
+        db_table = "krew_payroll_grade"
+        verbose_name = _("Grade")
+        verbose_name_plural = _("Grades")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company_id", "code"], name="uq_grade_company_code"
+            )
+        ]

@@ -26,7 +26,7 @@
         </div>
     {% endif %}
 
-    {% if perms.employee.change_employeegeneralsetting or "payroll"|app_installed and perms.payroll.view_payrollsettings or perms.base.view_company %}
+    {% if perms.employee.change_employeegeneralsetting or "krew_payroll"|app_installed and perms.krew_payroll.view_payrollsettings or perms.base.view_company %}
         <div class="border border-[#ebebeb] rounded-md overflow-hidden mb-5">
             <h5 class="text-sm font-semibold bg-[#f3f3f3] px-4 py-3 text-[#333]">
                 {% trans "Formatting & Localization" %}
@@ -35,7 +35,7 @@
                 {% if perms.employee.change_employeegeneralsetting %}
                     {% include "settings/settings.html" %}
                 {% endif %}
-                {% if "payroll"|app_installed and perms.payroll.view_payrollsettings %}
+                {% if "krew_payroll"|app_installed and perms.krew_payroll.view_payrollsettings %}
                     {% include "payroll/settings/payroll_settings.html" %}
                 {% endif %}
                 {% if perms.base.view_company %}

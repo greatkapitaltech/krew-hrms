@@ -1,0 +1,13 @@
+{% load i18n static %}
+<link rel="stylesheet" href="{% static 'payroll/pay_components.css' %}">
+<div class="oh-inner-sidebar-content border border-[#ebebeb] rounded-md mb-5">
+    <div hx-get="{{ nav_url }}" hx-trigger="load"></div>
+    {% if description %}
+        <p class="pc-hint mt-1 ml-2">{{ description }}</p>
+    {% endif %}
+    <div class="oh-checkpoint-badge mb-2" id="selectedInstances_{{ list_key }}" data-ids="[]" data-clicked="" style="display: none"></div>
+    <div class="oh-wrapper" id="listContainer_{{ list_key }}">
+        <div class="animated-background"></div>
+    </div>
+</div>
+<script src="{% static 'cbv/deleteFunc.js' %}"></script>

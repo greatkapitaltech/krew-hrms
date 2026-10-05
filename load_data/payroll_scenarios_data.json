@@ -1,6 +1,6 @@
 [
   {
-    "model": "payroll.payrollgeneralsetting",
+    "model": "krew_payroll.payrollgeneralsetting",
     "pk": 1001,
     "fields": {
       "notice_period": 45,
@@ -8,7 +8,7 @@
     }
   },
   {
-    "model": "payroll.encashmentgeneralsettings",
+    "model": "krew_payroll.encashmentgeneralsettings",
     "pk": 1001,
     "fields": {
       "bonus_amount": 25,
@@ -16,7 +16,7 @@
     }
   },
   {
-    "model": "payroll.payslipautogenerate",
+    "model": "krew_payroll.payslipautogenerate",
     "pk": 1001,
     "fields": {
       "generate_day": "25",
@@ -25,7 +25,7 @@
     }
   },
   {
-    "model": "payroll.payslipautogenerate",
+    "model": "krew_payroll.payslipautogenerate",
     "pk": 1002,
     "fields": {
       "generate_day": "last day",
@@ -34,7 +34,7 @@
     }
   },
   {
-    "model": "payroll.payslipautogenerate",
+    "model": "krew_payroll.payslipautogenerate",
     "pk": 1003,
     "fields": {
       "generate_day": "28",
@@ -43,7 +43,7 @@
     }
   },
   {
-    "model": "payroll.multiplecondition",
+    "model": "krew_payroll.multiplecondition",
     "pk": 1001,
     "fields": {
       "field": "employee_work_info__experience",
@@ -52,7 +52,7 @@
     }
   },
   {
-    "model": "payroll.multiplecondition",
+    "model": "krew_payroll.multiplecondition",
     "pk": 1002,
     "fields": {
       "field": "contract_set__pay_frequency",
@@ -61,7 +61,7 @@
     }
   },
   {
-    "model": "payroll.allowance",
+    "model": "krew_payroll.allowance",
     "pk": 1001,
     "fields": {
       "title": "Relocation Salary Advance",
@@ -80,7 +80,7 @@
     }
   },
   {
-    "model": "payroll.allowance",
+    "model": "krew_payroll.allowance",
     "pk": 1002,
     "fields": {
       "title": "Professional Certification Loan",
@@ -99,7 +99,7 @@
     }
   },
   {
-    "model": "payroll.allowance",
+    "model": "krew_payroll.allowance",
     "pk": 1003,
     "fields": {
       "title": "Travel Salary Advance",
@@ -118,7 +118,7 @@
     }
   },
   {
-    "model": "payroll.allowance",
+    "model": "krew_payroll.allowance",
     "pk": 1004,
     "fields": {
       "title": "Sales Performance Incentive",
@@ -144,7 +144,7 @@
     }
   },
   {
-    "model": "payroll.allowance",
+    "model": "krew_payroll.allowance",
     "pk": 1005,
     "fields": {
       "title": "Casual Leave Encashment",
@@ -163,7 +163,7 @@
     }
   },
   {
-    "model": "payroll.allowance",
+    "model": "krew_payroll.allowance",
     "pk": 1006,
     "fields": {
       "title": "Quarterly Bonus Encashment",
@@ -182,7 +182,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1000,
     "fields": {
       "title": "Employee Health Insurance",
@@ -202,7 +202,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1001,
     "fields": {
       "title": "Medical Loan - installment 1 of 12",
@@ -220,7 +220,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1002,
     "fields": {
       "title": "Medical Loan - installment 2 of 12",
@@ -235,7 +235,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1003,
     "fields": {
       "title": "Medical Loan - installment 3 of 12",
@@ -250,7 +250,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1004,
     "fields": {
       "title": "Medical Loan - installment 4 of 12",
@@ -265,7 +265,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1005,
     "fields": {
       "title": "Medical Loan - installment 5 of 12",
@@ -280,7 +280,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1006,
     "fields": {
       "title": "Medical Loan - installment 6 of 12",
@@ -295,7 +295,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1007,
     "fields": {
       "title": "Medical Loan - installment 7 of 12",
@@ -310,7 +310,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1008,
     "fields": {
       "title": "Medical Loan - installment 8 of 12",
@@ -325,7 +325,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1009,
     "fields": {
       "title": "Medical Loan - installment 9 of 12",
@@ -340,7 +340,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1010,
     "fields": {
       "title": "Medical Loan - installment 10 of 12",
@@ -355,7 +355,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1011,
     "fields": {
       "title": "Medical Loan - installment 11 of 12",
@@ -370,7 +370,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1012,
     "fields": {
       "title": "Medical Loan - installment 12 of 12",
@@ -385,7 +385,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1013,
     "fields": {
       "title": "Relocation Salary Advance - installment 1 of 3",
@@ -400,7 +400,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1014,
     "fields": {
       "title": "Relocation Salary Advance - installment 2 of 3",
@@ -415,7 +415,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1015,
     "fields": {
       "title": "Relocation Salary Advance - installment 3 of 3",
@@ -430,7 +430,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1016,
     "fields": {
       "title": "Equipment Damage Fine - installment 1 of 2",
@@ -445,7 +445,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1017,
     "fields": {
       "title": "Equipment Damage Fine - installment 2 of 2",
@@ -460,7 +460,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1018,
     "fields": {
       "title": "Professional Certification Loan - installment 1 of 6",
@@ -475,7 +475,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1019,
     "fields": {
       "title": "Professional Certification Loan - installment 2 of 6",
@@ -490,7 +490,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1020,
     "fields": {
       "title": "Professional Certification Loan - installment 3 of 6",
@@ -505,7 +505,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1021,
     "fields": {
       "title": "Professional Certification Loan - installment 4 of 6",
@@ -520,7 +520,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1022,
     "fields": {
       "title": "Professional Certification Loan - installment 5 of 6",
@@ -535,7 +535,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1023,
     "fields": {
       "title": "Professional Certification Loan - installment 6 of 6",
@@ -550,7 +550,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1024,
     "fields": {
       "title": "Travel Salary Advance - installment 1 of 2",
@@ -565,7 +565,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1025,
     "fields": {
       "title": "Travel Salary Advance - installment 2 of 2",
@@ -580,7 +580,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1026,
     "fields": {
       "title": "Safety Compliance Fine - installment 1 of 3",
@@ -595,7 +595,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1027,
     "fields": {
       "title": "Safety Compliance Fine - installment 2 of 3",
@@ -610,7 +610,7 @@
     }
   },
   {
-    "model": "payroll.deduction",
+    "model": "krew_payroll.deduction",
     "pk": 1028,
     "fields": {
       "title": "Safety Compliance Fine - installment 3 of 3",
@@ -625,7 +625,7 @@
     }
   },
   {
-    "model": "payroll.reimbursement",
+    "model": "krew_payroll.reimbursement",
     "pk": 1001,
     "fields": {
       "title": "Casual Leave Encashment Request",
@@ -646,7 +646,7 @@
     }
   },
   {
-    "model": "payroll.reimbursement",
+    "model": "krew_payroll.reimbursement",
     "pk": 1002,
     "fields": {
       "title": "Approved Casual Leave Encashment",
@@ -667,7 +667,7 @@
     }
   },
   {
-    "model": "payroll.reimbursement",
+    "model": "krew_payroll.reimbursement",
     "pk": 1003,
     "fields": {
       "title": "Rejected Leave Encashment",
@@ -688,7 +688,7 @@
     }
   },
   {
-    "model": "payroll.reimbursement",
+    "model": "krew_payroll.reimbursement",
     "pk": 1004,
     "fields": {
       "title": "Quarterly Bonus Encashment Request",
@@ -709,7 +709,7 @@
     }
   },
   {
-    "model": "payroll.reimbursement",
+    "model": "krew_payroll.reimbursement",
     "pk": 1005,
     "fields": {
       "title": "Approved Bonus Encashment",
@@ -730,7 +730,7 @@
     }
   },
   {
-    "model": "payroll.reimbursement",
+    "model": "krew_payroll.reimbursement",
     "pk": 1006,
     "fields": {
       "title": "Bonus Encashment Above Balance",
@@ -751,7 +751,7 @@
     }
   },
   {
-    "model": "payroll.workrecord",
+    "model": "krew_payroll.workrecord",
     "pk": 1001,
     "fields": {
       "record_name": "February payroll - full day",
@@ -771,7 +771,7 @@
     }
   },
   {
-    "model": "payroll.workrecord",
+    "model": "krew_payroll.workrecord",
     "pk": 1002,
     "fields": {
       "record_name": "February payroll - half day",
@@ -791,7 +791,7 @@
     }
   },
   {
-    "model": "payroll.workrecord",
+    "model": "krew_payroll.workrecord",
     "pk": 1003,
     "fields": {
       "record_name": "February payroll - approved leave",
@@ -811,7 +811,7 @@
     }
   },
   {
-    "model": "payroll.workrecord",
+    "model": "krew_payroll.workrecord",
     "pk": 1004,
     "fields": {
       "record_name": "February payroll - company holiday",
@@ -831,7 +831,7 @@
     }
   },
   {
-    "model": "payroll.workrecord",
+    "model": "krew_payroll.workrecord",
     "pk": 1005,
     "fields": {
       "record_name": "February payroll - attendance conflict",
@@ -851,7 +851,7 @@
     }
   },
   {
-    "model": "payroll.workrecord",
+    "model": "krew_payroll.workrecord",
     "pk": 1006,
     "fields": {
       "record_name": "February payroll - draft correction",
@@ -871,21 +871,21 @@
     }
   },
   {
-    "model": "payroll.reimbursementfile",
+    "model": "krew_payroll.reimbursementfile",
     "pk": 1001,
     "fields": {
       "file": "payroll/reimbursements/leave-encashment-balance-summary.pdf"
     }
   },
   {
-    "model": "payroll.reimbursementfile",
+    "model": "krew_payroll.reimbursementfile",
     "pk": 1002,
     "fields": {
       "file": "payroll/reimbursements/bonus-redemption-approval.pdf"
     }
   },
   {
-    "model": "payroll.reimbursementrequestcomment",
+    "model": "krew_payroll.reimbursementrequestcomment",
     "pk": 1001,
     "fields": {
       "request_id": 1001,
@@ -898,7 +898,7 @@
     }
   },
   {
-    "model": "payroll.reimbursementrequestcomment",
+    "model": "krew_payroll.reimbursementrequestcomment",
     "pk": 1002,
     "fields": {
       "request_id": 1001,
@@ -911,7 +911,7 @@
     }
   },
   {
-    "model": "payroll.reimbursementrequestcomment",
+    "model": "krew_payroll.reimbursementrequestcomment",
     "pk": 1003,
     "fields": {
       "request_id": 1002,
@@ -922,7 +922,7 @@
     }
   },
   {
-    "model": "payroll.reimbursementrequestcomment",
+    "model": "krew_payroll.reimbursementrequestcomment",
     "pk": 1004,
     "fields": {
       "request_id": 1004,
@@ -933,7 +933,7 @@
     }
   },
   {
-    "model": "payroll.reimbursementrequestcomment",
+    "model": "krew_payroll.reimbursementrequestcomment",
     "pk": 1005,
     "fields": {
       "request_id": 1006,

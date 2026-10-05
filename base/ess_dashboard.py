@@ -133,7 +133,7 @@ def ess_kpi_data(request):
     latest_net_pay = None
     latest_payslip_period = ""
     try:
-        from payroll.models.models import Payslip
+        from krew_payroll.models.models import Payslip
 
         ps = (
             Payslip.objects.filter(
@@ -465,7 +465,7 @@ def ess_payslips(request):
     results = []
     latest_net = None
     try:
-        from payroll.models.models import Payslip
+        from krew_payroll.models.models import Payslip
 
         qs = Payslip.objects.filter(
             employee_id=employee,

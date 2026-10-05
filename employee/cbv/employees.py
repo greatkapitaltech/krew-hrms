@@ -486,7 +486,7 @@ class WorkTab(HorillaTabView):
         ] + self.additional_tabs
 
     # def get_context_data(self, **kwargs):
-    #     if apps.is_installed("payroll"):
+    #     if apps.is_installed("krew_payroll"):
     #         employee = self.model.objects.get(id=self.request.GET.get("pk"))
     #         self.tabs.append(
     #             {

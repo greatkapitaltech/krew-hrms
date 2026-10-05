@@ -3625,6 +3625,9 @@ span.oh-activity-sidebar__a img {
   max-width: 300px;
   width: auto;
   position: absolute;
+  /* Display only: a tooltip opened over a menu (e.g. the company switcher)
+     must not take the click or the hover from the item underneath. */
+  pointer-events: none;
 }
 
 .ui-helper-hidden-accessible {

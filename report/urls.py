@@ -102,7 +102,7 @@ if apps.is_installed("leave"):
         ]
     )
 
-if apps.is_installed("payroll"):
+if apps.is_installed("krew_payroll"):
     urlpatterns.extend(
         [
             path(

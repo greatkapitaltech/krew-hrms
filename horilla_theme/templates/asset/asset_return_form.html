@@ -44,8 +44,8 @@
                 {{ asset_return_form.return_images }}
             </div>
             <div class="oh-modal__dialog-footer gap-2">
-                {% if "payroll"|app_installed %}
-                    {% if perms.payroll.add_loanaccount %}
+                {% if "krew_payroll"|app_installed %}
+                    {% if perms.krew_payroll.add_loanaccount %}
                         <button
                             class="oh-btn oh-btn--secondary oh-btn--shadow w-100"
                             type="button"

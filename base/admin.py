@@ -76,3 +76,8 @@ admin.site.register(PenaltyAccounts)
 admin.site.register(MultipleApprovalCondition)
 admin.site.register(AttendanceAllowedIP)
 admin.site.register(DefaultExportPermission)
+
+from base.models import Grade, WorkerClass  # noqa: E402
+
+admin.site.register(WorkerClass)
+admin.site.register(Grade)

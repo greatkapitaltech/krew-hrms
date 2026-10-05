@@ -3,9 +3,14 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(10px);
+  /* Hiding waits 0.35s (visibility delay) so the pointer can travel from the
+     small trigger button to a wider menu — e.g. diagonally down-left to the
+     right-aligned company switcher — without the menu vanishing on the way.
+     Safari doesn't focus a clicked button, so :focus-within can't hold it open. */
   transition:
     opacity 0.3s ease,
-    transform 0.3s ease;
+    transform 0.3s ease,
+    visibility 0s linear 0.35s;
 }
 
 /* .dropdown-wrapper {
@@ -16,6 +21,10 @@
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease,
+    visibility 0s;
 }
 
 /* KANBAN BORDER ON HOVER */

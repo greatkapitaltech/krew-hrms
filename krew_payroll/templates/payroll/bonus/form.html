@@ -1,0 +1,55 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+  <span class="oh-modal__dialog-title" id="createModalLabel">
+    {% trans "Bonus" %}
+  </span>
+  <button type="button" class="oh-modal__close" aria-label="{% trans 'Close' %}">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<div class="oh-modal__dialog-body">
+  <form
+    method="post"
+    hx-post="{% url 'add-bonus' %}?employee_id={{employee_id}}&payslip_id={{payslip_id}}"
+    hx-target="#objectCreateModalTarget"
+    class="oh-profile-section row"
+  >
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+      <label class="oh-label" for="id_title">{% trans "Title" %}</label>
+      {{ form.title }} {{ form.title.errors }}
+    </div>
+
+    {% if payslip_id is None %}
+      <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+        <label class="oh-label" for="id_date">{% trans "Date" %}</label>
+        {{ form.date }} {{ form.date.errors }}
+      </div>
+    {% endif %}
+
+    {{ form.employee_id }}
+
+    <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+      <label class="oh-label required-star" for="id_amount">{% trans "Amount" %}</label>
+      {{ form.amount }} {{ form.amount.errors }}
+    </div>
+
+    <div class="col-12 col-sm-12 col-md-12 col-lg-6">
+      <label class="oh-label" for="id_is_taxable">{% trans "Taxable" %}</label>
+      <div class="oh-switch">{{ form.is_taxable }} {{ form.is_taxable.errors }}</div>
+    </div>
+
+    <div class="oh-modal__dialog-footer p-0 col-12">
+      <button
+        type="submit"
+        class="oh-btn oh-btn--secondary mt-2 mr-0 oh-btn--w-100-resp"
+      >
+        {% trans "Add" %}
+      </button>
+    </div>
+  </form>
+
+

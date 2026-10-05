@@ -826,8 +826,8 @@
     // centralized has_export_access() check.
     const exportAccessMap = JSON.parse(document.getElementById("export-access-map").textContent);
     const modelPathMap = {
-        payslip: "payroll.Payslip",
-        allowance: "payroll.Payslip",
+        payslip: "krew_payroll.Payslip",
+        allowance: "krew_payroll.Payslip",
     };
 
     function currentPivotContainerId() {
@@ -1267,7 +1267,7 @@
 
     // Fields with a small, fixed set of values known up front don't need
     // the options AJAX call -- everything else (dropdown type without an
-    // entry here) fetches its option list from payroll-filter-options.
+    // entry here) fetches its option list from krew_payroll-filter-options.
     var STATIC_FILTER_OPTIONS = {
         status: ["Draft", "Review Ongoing", "Confirmed", "Paid"],
         gender: ["Male", "Female", "Other"]

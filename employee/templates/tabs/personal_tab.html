@@ -131,8 +131,8 @@
 						</div>
 					</li>
 
-					{% if "payroll"|app_installed %}
-						{% if perms.employee.view_employee or perms.payroll.view_contract or request.user == employee.employee_user_id %}
+					{% if "krew_payroll"|app_installed %}
+						{% if perms.employee.view_employee or perms.krew_payroll.view_contract or request.user == employee.employee_user_id %}
 							<li class="oh-tabs__tab" data-target="#tab_2">
 								<div>
 									<img src="{% static 'images/ui/contract.png' %}" alt=""
@@ -289,8 +289,8 @@
 							</div>
 						</div>
 					</div>
-					{% if perms.employee.view_employee or perms.payroll.view_contract or request.user == employee.employee_user_id %}
-						{% if "payroll"|app_installed %}
+					{% if perms.employee.view_employee or perms.krew_payroll.view_contract or request.user == employee.employee_user_id %}
+						{% if "krew_payroll"|app_installed %}
 							<div class="oh-tabs__content" id="tab_2">
 								{% include "tabs/contract-tab.html" %}
 							</div>
