@@ -1552,6 +1552,86 @@ class ApprovalDelegateForm(BaseModelForm):
         return cleaned_data
 
 
+class CreateAttendanceForm(forms.Form):
+    """
+    Manual single-entry attendance creation (Create Attendance PRD
+    section) -- a plain forms.Form, not a ModelForm, since this feeds a
+    custom save path (attendance/cbv/create_attendance.py) that builds
+    both the Attendance row and its one backing AttendanceActivity row
+    directly, rather than letting ModelForm.save() write one model.
+
+    `reason` is deliberately not a field on Attendance itself (no new
+    column) -- it's written into the Attendance Activity Log's
+    what_changed text (see log_attendance_activity() in form_valid()),
+    which is already the durable, queryable/exportable record of why a
+    manual entry happened.
+
+    No separate `attendance_date` field -- Attendance.attendance_date is
+    the logical day the record belongs to, which for a manually-created
+    record is just the check-in's own calendar date; asking the admin to
+    enter the same date twice (once as "Date", once as "Check-in Date")
+    was confusing with no real benefit. attendance_clock_out_date stays
+    separate since an overnight session can legitimately check out the
+    next calendar day.
+
+    Shift is never required at the form-validation layer regardless of
+    mode -- Shift-based vs. Flexible is resolved and enforced in
+    clean(), not via a conditionally-required field, since whether it's
+    needed depends on the picked employee's own resolved
+    AttendanceRuleSet mode, not a fixed form-wide rule.
+    """
+
+    employee_id = forms.ModelChoiceField(
+        queryset=Employee.objects.filter(is_active=True), label=_("Employee")
+    )
+    attendance_clock_in = forms.TimeField(
+        label=_("Check-in Time"), widget=forms.TimeInput(attrs={"type": "time"})
+    )
+    attendance_clock_in_date = forms.DateField(
+        label=_("Check-in Date"), widget=forms.DateInput(attrs={"type": "date"})
+    )
+    attendance_clock_out = forms.TimeField(
+        label=_("Check-out Time"), widget=forms.TimeInput(attrs={"type": "time"})
+    )
+    attendance_clock_out_date = forms.DateField(
+        label=_("Check-out Date"), widget=forms.DateInput(attrs={"type": "date"})
+    )
+    shift_id = forms.ModelChoiceField(
+        queryset=EmployeeShift.objects.all(), required=False, label=_("Shift")
+    )
+    reason = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), label=_("Reason"))
+
+    def clean_attendance_clock_in_date(self):
+        value = self.cleaned_data["attendance_clock_in_date"]
+        if value > datetime.date.today():
+            raise ValidationError(_("Date cannot be in the future."))
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        clock_in_date = cleaned_data.get("attendance_clock_in_date")
+        clock_in_time = cleaned_data.get("attendance_clock_in")
+        clock_out_date = cleaned_data.get("attendance_clock_out_date")
+        clock_out_time = cleaned_data.get("attendance_clock_out")
+        if clock_in_date and clock_in_time and clock_out_date and clock_out_time:
+            clock_in_dt = datetime.datetime.combine(clock_in_date, clock_in_time)
+            clock_out_dt = datetime.datetime.combine(clock_out_date, clock_out_time)
+            if clock_out_dt < clock_in_dt:
+                raise ValidationError(
+                    {"attendance_clock_out": _("Check-out must be on or after check-in.")}
+                )
+
+        employee = cleaned_data.get("employee_id")
+        if employee is not None:
+            rule_set = AttendanceRuleSet.resolve_for_employee(employee)
+            mode = rule_set.mode if rule_set else AttendanceRuleSet.MODE_SHIFT_BASED
+            if mode == AttendanceRuleSet.MODE_SHIFT_BASED and not cleaned_data.get("shift_id"):
+                raise ValidationError(
+                    {"shift_id": _("Shift is required for a Shift-based employee.")}
+                )
+        return cleaned_data
+
+
 # late_grace_minutes stays in AttendanceRuleSet.RULE_FIELDS/
 # INHERITED_FIELDS (resolvable, snapshotted, inheritable -- the model layer
 # is fully wired) but is excluded here: the field it would actually govern,

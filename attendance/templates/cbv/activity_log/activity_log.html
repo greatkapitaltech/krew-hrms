@@ -1,0 +1,12 @@
+{% extends "index.html" %}
+{% load i18n %}
+
+{% block content %}
+    {% include "generic/components.html" %}
+
+    <div hx-get="{% url 'attendance-activity-log-nav' %}" hx-trigger="load"></div>
+
+    <div class="oh-wrapper" id="listContainer">
+        <div class="animated-background"></div>
+    </div>
+{% endblock content %}

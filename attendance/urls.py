@@ -9,6 +9,7 @@ from django.urls import path
 
 from attendance import dashboard as att_dashboard
 from attendance.cbv import (
+    activity_log,
     approval_delegate,
     attendance_activity,
     attendance_request,
@@ -17,6 +18,7 @@ from attendance.cbv import (
     attendances,
     break_point,
     check_in_check_out,
+    create_attendance,
     dashboard,
     dashboard_offline_online,
     grace_time,
@@ -570,6 +572,21 @@ urlpatterns = [
         name="approval-delegate-update",
     ),
     path(
+        "activity-log/",
+        activity_log.AttendanceActivityLogPageView.as_view(),
+        name="attendance-activity-log-view",
+    ),
+    path(
+        "activity-log/list/",
+        activity_log.AttendanceActivityLogListView.as_view(),
+        name="attendance-activity-log-list",
+    ),
+    path(
+        "activity-log/nav/",
+        activity_log.AttendanceActivityLogNav.as_view(),
+        name="attendance-activity-log-nav",
+    ),
+    path(
         "attendance-rule-sets/",
         attendance_rule_set.AttendanceRuleSetPageView.as_view(),
         name="attendance-rule-set-view",
@@ -593,6 +610,41 @@ urlpatterns = [
         "attendance-rule-sets/<int:pk>/update/",
         attendance_rule_set.AttendanceRuleSetFormView.as_view(),
         name="attendance-rule-set-update",
+    ),
+    path(
+        "create-attendance/",
+        create_attendance.CreateAttendancePageView.as_view(),
+        name="create-attendance-view",
+    ),
+    path(
+        "create-attendance/list/",
+        create_attendance.CreateAttendanceListView.as_view(),
+        name="create-attendance-list",
+    ),
+    path(
+        "create-attendance/nav/",
+        create_attendance.CreateAttendanceNav.as_view(),
+        name="create-attendance-nav",
+    ),
+    path(
+        "create-attendance/create/",
+        create_attendance.CreateAttendanceFormView.as_view(),
+        name="create-attendance-create",
+    ),
+    path(
+        "create-attendance/entry/",
+        create_attendance.CreateAttendanceEntryView.as_view(),
+        name="create-attendance-entry",
+    ),
+    path(
+        "create-attendance/batch-by-employees/",
+        create_attendance.CreateAttendanceBatchByEmployeesView.as_view(),
+        name="create-attendance-batch-by-employees",
+    ),
+    path(
+        "create-attendance/batch-by-dates/",
+        create_attendance.CreateAttendanceBatchByDatesView.as_view(),
+        name="create-attendance-batch-by-dates",
     ),
     path(
         "create-batch-attendance/",

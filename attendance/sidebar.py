@@ -30,6 +30,11 @@ SUBMENUS = [
         "accessibility": "attendance.sidebar.attendances_accessibility",
     },
     {
+        "menu": _("Create Attendance"),
+        "redirect": reverse_lazy("create-attendance-view"),
+        "accessibility": "attendance.sidebar.create_attendance_accessibility",
+    },
+    {
         "menu": _("Regularization Requests"),
         "redirect": reverse_lazy("regularization-request-view"),
     },
@@ -41,6 +46,11 @@ SUBMENUS = [
         "menu": _("Attendance Rule Sets"),
         "redirect": reverse_lazy("attendance-rule-set-view"),
         "accessibility": "attendance.sidebar.attendance_rule_set_accessibility",
+    },
+    {
+        "menu": _("Attendance Activity Log"),
+        "redirect": reverse_lazy("attendance-activity-log-view"),
+        "accessibility": "attendance.sidebar.activity_log_accessibility",
     },
     {
         "menu": _("Daily Work Status"),
@@ -121,6 +131,14 @@ def monthly_summary_accessibility(request, submenu, user_perms, *args, **kwargs)
 
 def attendance_rule_set_accessibility(request, submenu, user_perms, *args, **kwargs):
     return request.user.has_perm("attendance.view_attendanceruleset")
+
+
+def activity_log_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.view_attendanceactivitylog")
+
+
+def create_attendance_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.can_create_attendance")
 
 
 # ---------------------------------------------------------------------------

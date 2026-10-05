@@ -20,6 +20,7 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from attendance.activity_log import log_attendance_activity
 from attendance.methods.utils import (
     activity_datetime,
     employee_exists,
@@ -30,6 +31,7 @@ from attendance.methods.utils import (
 from attendance.models import (
     Attendance,
     AttendanceActivity,
+    AttendanceActivityLog,
     AttendanceLateComeEarlyOut,
     AttendanceRuleSet,
     GraceTime,
@@ -277,6 +279,14 @@ def clock_in_attendance_and_activity(
         attendance.late_come_early_out.filter(
             type__in=["early_out", "flexible_shortfall"]
         ).delete()
+
+    log_attendance_activity(
+        actor=employee,
+        action_type=AttendanceActivityLog.ACTION_PUNCH_IN,
+        affected_employees=employee,
+        what_changed=f"Clocked in at {now}",
+        source="Clock In/Out",
+    )
     return attendance
 
 
@@ -380,6 +390,7 @@ def clock_out_attendance_and_activity(
     longitude=None,
     geo_fence_violation=False,
     geo_fence_unverified=False,
+    is_automated=False,
 ):
     """
     Clock out the attendance and activity
@@ -392,6 +403,14 @@ def clock_out_attendance_and_activity(
         geo_fence_violation,
         geo_fence_unverified        : this punch's Geo-mark check outcome
                                        (see clock_in_attendance_and_activity)
+        is_automated                : True when called from the Auto
+                                       Punch-out scheduler (via
+                                       clock_out()'s Request.is_automated)
+                                       -- logs ACTION_AUTO_PUNCH_OUT with
+                                       a System actor instead of
+                                       ACTION_PUNCH_OUT with the employee
+                                       as actor, for the same underlying
+                                       clock-out call path.
     """
 
     attendance_activities = AttendanceActivity.objects.filter(
@@ -453,6 +472,40 @@ def clock_out_attendance_and_activity(
         )
         attendance.save()
 
+        if attendance.attendance_validated:
+            log_attendance_activity(
+                actor=None,
+                action_type=AttendanceActivityLog.ACTION_VALIDATION_AUTO_PASS,
+                affected_employees=employee,
+                what_changed=_("Attendance auto-validated"),
+                source="Attendance Validation",
+            )
+        if attendance.overtime_second and attendance.attendance_overtime_approve:
+            log_attendance_activity(
+                actor=None,
+                action_type=AttendanceActivityLog.ACTION_OVERTIME_AUTO_APPROVE,
+                affected_employees=employee,
+                what_changed=_("Overtime auto-approved (%(duration)s)")
+                % {"duration": format_time(attendance.overtime_second)},
+                source="Overtime",
+            )
+        if is_automated:
+            log_attendance_activity(
+                actor=None,
+                action_type=AttendanceActivityLog.ACTION_AUTO_PUNCH_OUT,
+                affected_employees=employee,
+                what_changed=_("No checkout received -- auto punched out at %(time)s")
+                % {"time": now},
+                source="Auto Punch-out",
+            )
+        else:
+            log_attendance_activity(
+                actor=employee,
+                action_type=AttendanceActivityLog.ACTION_PUNCH_OUT,
+                affected_employees=employee,
+                what_changed=f"Clocked out at {now}",
+                source="Clock In/Out",
+            )
         return attendance
 
     logger.error("No attendance clock in activity found that needs clocking out.")
@@ -636,6 +689,7 @@ def clock_out(request):
             longitude=request.__dict__.get("longitude"),
             geo_fence_violation=request.__dict__.get("geo_fence_violation", False),
             geo_fence_unverified=request.__dict__.get("geo_fence_unverified", False),
+            is_automated=request.__dict__.get("is_automated", False),
         )
         if attendance:
             # Early-out detection doesn't apply under Flexible mode --

@@ -50,6 +50,7 @@ def _close_attendance(attendance, at_datetime, at_time):
                 date=at_datetime.date(),
                 time=at_time,
                 datetime=at_datetime,
+                is_automated=True,
             )
         )
     except Exception as e:

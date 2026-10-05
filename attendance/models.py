@@ -358,6 +358,21 @@ class Attendance(HorillaModel):
     attendance_validated = models.BooleanField(
         default=False, verbose_name=_("Attendance Validate")
     )
+    # Pure provenance tag, not a behavioral field -- lets the
+    # Auto-Validated/Auto-Approved-OT logs and the Attendance Activity
+    # Log distinguish "manually created by an admin/manager, Validation
+    # and Overtime approval bypassed entirely" (Create Attendance) from
+    # a genuine threshold-based auto-pass. Left blank for every other
+    # creation path.
+    CREATION_SOURCE_MANUAL = "MANUAL"
+    CREATION_SOURCE_CHOICES = ((CREATION_SOURCE_MANUAL, _("Manually Created")),)
+    creation_source = models.CharField(
+        max_length=20,
+        choices=CREATION_SOURCE_CHOICES,
+        null=True,
+        blank=True,
+        verbose_name=_("Creation Source"),
+    )
     # Purpose-specific Geo-location flags (not a generic catch-all field --
     # see the Validation feature's design decision: several independent
     # reasons for attention need to be representable at once). Set at
@@ -469,6 +484,7 @@ class Attendance(HorillaModel):
         permissions = [
             ("change_validateattendance", "Validate Attendance"),
             ("change_approveovertime", "Change Approve Overtime"),
+            ("can_create_attendance", "Can manually create/override attendance"),
         ]
         ordering = [
             "-attendance_date",
@@ -2194,12 +2210,26 @@ class PendingConfigChange(HorillaModel):
                 self.status = self.STATUS_CANCELLED
                 self.save(update_fields=["status"])
                 return
+            old_mode = getattr(target, "mode", None)
             for field, value in self.changes.items():
                 setattr(target, field, value)
             target.save()
             self.status = self.STATUS_APPLIED
             self.applied_at = timezone.now()
             self.save(update_fields=["status", "applied_at"])
+
+            new_mode = getattr(target, "mode", None)
+            if "mode" in self.changes and new_mode != old_mode:
+                from attendance.activity_log import log_attendance_activity
+
+                scope = getattr(target, "scope_display", None) or f"tier={target.tier}"
+                log_attendance_activity(
+                    actor=None,
+                    action_type=AttendanceActivityLog.ACTION_ATTENDANCE_TYPE_SWITCH,
+                    affected_employees=[],
+                    what_changed=f"Attendance Type changed to {new_mode} for {scope}",
+                    source="Attendance Rule Sets",
+                )
         config_override_applied.send(sender=type(self), instance=self)
 
     def cancel(self):
@@ -2760,6 +2790,16 @@ class RegularizationRequest(HorillaModel):
             self.resolution_note = resolution_note
             self.save()
 
+        from attendance.activity_log import log_attendance_activity
+
+        log_attendance_activity(
+            actor=resolved_by,
+            action_type=AttendanceActivityLog.ACTION_REGULARIZATION_DECISION,
+            affected_employees=self.employee,
+            what_changed=f"Regularization request approved ({self.get_reason_code_display()})",
+            source="Regularization",
+        )
+
     def reject(self, resolved_by, resolution_note=""):
         """
         A no-op if already resolved. Rejecting the main request forces
@@ -2777,6 +2817,16 @@ class RegularizationRequest(HorillaModel):
         self.resolved_at = timezone.now()
         self.resolution_note = resolution_note
         self.save()
+
+        from attendance.activity_log import log_attendance_activity
+
+        log_attendance_activity(
+            actor=resolved_by,
+            action_type=AttendanceActivityLog.ACTION_REGULARIZATION_DECISION,
+            affected_employees=self.employee,
+            what_changed=f"Regularization request rejected ({self.get_reason_code_display()})",
+            source="Regularization",
+        )
 
     def _apply_time_correction(self):
         attendance = self.attendance
@@ -2925,6 +2975,89 @@ class ApprovalDelegate(HorillaModel):
         return cls.is_delegate_for(
             approver, reporting_manager, on_date=on_date, target=target,
         )
+
+
+class AttendanceActivityLog(HorillaModel):
+    """
+    A single, unified, second-level-precision record of every
+    attendance-related action -- raw punches and every admin/system
+    action that creates, changes, or decides on an attendance record
+    alike (see the "Attendance Activity Log" PRD section). Deliberately
+    NOT built on django-auditlog/horilla_audit: that mechanism is
+    generic field-diff logging, one row per object per save, with no
+    concept of "affected employee" distinct from "which row changed" --
+    neither fits this model's two mandatory facets (Actor, Affected
+    Employee(s)) or its batch-action requirement (one row covering many
+    employees, not one row per employee). Rows are written explicitly,
+    at the point of action, via log_attendance_activity()
+    (attendance/activity_log.py) -- not captured automatically by a
+    signal -- so every action type this covers has its own deliberate
+    call site, not a generic hook.
+
+    affected_employee_ids is always a list, even for a single-employee
+    action (a 1-element list) -- this is what lets one model, one table,
+    cover both the single-record case and the batch case (Bulk Import,
+    Batch Entry Create Attendance) without needing a second model the
+    way an auditlog-based design would have.
+    """
+
+    ACTION_PUNCH_IN = "PUNCH_IN"
+    ACTION_PUNCH_OUT = "PUNCH_OUT"
+    ACTION_AUTO_PUNCH_OUT = "AUTO_PUNCH_OUT"
+    ACTION_ATTENDANCE_TYPE_SWITCH = "ATTENDANCE_TYPE_SWITCH"
+    ACTION_VALIDATION_AUTO_PASS = "VALIDATION_AUTO_PASS"
+    ACTION_OVERTIME_AUTO_APPROVE = "OVERTIME_AUTO_APPROVE"
+    ACTION_MANUAL_CREATE_OVERRIDE = "MANUAL_CREATE_OVERRIDE"
+    ACTION_REGULARIZATION_DECISION = "REGULARIZATION_DECISION"
+    ACTION_BULK_IMPORT = "BULK_IMPORT"
+    ACTION_CHOICES = (
+        (ACTION_PUNCH_IN, _("Punch In")),
+        (ACTION_PUNCH_OUT, _("Punch Out")),
+        (ACTION_AUTO_PUNCH_OUT, _("Auto Punch-out")),
+        (ACTION_ATTENDANCE_TYPE_SWITCH, _("Attendance Type Switch")),
+        (ACTION_VALIDATION_AUTO_PASS, _("Validation Auto-Pass")),
+        (ACTION_OVERTIME_AUTO_APPROVE, _("Overtime Auto-Approve")),
+        (ACTION_MANUAL_CREATE_OVERRIDE, _("Manual Create/Override")),
+        (ACTION_REGULARIZATION_DECISION, _("Regularization Decision")),
+        (ACTION_BULK_IMPORT, _("Bulk Import")),
+    )
+
+    timestamp = models.DateTimeField(auto_now_add=True, verbose_name=_("Timestamp"))
+    # Null means System -- an automated job (Auto Punch-out, a
+    # threshold-based auto-pass/auto-approve), not a missing/unknown
+    # actor. Never SET_NULL'd away from a real actor after the fact --
+    # PROTECT keeps that distinction honest; an employee record with
+    # activity history against it can't be hard-deleted out from under
+    # its own log entries.
+    actor = models.ForeignKey(
+        Employee, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="attendance_activity_actions", verbose_name=_("Actor"),
+    )
+    action_type = models.CharField(
+        max_length=30, choices=ACTION_CHOICES, verbose_name=_("Action Type")
+    )
+    affected_employee_ids = models.JSONField(default=list, verbose_name=_("Affected Employees"))
+    what_changed = models.CharField(max_length=255, verbose_name=_("What Changed"))
+    source = models.CharField(max_length=50, verbose_name=_("Source"))
+
+    class Meta:
+        verbose_name = _("Attendance Activity Log")
+        verbose_name_plural = _("Attendance Activity Logs")
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.get_action_type_display()} by {self.actor_display} ({self.timestamp})"
+
+    @property
+    def actor_display(self):
+        return str(self.actor) if self.actor else _("System")
+
+    @property
+    def affected_employee_count(self):
+        return len(self.affected_employee_ids or [])
+
+    def affected_employees(self):
+        return Employee.objects.filter(pk__in=self.affected_employee_ids or [])
 
 
 class BackgroundAttendanceTask(HorillaModel):

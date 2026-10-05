@@ -509,6 +509,7 @@ class Request:
         longitude=None,
         geo_fence_violation=False,
         geo_fence_unverified=False,
+        is_automated=False,
     ) -> None:
         self.user = user
         self.path = "/"
@@ -520,6 +521,11 @@ class Request:
         self.longitude = longitude
         self.geo_fence_violation = geo_fence_violation
         self.geo_fence_unverified = geo_fence_unverified
+        # Set by the Auto Punch-out scheduler (attendance/scheduler.py)
+        # so clock_out_attendance_and_activity() can log ACTION_AUTO_PUNCH_OUT
+        # (System actor) instead of ACTION_PUNCH_OUT (employee actor) for
+        # the exact same underlying clock-out call path.
+        self.is_automated = is_automated
         self.META = META()
 
     def build_absolute_uri(self, location=None):
