@@ -32,6 +32,7 @@ from typing import Any, Dict
 
 from django import forms
 from django.apps import apps
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db.models.query import QuerySet
 from django.forms import DateInput, DateTimeInput, TimeInput
@@ -41,6 +42,7 @@ from django.utils.translation import gettext_lazy as _
 
 from attendance.filters import AttendanceFilters
 from attendance.models import (
+    ApprovalDelegate,
     Attendance,
     AttendanceActivity,
     AttendanceLateComeEarlyOut,
@@ -1420,6 +1422,129 @@ class RegularizationRequestForm(BaseModelForm):
         instance = self.instance
         for field_name in self.Meta.fields:
             setattr(instance, field_name, cleaned_data.get(field_name))
+        try:
+            instance.clean()
+        except ValidationError as error:
+            raise forms.ValidationError(error.messages) from error
+        return cleaned_data
+
+
+class ApprovalDelegateForm(BaseModelForm):
+    """
+    A manager handing off Validation/Overtime/Regularization approval
+    authority to someone else (see ApprovalDelegate's own docstring in
+    attendance/models.py) -- either a date range or one specific request,
+    picked here via `mode` (form-only, not a model field) rather than
+    showing both sets of fields and letting the model's own clean()
+    reject whichever wasn't meant. `delegator` is never a field here --
+    always the logged-in user, forced onto the instance by the view
+    (ApprovalDelegateFormView.init_form()) before validation runs, the
+    same "set it before is_valid(), not just in form_valid()" fix already
+    applied to AttendanceRuleSetFormView/RegularizationRequestFormView.
+
+    "Specific request" mode is scoped to RegularizationRequest only, even
+    though ApprovalDelegate.target is a generic FK meant to eventually
+    cover Validation/Overtime targets too -- those don't have their own
+    approval-list screen yet, so there's nothing concrete to pick from
+    for them today.
+    """
+
+    MODE_RANGE = "RANGE"
+    MODE_REQUEST = "REQUEST"
+    MODE_CHOICES = (
+        (MODE_RANGE, _("A date range (e.g. while I'm on leave)")),
+        (MODE_REQUEST, _("One specific request")),
+    )
+
+    mode = forms.ChoiceField(
+        choices=MODE_CHOICES, initial=MODE_RANGE, widget=forms.RadioSelect,
+        label=_("Delegate for"),
+    )
+    target_request = forms.ModelChoiceField(
+        queryset=RegularizationRequest.objects.none(),
+        required=False,
+        label=_("Specific request"),
+        help_text=_("Only your own currently-pending, approvable requests are listed."),
+    )
+
+    class Meta:
+        model = ApprovalDelegate
+        fields = ["delegate", "start_date", "end_date", "is_active"]
+        widgets = {
+            "start_date": DateInput(attrs={"type": "date"}),
+            "end_date": DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, delegator=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.delegator = delegator
+        # Eligible delegates: holds attendance.can_be_delegate, and never
+        # the delegator themselves (the model's own clean() blocks
+        # self-delegation too, but filtering it out of the dropdown is
+        # better UX than letting them pick it and then erroring).
+        eligible_ids = [
+            employee.pk
+            for employee in Employee.objects.filter(is_active=True).exclude(
+                pk=delegator.pk if delegator else None
+            )
+            if employee.employee_user_id
+            and employee.employee_user_id.has_perm("attendance.can_be_delegate")
+        ]
+        self.fields["delegate"].queryset = Employee.objects.filter(pk__in=eligible_ids)
+
+        if delegator is not None:
+            # Requests this delegator could currently approve themselves
+            # (their own subordinates' pending requests) -- the realistic
+            # set of things worth handing off one at a time. Built as a
+            # direct reporting-chain filter, not base.methods.
+            # filtersubordinates(), since that helper needs a real
+            # request object and there isn't one at form-init time.
+            self.fields["target_request"].queryset = RegularizationRequest.objects.filter(
+                status=RegularizationRequest.STATUS_PENDING,
+                employee__employee_work_info__reporting_manager_id=delegator,
+            ).order_by("-created_at")
+
+        if self.instance.pk:
+            # Editing an existing row -- lock the mode to whatever it
+            # already is, rather than letting an edit silently flip a
+            # range delegation into a request-specific one (or back) by
+            # just not noticing the radio button; same "scope fields are
+            # disabled on edit" precedent as AttendanceRuleSetForm's
+            # tier/department.
+            self.fields["mode"].disabled = True
+            if self.instance.object_id:
+                self.initial["mode"] = self.MODE_REQUEST
+                self.fields["target_request"].queryset = RegularizationRequest.objects.filter(
+                    pk=self.instance.object_id
+                )
+                self.initial["target_request"] = self.instance.object_id
+            else:
+                self.initial["mode"] = self.MODE_RANGE
+
+    def clean(self):
+        cleaned_data = super().clean()
+        mode = cleaned_data.get("mode")
+        instance = self.instance
+        instance.delegator = self.delegator
+        instance.delegate = cleaned_data.get("delegate")
+        instance.is_active = cleaned_data.get("is_active")
+
+        if mode == self.MODE_REQUEST:
+            target_request = cleaned_data.get("target_request")
+            if not target_request:
+                raise forms.ValidationError(
+                    {"target_request": _("Pick a request to delegate.")}
+                )
+            instance.content_type = ContentType.objects.get_for_model(RegularizationRequest)
+            instance.object_id = target_request.pk
+            instance.start_date = None
+            instance.end_date = None
+        else:
+            instance.content_type = None
+            instance.object_id = None
+            instance.start_date = cleaned_data.get("start_date")
+            instance.end_date = cleaned_data.get("end_date")
+
         try:
             instance.clean()
         except ValidationError as error:

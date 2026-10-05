@@ -76,9 +76,7 @@ from attendance.methods.utils import (
     Request,
     attendance_day_checking,
     format_time,
-    is_reportingmanger,
     monthly_leave_days,
-    paginator_qry,
     parse_date,
     parse_datetime,
     parse_time,
@@ -112,6 +110,8 @@ from base.methods import (
     filtersubordinatesemployeemodel,
     get_key_instances,
     get_pagination,
+    is_reportingmanger,
+    paginator_qry,
 )
 from base.models import (
     AttendanceAllowedIP,

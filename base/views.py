@@ -128,6 +128,7 @@ from base.methods import (
     generate_otp,
     get_key_instances,
     is_reportingmanager,
+    is_reportingmanger,
     paginator_qry,
     sortby,
 )
@@ -230,22 +231,6 @@ def custom404(request):
     Custom 404 method
     """
     return render(request, "404.html")
-
-
-# Create your views here.
-def is_reportingmanger(request, instance):
-    """
-    If the instance have employee id field then you can use this method to know the request
-    user employee is the reporting manager of the instance
-    """
-    manager = request.user.employee_get
-    try:
-        employee_work_info_manager = (
-            instance.employee_id.employee_work_info.reporting_manager_id
-        )
-    except Exception:
-        return HttpResponse("This Employee Dont Have any work information")
-    return manager == employee_work_info_manager
 
 
 def initialize_database_condition():

@@ -9,6 +9,7 @@ from django.urls import path
 
 from attendance import dashboard as att_dashboard
 from attendance.cbv import (
+    approval_delegate,
     attendance_activity,
     attendance_request,
     attendance_rule_set,
@@ -537,6 +538,36 @@ urlpatterns = [
         "regularization-requests/<int:pk>/reject/",
         regularization_request.reject_regularization_request,
         name="reject-regularization-request",
+    ),
+    path(
+        "approval-delegates/",
+        approval_delegate.ApprovalDelegatePageView.as_view(),
+        name="approval-delegate-view",
+    ),
+    path(
+        "approval-delegates/given/list/",
+        approval_delegate.ApprovalDelegateGivenListView.as_view(),
+        name="approval-delegate-given-list",
+    ),
+    path(
+        "approval-delegates/received/list/",
+        approval_delegate.ApprovalDelegateReceivedListView.as_view(),
+        name="approval-delegate-received-list",
+    ),
+    path(
+        "approval-delegates/nav/",
+        approval_delegate.ApprovalDelegateNav.as_view(),
+        name="approval-delegate-nav",
+    ),
+    path(
+        "approval-delegates/create/",
+        approval_delegate.ApprovalDelegateFormView.as_view(),
+        name="approval-delegate-create",
+    ),
+    path(
+        "approval-delegates/<int:pk>/update/",
+        approval_delegate.ApprovalDelegateFormView.as_view(),
+        name="approval-delegate-update",
     ),
     path(
         "attendance-rule-sets/",

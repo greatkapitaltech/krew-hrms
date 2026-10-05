@@ -1,0 +1,26 @@
+{% extends "index.html" %}
+{% load i18n %}
+
+{% block content %}
+    {% include "generic/components.html" %}
+
+    <div hx-get="{% url 'approval-delegate-nav' %}" hx-trigger="load"></div>
+
+    <div class="oh-wrapper" id="givenListContainer">
+        <div class="animated-background"></div>
+    </div>
+
+    <hr class="my-4">
+
+    <div class="oh-wrapper px-2">
+        <h4 class="mb-2">{% trans "Delegations Given To Me" %}</h4>
+    </div>
+    <div
+        class="oh-wrapper"
+        id="receivedListContainer"
+        hx-get="{% url 'approval-delegate-received-list' %}"
+        hx-trigger="load"
+    >
+        <div class="animated-background"></div>
+    </div>
+{% endblock content %}

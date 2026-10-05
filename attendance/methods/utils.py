@@ -10,13 +10,10 @@ from datetime import date, datetime, time, timedelta
 import pandas as pd
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Q, Sum
-from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 
-from base.methods import get_pagination
 from base.models import WEEK_DAYS, CompanyLeaves, Holidays
 from employee.models import Employee
 
@@ -210,25 +207,6 @@ def overtime_calculation(attendance):
     if at_work_sec > minimum_hour_sec:
         return format_time((at_work_sec - minimum_hour_sec))
     return "00:00"
-
-
-def is_reportingmanger(request, instance):
-    """
-    if the instance have employee id field then you can use this method to know the
-    request user employee is the reporting manager of the instance
-    args :
-        request : request
-        instance : an object or instance of any model contain employee_id foreign key field
-    """
-
-    manager = request.user.employee_get
-    try:
-        employee_workinfo_manager = (
-            instance.employee_id.employee_work_info.reporting_manager_id
-        )
-    except Exception:
-        return HttpResponse("This Employee Dont Have any work information")
-    return manager == employee_workinfo_manager
 
 
 def validate_hh_mm_ss_format(value):
@@ -436,15 +414,6 @@ def attendance_day_checking(attendance_date, minimum_hour, employee=None):
                 minimum_hour = "00:00"
                 break
     return minimum_hour
-
-
-def paginator_qry(qryset, page_number):
-    """
-    This method is used to paginate queryset
-    """
-    paginator = Paginator(qryset, get_pagination())
-    qryset = paginator.get_page(page_number)
-    return qryset
 
 
 def monthly_leave_days(month, year):

@@ -34,6 +34,10 @@ SUBMENUS = [
         "redirect": reverse_lazy("regularization-request-view"),
     },
     {
+        "menu": _("Approval Delegation"),
+        "redirect": reverse_lazy("approval-delegate-view"),
+    },
+    {
         "menu": _("Attendance Rule Sets"),
         "redirect": reverse_lazy("attendance-rule-set-view"),
         "accessibility": "attendance.sidebar.attendance_rule_set_accessibility",
