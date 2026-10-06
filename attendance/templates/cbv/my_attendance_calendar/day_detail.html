@@ -1,0 +1,47 @@
+{% load i18n %}
+
+<div class="oh-modal__dialog-header">
+    <h2 class="oh-modal__dialog-title">{{ status.date }}</h2>
+    <button type="button" class="oh-modal__close--custom"
+        onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+
+<div class="oh-modal__dialog-body">
+    <p><strong>{% trans "Status" %}:</strong> {{ status.label }}</p>
+
+    {% if status.attendance %}
+        <p><strong>{% trans "Check-in" %}:</strong> {{ status.attendance.attendance_clock_in|default:"-" }}</p>
+        <p><strong>{% trans "Check-out" %}:</strong> {{ status.attendance.attendance_clock_out|default:"-" }}</p>
+        {% if status.attendance.overtime_second %}
+            <p><strong>{% trans "Overtime" %}:</strong> {{ status.attendance.attendance_overtime }}</p>
+        {% endif %}
+    {% endif %}
+
+    {% if status.holiday %}
+        <p><strong>{% trans "Holiday" %}:</strong> {{ status.holiday.name }}</p>
+    {% endif %}
+    {% if status.leave_request %}
+        <p><strong>{% trans "Leave" %}:</strong> {{ status.leave_request.leave_type_id.name }}</p>
+    {% endif %}
+
+    {% if status.regularization_request %}
+        <p>
+            <strong>{% trans "Regularization" %}:</strong>
+            {{ status.regularization_request.get_status_display }}
+            {% if status.regularization_request.resolution_note %}
+                &mdash; {{ status.regularization_request.resolution_note }}
+            {% endif %}
+        </p>
+    {% endif %}
+
+    {% if flagged %}
+        <a href="#"
+            data-toggle="oh-modal-toggle" data-target="#genericModal"
+            hx-get="{{ status.attendance.raise_regularization_url }}" hx-target="#genericModalBody"
+            class="oh-btn oh-btn--secondary mt-2">
+            {% trans "Request Regularization" %}
+        </a>
+    {% endif %}
+</div>

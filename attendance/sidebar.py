@@ -21,7 +21,7 @@ SUBMENUS = [
         "accessibility": "attendance.sidebar.dashboard_accessibility",
     },
     {
-        "menu": _("My Attendances"),
+        "menu": _("My Attendance"),
         "redirect": reverse_lazy("view-my-attendance"),
     },
     {
@@ -51,6 +51,11 @@ SUBMENUS = [
         "menu": _("Attendance Activity Log"),
         "redirect": reverse_lazy("attendance-activity-log-view"),
         "accessibility": "attendance.sidebar.activity_log_accessibility",
+    },
+    {
+        "menu": _("Attendance Irregularities"),
+        "redirect": reverse_lazy("attendance-irregularities-view"),
+        "accessibility": "attendance.sidebar.irregularities_accessibility",
     },
     {
         "menu": _("Daily Work Status"),
@@ -139,6 +144,12 @@ def activity_log_accessibility(request, submenu, user_perms, *args, **kwargs):
 
 def create_attendance_accessibility(request, submenu, user_perms, *args, **kwargs):
     return request.user.has_perm("attendance.can_create_attendance")
+
+
+def irregularities_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm(
+        "attendance.view_attendancelatecomeearlyout"
+    ) or is_reportingmanager(request.user)
 
 
 # ---------------------------------------------------------------------------

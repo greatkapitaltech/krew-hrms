@@ -1,0 +1,44 @@
+{% load i18n %}
+
+<div id="byEmployeeContainer">
+    <form hx-get="{% url 'attendance-irregularities-by-employee' %}"
+        hx-target="#byEmployeeContainer" hx-swap="outerHTML"
+        class="d-flex flex-wrap gap-2 align-items-end mb-3">
+        <div class="oh-input-group">
+            <label class="oh-label">{% trans "From" %}</label>
+            <input type="date" name="attendance_date__gte" class="form-control" value="{{ from_date|date:'Y-m-d' }}">
+        </div>
+        <div class="oh-input-group">
+            <label class="oh-label">{% trans "To" %}</label>
+            <input type="date" name="attendance_date__lte" class="form-control" value="{{ to_date|date:'Y-m-d' }}">
+        </div>
+        <div class="oh-input-group">
+            <label class="oh-label">{% trans "Department" %}</label>
+            <input type="text" name="department" class="form-control" placeholder="{% trans 'Department' %}">
+        </div>
+        <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Apply" %}</button>
+    </form>
+
+    <table class="oh-table w-100">
+        <thead>
+            <tr>
+                <th>{% trans "Employee" %}</th>
+                <th>{% trans "Late Come" %}</th>
+                <th>{% trans "Early Out" %}</th>
+                <th>{% trans "Hours Shortfall" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>{{ row.employee }}</td>
+                    <td>{{ row.late_come }}</td>
+                    <td>{{ row.early_out }}</td>
+                    <td>{{ row.flexible_shortfall }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4">{% trans "No irregularities in this period." %}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

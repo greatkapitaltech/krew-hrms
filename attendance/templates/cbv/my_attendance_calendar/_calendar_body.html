@@ -1,0 +1,158 @@
+{% load i18n %}
+
+<style>
+    .ma-cal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 0;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .ma-cal-nav { display: flex; align-items: center; gap: 10px; }
+    .ma-cal-month-label { font-size: 1.1rem; font-weight: 700; min-width: 160px; text-align: center; }
+
+    .ma-cal-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+    .ma-cal-summary-item {
+        flex: 1 1 140px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 12px 8px;
+        border-radius: 8px;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+    }
+    .ma-cal-summary-val { font-size: 1.3rem; font-weight: 700; }
+    .ma-cal-summary-lbl {
+        font-size: .65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .4px;
+        color: #6c757d;
+        text-align: center;
+    }
+
+    .ma-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+    .ma-cal-dow {
+        text-align: center;
+        font-size: .7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #6c757d;
+        padding: 4px 0;
+    }
+    .ma-cal-cell {
+        min-height: 64px;
+        border-radius: 8px;
+        padding: 6px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+    }
+    .ma-cal-cell--empty { visibility: hidden; }
+    .ma-cal-cell--green { background: #e6f6ea; border-color: #bfe8ca; }
+    .ma-cal-cell--green_note { background: #e6f6ea; border-color: #bfe8ca; }
+    .ma-cal-cell--red { background: #fcebea; border-color: #f3c3c0; }
+    .ma-cal-cell--blue { background: #e7f1fb; border-color: #bcd9f3; }
+    .ma-cal-cell--pink { background: #fbe9f3; border-color: #f0c2dd; }
+    .ma-cal-cell--today { background: #fff8e1; border-color: #ffe08a; }
+    .ma-cal-cell--future { background: #fff; border-color: #eee; cursor: default; }
+    .ma-cal-day-num { font-weight: 700; font-size: .85rem; }
+    .ma-cal-note-icon {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        color: #1a3a8f;
+        font-size: .9rem;
+    }
+    .ma-cal-today-tag {
+        font-size: .6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #a8740a;
+    }
+</style>
+
+<div id="calendarBody">
+    <div class="ma-cal-header">
+        <div class="ma-cal-nav">
+            <button type="button" class="oh-btn oh-btn--light-bkg"
+                hx-get="{% url 'view-my-attendance' %}?month={{ prev_month_value }}"
+                hx-select="#calendarBody" hx-target="#calendarBody" hx-swap="outerHTML">
+                <ion-icon name="chevron-back-outline"></ion-icon>
+            </button>
+            <span class="ma-cal-month-label">{{ month_label }}</span>
+            <button type="button" class="oh-btn oh-btn--light-bkg"
+                hx-get="{% url 'view-my-attendance' %}?month={{ next_month_value }}"
+                hx-select="#calendarBody" hx-target="#calendarBody" hx-swap="outerHTML">
+                <ion-icon name="chevron-forward-outline"></ion-icon>
+            </button>
+        </div>
+        <a href="#" class="oh-btn oh-btn--secondary"
+            data-toggle="oh-modal-toggle" data-target="#genericModal"
+            hx-get="{{ raise_regularization_url }}" hx-target="#genericModalBody">
+            {% trans "Request Regularization" %}
+        </a>
+    </div>
+
+    <div class="ma-cal-summary">
+        <div class="ma-cal-summary-item">
+            <span class="ma-cal-summary-val">{{ summary.days_present }}</span>
+            <span class="ma-cal-summary-lbl">{% trans "Days Present" %}</span>
+        </div>
+        <div class="ma-cal-summary-item">
+            <span class="ma-cal-summary-val">{{ summary.late_comes }}</span>
+            <span class="ma-cal-summary-lbl">{% trans "Late-Comes" %}</span>
+        </div>
+        <div class="ma-cal-summary-item">
+            <span class="ma-cal-summary-val">{{ summary.ot_hours_accrued }}</span>
+            <span class="ma-cal-summary-lbl">{% trans "OT Hours Accrued" %}</span>
+        </div>
+        <div class="ma-cal-summary-item">
+            <span class="ma-cal-summary-val">{{ summary.regularization_pending }}</span>
+            <span class="ma-cal-summary-lbl">{% trans "Regularization Pending" %}</span>
+        </div>
+    </div>
+
+    <div class="ma-cal-grid">
+        <div class="ma-cal-dow">{% trans "Mon" %}</div>
+        <div class="ma-cal-dow">{% trans "Tue" %}</div>
+        <div class="ma-cal-dow">{% trans "Wed" %}</div>
+        <div class="ma-cal-dow">{% trans "Thu" %}</div>
+        <div class="ma-cal-dow">{% trans "Fri" %}</div>
+        <div class="ma-cal-dow">{% trans "Sat" %}</div>
+        <div class="ma-cal-dow">{% trans "Sun" %}</div>
+
+        {% for week in weeks %}
+            {% for cell in week %}
+                {% if cell is None %}
+                    <div class="ma-cal-cell ma-cal-cell--empty"></div>
+                {% else %}
+                    <div class="ma-cal-cell ma-cal-cell--{{ cell.color }}"
+                        {% if cell.color != "future" %}
+                            data-toggle="oh-modal-toggle" data-target="#genericModal"
+                            hx-get="{% url 'my-attendance-day-detail' cell.date.year cell.date.month cell.date.day %}"
+                            hx-target="#genericModalBody"
+                        {% endif %}>
+                        <span class="ma-cal-day-num">{{ cell.day_num }}</span>
+                        {% if cell.color == "green_note" %}
+                            <ion-icon name="create-outline" class="ma-cal-note-icon"></ion-icon>
+                        {% endif %}
+                        {% if cell.color == "today" %}
+                            <span class="ma-cal-today-tag">{% trans "Today" %}</span>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+</div>

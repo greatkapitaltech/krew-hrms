@@ -1566,7 +1566,13 @@ class AttendanceLateComeEarlyOut(HorillaModel):
         return self.penaltyaccounts_set.count()
 
     def save(self, *args, **kwargs) -> None:
-        super().save(*args, **kwargs)
+        # Single save, not two -- a second super().save() call here used
+        # to re-receive whatever **kwargs the caller passed (notably
+        # force_insert=True from QuerySet.create()), forcing a second
+        # INSERT of the same now-already-assigned pk and crashing with
+        # a duplicate-key error. employee_id only reads attendance_id,
+        # already set by every real caller before save() runs, so it
+        # never needed the row to exist in the DB first.
         self.employee_id = self.attendance_id.employee_id
         super().save(*args, **kwargs)
 

@@ -12,6 +12,7 @@ from attendance.cbv import (
     activity_log,
     approval_delegate,
     attendance_activity,
+    attendance_irregularities,
     attendance_request,
     attendance_rule_set,
     attendance_tab,
@@ -25,6 +26,7 @@ from attendance.cbv import (
     hour_account,
     ip_restriction,
     late_come_and_early_out,
+    my_attendance_calendar,
     my_attendances,
     regularization_request,
 )
@@ -587,6 +589,26 @@ urlpatterns = [
         name="attendance-activity-log-nav",
     ),
     path(
+        "irregularities/",
+        attendance_irregularities.AttendanceIrregularitiesPageView.as_view(),
+        name="attendance-irregularities-view",
+    ),
+    path(
+        "irregularities/instances/",
+        attendance_irregularities.AttendanceIrregularitiesInstancesView.as_view(),
+        name="attendance-irregularities-instances",
+    ),
+    path(
+        "irregularities/nav/",
+        attendance_irregularities.AttendanceIrregularitiesNav.as_view(),
+        name="attendance-irregularities-nav",
+    ),
+    path(
+        "irregularities/by-employee/",
+        attendance_irregularities.AttendanceIrregularitiesByEmployeeView.as_view(),
+        name="attendance-irregularities-by-employee",
+    ),
+    path(
         "attendance-rule-sets/",
         attendance_rule_set.AttendanceRuleSetPageView.as_view(),
         name="attendance-rule-set-view",
@@ -791,8 +813,13 @@ urlpatterns = [
     ),
     path(
         "view-my-attendance/",
-        my_attendances.MyAttendances.as_view(),
+        my_attendance_calendar.MyAttendanceCalendarPageView.as_view(),
         name="view-my-attendance",
+    ),
+    path(
+        "my-attendance-calendar/day/<int:year>/<int:month>/<int:day>/",
+        my_attendance_calendar.MyAttendanceDayDetailView.as_view(),
+        name="my-attendance-day-detail",
     ),
     path(
         "my-attendance-list/",
