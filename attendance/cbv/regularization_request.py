@@ -11,7 +11,7 @@ from typing import Any
 from django.contrib import messages
 from django.db.models import Q
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
@@ -223,10 +223,11 @@ class RegularizationRequestListView(HorillaListView):
             "accessibility": "attendance.cbv.regularization_request.can_resolve_accessibility",
             "attrs": """
                 href="#"
-                hx-post="{reject_url}"
-                hx-target="#reloadMessagesButton"
+                data-toggle="oh-modal-toggle"
+                data-target="#genericModal"
+                hx-get="{reject_prompt_url}"
+                hx-target="#genericModalBody"
                 class="oh-btn oh-btn--danger w-100"
-                onclick="event.preventDefault(); return confirm('Reject this request?')"
             """,
         },
     ]
@@ -240,8 +241,13 @@ def reject_url(self):
     return reverse("reject-regularization-request", kwargs={"pk": self.pk})
 
 
+def reject_prompt_url(self):
+    return reverse("reject-regularization-request-prompt", kwargs={"pk": self.pk})
+
+
 RegularizationRequest.approve_url = property(approve_url)
 RegularizationRequest.reject_url = property(reject_url)
+RegularizationRequest.reject_prompt_url = property(reject_prompt_url)
 
 
 def can_resolve_accessibility(request, instance=None, *args, **kwargs):
@@ -363,6 +369,23 @@ def approve_regularization_request(request, pk):
 
 
 @fbv_login_required
+@require_http_methods(["GET"])
+def reject_regularization_prompt(request, pk):
+    """
+    GET-only: the remark modal itself, opened by the Reject row action
+    instead of the old plain confirm()+hx-post -- the PRD requires a
+    mandatory remark on a decline, which a bare confirm() dialog can
+    never collect.
+    """
+    reg_request = get_object_or_404(RegularizationRequest, pk=pk)
+    return render(
+        request,
+        "cbv/regularization_request/reject_prompt.html",
+        {"reg_request": reg_request},
+    )
+
+
+@fbv_login_required
 @require_http_methods(["POST"])
 def reject_regularization_request(request, pk):
     reg_request = get_object_or_404(RegularizationRequest, pk=pk)
@@ -370,15 +393,19 @@ def reject_regularization_request(request, pk):
     authorized = request.user.has_perm(
         "attendance.change_attendance"
     ) or ApprovalDelegate.can_approve(approver, reg_request.employee, target=reg_request)
+    resolution_note = (request.POST.get("resolution_note") or "").strip()
     if not authorized:
         messages.error(
             request, _("You do not have permission to reject this request.")
         )
     elif reg_request.status != RegularizationRequest.STATUS_PENDING:
         messages.error(request, _("This request has already been resolved."))
+    elif not resolution_note:
+        messages.error(request, _("A remark is required to decline this request."))
     else:
-        reg_request.reject(approver)
+        reg_request.reject(approver, resolution_note=resolution_note)
         messages.success(request, _("Regularization request rejected."))
     return HttpResponse(
-        "<script>$('.reload-record').click(); $('#reloadMessagesButton').click();</script>"
+        "<script>$('.reload-record').click(); $('#reloadMessagesButton').click();"
+        "$('.oh-modal--show').removeClass('oh-modal--show');</script>"
     )

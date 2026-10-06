@@ -58,6 +58,11 @@ SUBMENUS = [
         "accessibility": "attendance.sidebar.irregularities_accessibility",
     },
     {
+        "menu": _("My Krew Attendance"),
+        "redirect": reverse_lazy("my-krew-attendance-view"),
+        "accessibility": "attendance.sidebar.my_krew_attendance_accessibility",
+    },
+    {
         "menu": _("Daily Work Status"),
         "redirect": reverse_lazy("work-records"),
         "accessibility": "attendance.sidebar.work_record_accessibility",
@@ -150,6 +155,12 @@ def irregularities_accessibility(request, submenu, user_perms, *args, **kwargs):
     return request.user.has_perm(
         "attendance.view_attendancelatecomeearlyout"
     ) or is_reportingmanager(request.user)
+
+
+def my_krew_attendance_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.view_attendance") or is_reportingmanager(
+        request.user
+    )
 
 
 # ---------------------------------------------------------------------------

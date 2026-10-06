@@ -355,6 +355,29 @@ class Attendance(HorillaModel):
     attendance_overtime_approve = models.BooleanField(
         default=False, verbose_name=_("Overtime Approve")
     )
+    # Distinguishes "not yet manually reviewed" from "actively denied" --
+    # attendance_overtime_approve alone can't: it's False in both cases.
+    # Needed for My Krew Attendance's Overtime queue (Need Your Action)
+    # to know when a day has already been decided and should drop out of
+    # the pending list, same PENDING/APPROVED/DENIED vocabulary as
+    # RegularizationRequest.overtime_decision (a different dispute-
+    # specific decision, not shared with this one -- that one resolves
+    # an employee-raised dispute; this one is the manager-initiated
+    # review this day's overtime never got in the first place).
+    OVERTIME_DECISION_PENDING = "PENDING"
+    OVERTIME_DECISION_APPROVED = "APPROVED"
+    OVERTIME_DECISION_DENIED = "DENIED"
+    OVERTIME_DECISION_CHOICES = (
+        (OVERTIME_DECISION_PENDING, _("Pending")),
+        (OVERTIME_DECISION_APPROVED, _("Approved")),
+        (OVERTIME_DECISION_DENIED, _("Denied")),
+    )
+    overtime_decision = models.CharField(
+        max_length=10,
+        choices=OVERTIME_DECISION_CHOICES,
+        default=OVERTIME_DECISION_PENDING,
+        verbose_name=_("Overtime Decision"),
+    )
     attendance_validated = models.BooleanField(
         default=False, verbose_name=_("Attendance Validate")
     )
@@ -3015,6 +3038,7 @@ class AttendanceActivityLog(HorillaModel):
     ACTION_OVERTIME_AUTO_APPROVE = "OVERTIME_AUTO_APPROVE"
     ACTION_MANUAL_CREATE_OVERRIDE = "MANUAL_CREATE_OVERRIDE"
     ACTION_REGULARIZATION_DECISION = "REGULARIZATION_DECISION"
+    ACTION_OVERTIME_MANUAL_DECISION = "OVERTIME_MANUAL_DECISION"
     ACTION_BULK_IMPORT = "BULK_IMPORT"
     ACTION_CHOICES = (
         (ACTION_PUNCH_IN, _("Punch In")),
@@ -3025,6 +3049,7 @@ class AttendanceActivityLog(HorillaModel):
         (ACTION_OVERTIME_AUTO_APPROVE, _("Overtime Auto-Approve")),
         (ACTION_MANUAL_CREATE_OVERRIDE, _("Manual Create/Override")),
         (ACTION_REGULARIZATION_DECISION, _("Regularization Decision")),
+        (ACTION_OVERTIME_MANUAL_DECISION, _("Overtime Manual Decision")),
         (ACTION_BULK_IMPORT, _("Bulk Import")),
     )
 

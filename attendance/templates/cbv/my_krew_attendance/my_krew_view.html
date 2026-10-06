@@ -1,0 +1,76 @@
+{% load i18n %}
+
+<style>
+    .krew-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .krew-card {
+        flex: 1 1 160px; padding: 14px; border-radius: 8px;
+        background: #f8f9fa; border: 1px solid #e9ecef;
+        display: flex; flex-direction: column; align-items: center;
+    }
+    .krew-card-val { font-size: 1.4rem; font-weight: 700; }
+    .krew-card-lbl {
+        font-size: .65rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: .4px; color: #6c757d; text-align: center;
+    }
+</style>
+
+<div id="myKrewViewContainer">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="oh-input-group" style="max-width:200px;">
+            <label class="oh-label">{% trans "Month" %}</label>
+            <input type="month" class="form-control" value="{{ month_value }}"
+                hx-get="{% url 'my-krew-view' %}"
+                hx-trigger="change"
+                hx-target="#myKrewViewContainer"
+                hx-swap="outerHTML"
+                hx-include="this"
+                name="month">
+        </div>
+    </div>
+
+    <div class="krew-cards">
+        <div class="krew-card">
+            <span class="krew-card-val">{{ total_employees }}</span>
+            <span class="krew-card-lbl">{% trans "Total Employees" %}</span>
+        </div>
+        <div class="krew-card">
+            <span class="krew-card-val">{{ total_working_days }}</span>
+            <span class="krew-card-lbl">{% trans "Total Working Days" %}</span>
+        </div>
+        <div class="krew-card">
+            <span class="krew-card-val">{{ total_present_days }}</span>
+            <span class="krew-card-lbl">{% trans "Total Present Days" %}</span>
+        </div>
+        <a href="{% url 'my-krew-attendance-view' %}" class="krew-card" style="text-decoration:none;">
+            <span class="krew-card-val">{{ action_items }}</span>
+            <span class="krew-card-lbl">{% trans "Action Items" %}</span>
+        </a>
+    </div>
+
+    <table class="oh-table w-100">
+        <thead>
+            <tr>
+                <th>{% trans "Employee" %}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for employee in employees %}
+                <tr>
+                    <td>{{ employee }}</td>
+                    <td>
+                        <a href="#"
+                            data-toggle="oh-modal-toggle" data-target="#genericModal"
+                            hx-get="{% url 'my-krew-employee-calendar' employee.pk %}?year={{ year }}&month={{ month }}"
+                            hx-target="#genericModalBody"
+                            class="oh-btn oh-btn--light-bkg">
+                            {% trans "View Calendar" %}
+                        </a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="2">{% trans "No team members found." %}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

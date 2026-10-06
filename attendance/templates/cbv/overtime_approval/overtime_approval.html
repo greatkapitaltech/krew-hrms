@@ -1,0 +1,10 @@
+{% extends "index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div hx-get="{% url 'overtime-approval-nav' %}" hx-trigger="load"></div>
+{% include "generic/components.html" %}
+<div class="oh-wrapper" id="listContainer">
+    <div class="animated-background"></div>
+</div>
+{% endblock content %}

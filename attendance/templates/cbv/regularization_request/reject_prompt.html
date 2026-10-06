@@ -1,0 +1,23 @@
+{% load i18n %}
+
+<div class="oh-modal__dialog-header">
+    <h2 class="oh-modal__dialog-title">{% trans "Reject Regularization Request" %}</h2>
+    <button type="button" class="oh-modal__close--custom"
+        onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+
+<div class="oh-modal__dialog-body">
+    <form hx-post="{% url 'reject-regularization-request' reg_request.pk %}" hx-target="#reloadMessagesButton">
+        {% csrf_token %}
+        <div class="oh-input-group">
+            <label class="oh-label required-star">{% trans "Remark" %}</label>
+            <textarea name="resolution_note" class="form-control" rows="3" required
+                placeholder="{% trans 'Explain why this request is being declined' %}"></textarea>
+        </div>
+        <div class="d-flex flex-row-reverse mt-3">
+            <button type="submit" class="oh-btn oh-btn--danger">{% trans "Reject" %}</button>
+        </div>
+    </form>
+</div>

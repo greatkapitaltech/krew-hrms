@@ -28,6 +28,8 @@ from attendance.cbv import (
     late_come_and_early_out,
     my_attendance_calendar,
     my_attendances,
+    my_krew_attendance,
+    overtime_approval,
     regularization_request,
 )
 from attendance.views import clock_in_out
@@ -542,6 +544,61 @@ urlpatterns = [
         "regularization-requests/<int:pk>/reject/",
         regularization_request.reject_regularization_request,
         name="reject-regularization-request",
+    ),
+    path(
+        "regularization-requests/<int:pk>/reject/prompt/",
+        regularization_request.reject_regularization_prompt,
+        name="reject-regularization-request-prompt",
+    ),
+    path(
+        "overtime-approval/",
+        overtime_approval.OvertimeApprovalPageView.as_view(),
+        name="overtime-approval-view",
+    ),
+    path(
+        "overtime-approval/list/",
+        overtime_approval.OvertimeApprovalListView.as_view(),
+        name="overtime-approval-list",
+    ),
+    path(
+        "overtime-approval/nav/",
+        overtime_approval.OvertimeApprovalNav.as_view(),
+        name="overtime-approval-nav",
+    ),
+    path(
+        "overtime-approval/<int:pk>/approve/",
+        overtime_approval.approve_overtime_decision,
+        name="approve-overtime-decision",
+    ),
+    path(
+        "overtime-approval/<int:pk>/reject/",
+        overtime_approval.reject_overtime_decision,
+        name="reject-overtime-decision",
+    ),
+    path(
+        "overtime-approval/<int:pk>/reject/prompt/",
+        overtime_approval.reject_overtime_decision_prompt,
+        name="reject-overtime-decision-prompt",
+    ),
+    path(
+        "my-krew-attendance/",
+        my_krew_attendance.MyKrewAttendancePageView.as_view(),
+        name="my-krew-attendance-view",
+    ),
+    path(
+        "my-krew-attendance/view/",
+        my_krew_attendance.MyKrewViewDashboardView.as_view(),
+        name="my-krew-view",
+    ),
+    path(
+        "my-krew-attendance/need-your-action/",
+        my_krew_attendance.MyKrewNeedYourActionView.as_view(),
+        name="my-krew-need-your-action",
+    ),
+    path(
+        "my-krew-attendance/employee/<int:employee_id>/calendar/",
+        my_krew_attendance.MyKrewEmployeeCalendarView.as_view(),
+        name="my-krew-employee-calendar",
     ),
     path(
         "approval-delegates/",

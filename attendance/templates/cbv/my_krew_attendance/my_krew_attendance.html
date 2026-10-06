@@ -1,0 +1,25 @@
+{% extends "index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="oh-wrapper" x-data="{tab: 'krew_view'}">
+    <div class="oh-tabs mb-3" style="display:flex; gap:0.5rem; border-bottom:1px solid #e0e0e0;">
+        <button type="button"
+            @click="tab = 'krew_view'"
+            :class="tab === 'krew_view' ? 'oh-btn oh-btn--secondary' : 'oh-btn oh-btn--light-bkg'">
+            {% trans "My Krew View" %}
+        </button>
+        <button type="button"
+            @click="tab = 'need_action'"
+            :class="tab === 'need_action' ? 'oh-btn oh-btn--secondary' : 'oh-btn oh-btn--light-bkg'">
+            {% trans "Need Your Action" %}
+        </button>
+    </div>
+
+    <div x-show="tab === 'krew_view'"
+        hx-get="{% url 'my-krew-view' %}" hx-trigger="load" hx-target="this" hx-swap="innerHTML"></div>
+
+    <div x-show="tab === 'need_action'" x-cloak
+        hx-get="{% url 'my-krew-need-your-action' %}" hx-trigger="load" hx-target="this" hx-swap="innerHTML"></div>
+</div>
+{% endblock content %}

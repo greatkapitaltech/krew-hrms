@@ -178,10 +178,26 @@ class RegularizationWebApproveRejectTests(RegularizationWebTestBase):
 
     def test_reporting_manager_can_reject(self):
         self.client.force_login(self.manager_user)
-        response = self.client.post(self.reject_url)
+        response = self.client.post(self.reject_url, {"resolution_note": "Not justified"})
         self.assertEqual(response.status_code, 200)
         self.reg_request.refresh_from_db()
         self.assertEqual(self.reg_request.status, RegularizationRequest.STATUS_REJECTED)
+        self.assertEqual(self.reg_request.resolution_note, "Not justified")
+
+    def test_rejecting_without_a_remark_is_blocked(self):
+        self.client.force_login(self.manager_user)
+        self.client.post(self.reject_url)
+        self.reg_request.refresh_from_db()
+        self.assertEqual(self.reg_request.status, RegularizationRequest.STATUS_PENDING)
+
+    def test_reject_prompt_renders_a_remark_field(self):
+        self.client.force_login(self.manager_user)
+        response = self.client.get(
+            f"/attendance/regularization-requests/{self.reg_request.pk}/reject/prompt/",
+            HTTP_HX_REQUEST="true",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "resolution_note")
 
     def test_employee_cannot_approve_their_own_request(self):
         self.client.force_login(self.employee_user)
