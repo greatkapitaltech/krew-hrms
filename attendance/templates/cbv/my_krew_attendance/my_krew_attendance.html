@@ -19,7 +19,8 @@
     <div x-show="tab === 'krew_view'"
         hx-get="{% url 'my-krew-view' %}" hx-trigger="load" hx-target="this" hx-swap="innerHTML"></div>
 
-    <div x-show="tab === 'need_action'" x-cloak
-        hx-get="{% url 'my-krew-need-your-action' %}" hx-trigger="load" hx-target="this" hx-swap="innerHTML"></div>
+    <div x-show="tab === 'need_action'" x-cloak>
+        {% include "cbv/my_krew_attendance/need_your_action.html" %}
+    </div>
 </div>
 {% endblock content %}

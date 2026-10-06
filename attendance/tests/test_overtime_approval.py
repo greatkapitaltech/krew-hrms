@@ -114,6 +114,26 @@ class QueueTests(OvertimeApprovalTestBase):
         response = self.client.get(self.LIST_URL, **self.HX)
         self.assertNotContains(response, str(self.employee))
 
+    def test_a_locked_payroll_period_blocks_approve_and_reject(self):
+        from attendance.models import PayrollReadinessSnapshot
+
+        PayrollReadinessSnapshot.objects.create(
+            company=self.company,
+            start_date=self.attendance.attendance_date,
+            end_date=self.attendance.attendance_date,
+            locked_by=self.manager,
+        )
+        self.client.post(f"/attendance/overtime-approval/{self.attendance.pk}/approve/")
+        self.attendance.refresh_from_db()
+        self.assertEqual(self.attendance.overtime_decision, Attendance.OVERTIME_DECISION_PENDING)
+
+        self.client.post(
+            f"/attendance/overtime-approval/{self.attendance.pk}/reject/",
+            {"resolution_note": "Doesn't matter"},
+        )
+        self.attendance.refresh_from_db()
+        self.assertEqual(self.attendance.overtime_decision, Attendance.OVERTIME_DECISION_PENDING)
+
     def test_someone_outside_the_team_cannot_decide(self):
         outside_user = make_user("ot_outsider")
         make_employee(company=self.company, email="ot_outsider@test.horilla", user=outside_user)

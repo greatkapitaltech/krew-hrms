@@ -354,12 +354,19 @@ def approve_regularization_request(request, pk):
     authorized = request.user.has_perm(
         "attendance.change_attendance"
     ) or ApprovalDelegate.can_approve(approver, reg_request.employee, target=reg_request)
+    from attendance.cbv.payroll_readiness import is_date_locked
+
     if not authorized:
         messages.error(
             request, _("You do not have permission to approve this request.")
         )
     elif reg_request.status != RegularizationRequest.STATUS_PENDING:
         messages.error(request, _("This request has already been resolved."))
+    elif is_date_locked(reg_request.employee, reg_request.attendance.attendance_date):
+        messages.error(
+            request,
+            _("Payroll for this date has already been locked -- it can no longer be changed."),
+        )
     else:
         reg_request.approve(approver)
         messages.success(request, _("Regularization request approved."))
@@ -394,6 +401,8 @@ def reject_regularization_request(request, pk):
         "attendance.change_attendance"
     ) or ApprovalDelegate.can_approve(approver, reg_request.employee, target=reg_request)
     resolution_note = (request.POST.get("resolution_note") or "").strip()
+    from attendance.cbv.payroll_readiness import is_date_locked
+
     if not authorized:
         messages.error(
             request, _("You do not have permission to reject this request.")
@@ -402,6 +411,11 @@ def reject_regularization_request(request, pk):
         messages.error(request, _("This request has already been resolved."))
     elif not resolution_note:
         messages.error(request, _("A remark is required to decline this request."))
+    elif is_date_locked(reg_request.employee, reg_request.attendance.attendance_date):
+        messages.error(
+            request,
+            _("Payroll for this date has already been locked -- it can no longer be changed."),
+        )
     else:
         reg_request.reject(approver, resolution_note=resolution_note)
         messages.success(request, _("Regularization request rejected."))

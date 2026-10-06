@@ -63,6 +63,11 @@ SUBMENUS = [
         "accessibility": "attendance.sidebar.my_krew_attendance_accessibility",
     },
     {
+        "menu": _("Payroll Readiness"),
+        "redirect": reverse_lazy("payroll-readiness-view"),
+        "accessibility": "attendance.sidebar.payroll_readiness_accessibility",
+    },
+    {
         "menu": _("Daily Work Status"),
         "redirect": reverse_lazy("work-records"),
         "accessibility": "attendance.sidebar.work_record_accessibility",
@@ -161,6 +166,10 @@ def my_krew_attendance_accessibility(request, submenu, user_perms, *args, **kwar
     return request.user.has_perm("attendance.view_attendance") or is_reportingmanager(
         request.user
     )
+
+
+def payroll_readiness_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.change_attendance")
 
 
 # ---------------------------------------------------------------------------

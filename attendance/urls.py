@@ -30,6 +30,7 @@ from attendance.cbv import (
     my_attendances,
     my_krew_attendance,
     overtime_approval,
+    payroll_readiness,
     regularization_request,
 )
 from attendance.views import clock_in_out
@@ -599,6 +600,31 @@ urlpatterns = [
         "my-krew-attendance/employee/<int:employee_id>/calendar/",
         my_krew_attendance.MyKrewEmployeeCalendarView.as_view(),
         name="my-krew-employee-calendar",
+    ),
+    path(
+        "payroll-readiness/",
+        payroll_readiness.PayrollReadinessPageView.as_view(),
+        name="payroll-readiness-view",
+    ),
+    path(
+        "payroll-readiness/live-preview/",
+        payroll_readiness.PayrollReadinessLivePreviewView.as_view(),
+        name="payroll-readiness-live-preview",
+    ),
+    path(
+        "payroll-readiness/final-report/",
+        payroll_readiness.PayrollReadinessFinalReportView.as_view(),
+        name="payroll-readiness-final-report",
+    ),
+    path(
+        "payroll-readiness/final-report/<int:pk>/",
+        payroll_readiness.PayrollReadinessSnapshotDetailView.as_view(),
+        name="payroll-readiness-snapshot-detail",
+    ),
+    path(
+        "payroll-readiness/lock/",
+        payroll_readiness.LockPayrollReadinessPeriodView.as_view(),
+        name="payroll-readiness-lock",
     ),
     path(
         "approval-delegates/",

@@ -1,0 +1,55 @@
+{% load i18n %}
+
+<div id="finalReportContainer">
+    <div class="oh-alert oh-alert--warning mb-3">
+        {% trans "Locking a period is permanent -- it can never be re-locked or edited once created." %}
+    </div>
+
+    <form hx-post="{% url 'payroll-readiness-lock' %}" hx-target="body" hx-swap="none"
+        class="d-flex flex-wrap gap-2 align-items-end mb-3">
+        {% csrf_token %}
+        <div class="oh-input-group">
+            <label class="oh-label required-star">{% trans "From" %}</label>
+            <input type="date" name="start_date" class="form-control" required>
+        </div>
+        <div class="oh-input-group">
+            <label class="oh-label required-star">{% trans "To" %}</label>
+            <input type="date" name="end_date" class="form-control" required>
+        </div>
+        <button type="submit" class="oh-btn oh-btn--danger"
+            onclick="return confirm('Lock this period forever? This cannot be undone.')">
+            {% trans "Lock Forever" %}
+        </button>
+    </form>
+
+    <table class="oh-table w-100">
+        <thead>
+            <tr>
+                <th>{% trans "Period" %}</th>
+                <th>{% trans "Locked By" %}</th>
+                <th>{% trans "Locked At" %}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for snapshot in snapshots %}
+                <tr>
+                    <td>{{ snapshot.start_date }} &ndash; {{ snapshot.end_date }}</td>
+                    <td>{{ snapshot.locked_by|default:"-" }}</td>
+                    <td>{{ snapshot.locked_at }}</td>
+                    <td>
+                        <a href="#"
+                            data-toggle="oh-modal-toggle" data-target="#genericModal"
+                            hx-get="{% url 'payroll-readiness-snapshot-detail' snapshot.pk %}"
+                            hx-target="#genericModalBody"
+                            class="oh-btn oh-btn--light-bkg">
+                            {% trans "View" %}
+                        </a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4">{% trans "No periods locked yet." %}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

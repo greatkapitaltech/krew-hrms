@@ -184,6 +184,20 @@ class CreateTests(CreateAttendanceWebTestBase):
             Attendance.objects.filter(employee_id=self.flexible_employee).exists()
         )
 
+    def test_a_locked_payroll_period_blocks_create(self):
+        from attendance.models import PayrollReadinessSnapshot
+
+        attendance_date = date.today() - timedelta(days=1)
+        PayrollReadinessSnapshot.objects.create(
+            company=self.company, start_date=attendance_date, end_date=attendance_date,
+            locked_by=self.admin,
+        )
+        response = self._post_create(self.flexible_employee, attendance_date)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            Attendance.objects.filter(employee_id=self.flexible_employee).exists()
+        )
+
 
 class OverrideTests(CreateAttendanceWebTestBase):
     def test_existing_record_prompts_for_confirmation_instead_of_saving(self):

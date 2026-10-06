@@ -3091,6 +3091,104 @@ class AttendanceActivityLog(HorillaModel):
         return Employee.objects.filter(pk__in=self.affected_employee_ids or [])
 
 
+class PayrollReadinessSnapshot(HorillaModel):
+    """
+    Payroll Readiness's "Final Report" -- a frozen, one-time export of a
+    pay period, generated on manual "Lock Forever" (no automatic pay-
+    group-cutoff trigger exists yet, since no pay-group/cutoff concept
+    exists anywhere in payroll/ -- same "obvious extension point, not a
+    blocker" treatment as Create Attendance's own payroll-cutoff stub).
+
+    "Locked forever" is the one real behavioral precedent-setter in
+    this feature -- nothing else in this codebase is designed to be
+    permanently frozen after the fact. Enforced two ways: the unique
+    constraint below blocks a second lock of the exact same period
+    outright (never silently overwritten), and nothing anywhere ever
+    updates/deletes a row on this model or its PayrollReadinessSnapshotRow
+    children once created.
+
+    Per the PRD's own rule for this step, confirmed explicitly rather
+    than assumed: a day still carrying an open Exception (pending
+    Validation, Overtime, or Regularization) at the moment of locking
+    goes in zeroed out, permanently, for that cycle -- it does NOT block
+    the lock. See PayrollReadinessSnapshotRow.was_exception.
+    """
+
+    company = models.ForeignKey(
+        Company, on_delete=models.PROTECT, verbose_name=_("Company")
+    )
+    start_date = models.DateField(verbose_name=_("Period Start"))
+    end_date = models.DateField(verbose_name=_("Period End"))
+    locked_by = models.ForeignKey(
+        Employee, on_delete=models.SET_NULL, null=True, verbose_name=_("Locked By")
+    )
+    locked_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Locked At"))
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company", "start_date", "end_date"],
+                name="unique_payroll_readiness_period",
+            )
+        ]
+        ordering = ["-start_date"]
+
+    def __str__(self):
+        return f"{self.company} ({self.start_date} - {self.end_date})"
+
+
+class PayrollReadinessSnapshotRow(HorillaModel):
+    """
+    One employee's one day, frozen at lock time -- the Final Report
+    reads only these rows, never live WorkRecords/Attendance data,
+    which is what actually makes the snapshot immutable (the source
+    data it was built from can keep changing after the fact; this copy
+    can't).
+    """
+
+    DAY_WORKED = "WORKED"
+    DAY_HOLIDAY = "HOLIDAY"
+    DAY_WEEKLY_OFF = "WEEKLY_OFF"
+    DAY_APPROVED_LEAVE = "APPROVED_LEAVE"
+    DAY_EXCEPTION = "EXCEPTION"
+    DAY_TYPE_CHOICES = (
+        (DAY_WORKED, _("Worked")),
+        (DAY_HOLIDAY, _("Holiday")),
+        (DAY_WEEKLY_OFF, _("Weekly-Off")),
+        (DAY_APPROVED_LEAVE, _("Approved Leave")),
+        (DAY_EXCEPTION, _("Exception")),
+    )
+
+    snapshot = models.ForeignKey(
+        PayrollReadinessSnapshot, on_delete=models.CASCADE, related_name="rows"
+    )
+    employee = models.ForeignKey(
+        Employee, on_delete=models.PROTECT, verbose_name=_("Employee")
+    )
+    date = models.DateField(verbose_name=_("Date"))
+    day_type = models.CharField(
+        max_length=20, choices=DAY_TYPE_CHOICES, verbose_name=_("Day Type")
+    )
+    check_in = models.TimeField(null=True, blank=True, verbose_name=_("Check-in"))
+    check_out = models.TimeField(null=True, blank=True, verbose_name=_("Check-out"))
+    worked_hours = models.CharField(max_length=10, default="00:00")
+    overtime_hours = models.CharField(max_length=10, default="00:00")
+    # True means this day's hours were zeroed out because it still had
+    # an open Exception at the moment this snapshot was locked -- kept
+    # as its own flag (not inferred from day_type==EXCEPTION, since a
+    # day can be an Exception for reasons that don't zero its hours in
+    # every future scenario) so the Final Report can call this out
+    # explicitly rather than making the reader infer it from zero hours
+    # alone, which could just as easily mean a real, legitimate zero.
+    was_exception = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["employee_id", "date"]
+
+    def __str__(self):
+        return f"{self.employee} - {self.date} ({self.day_type})"
+
+
 class BackgroundAttendanceTask(HorillaModel):
     """
     What makes deferring late-come/early-out flagging (Part 3 of the

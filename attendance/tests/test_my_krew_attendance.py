@@ -111,3 +111,23 @@ class NeedYourActionTests(MyKrewAttendanceTestBase):
         self.assertContains(response, "Overtime")
         self.assertContains(response, "Regularization")
         self.assertContains(response, "Attendance Irregularities")
+
+    def test_the_main_page_itself_already_contains_the_nested_hx_get_divs(self):
+        """
+        Regression test for a real bug: the main page used to hx-get
+        need_your_action.html as a swapped-in fragment, meaning its own
+        three nested hx-get divs (Validation/Overtime/Regularization
+        lists) only existed in the DOM *after* that swap -- a level of
+        nesting htmx's "process newly-swapped content" behavior turned
+        out not to reliably cover in a real browser (confirmed by a
+        user report: Need Your Action showed up empty despite My Krew
+        View's own Action Items count being nonzero). Fixed by
+        server-side {% include %} instead of a second hx-get round-
+        trip, so these divs are part of the very first response, same
+        proven pattern as every other tabbed screen in this module.
+        """
+        response = self.client.get(self.PAGE_URL)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "/attendance/attendance-request-list-tab/")
+        self.assertContains(response, "/attendance/overtime-approval/list/")
+        self.assertContains(response, "/attendance/regularization-requests/list/")

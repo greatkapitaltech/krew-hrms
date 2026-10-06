@@ -190,6 +190,25 @@ class RegularizationWebApproveRejectTests(RegularizationWebTestBase):
         self.reg_request.refresh_from_db()
         self.assertEqual(self.reg_request.status, RegularizationRequest.STATUS_PENDING)
 
+    def test_a_locked_payroll_period_blocks_approve_and_reject(self):
+        from attendance.models import PayrollReadinessSnapshot
+
+        PayrollReadinessSnapshot.objects.create(
+            company=self.company,
+            start_date=self.attendance.attendance_date,
+            end_date=self.attendance.attendance_date,
+            locked_by=self.manager,
+        )
+        self.client.force_login(self.manager_user)
+
+        self.client.post(self.approve_url)
+        self.reg_request.refresh_from_db()
+        self.assertEqual(self.reg_request.status, RegularizationRequest.STATUS_PENDING)
+
+        self.client.post(self.reject_url, {"resolution_note": "Doesn't matter"})
+        self.reg_request.refresh_from_db()
+        self.assertEqual(self.reg_request.status, RegularizationRequest.STATUS_PENDING)
+
     def test_reject_prompt_renders_a_remark_field(self):
         self.client.force_login(self.manager_user)
         response = self.client.get(

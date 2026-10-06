@@ -142,10 +142,17 @@ def _can_decide(request, attendance):
 def approve_overtime_decision(request, pk):
     attendance = get_object_or_404(Attendance, pk=pk)
     approver = request.user.employee_get
+    from attendance.cbv.payroll_readiness import is_date_locked
+
     if not _can_decide(request, attendance):
         messages.error(request, _("You do not have permission to approve this."))
     elif attendance.overtime_decision != Attendance.OVERTIME_DECISION_PENDING:
         messages.error(request, _("This has already been decided."))
+    elif is_date_locked(attendance.employee_id, attendance.attendance_date):
+        messages.error(
+            request,
+            _("Payroll for this date has already been locked -- it can no longer be changed."),
+        )
     else:
         attendance.attendance_overtime_approve = True
         attendance.overtime_decision = Attendance.OVERTIME_DECISION_APPROVED
@@ -178,12 +185,19 @@ def reject_overtime_decision(request, pk):
     attendance = get_object_or_404(Attendance, pk=pk)
     approver = request.user.employee_get
     resolution_note = (request.POST.get("resolution_note") or "").strip()
+    from attendance.cbv.payroll_readiness import is_date_locked
+
     if not _can_decide(request, attendance):
         messages.error(request, _("You do not have permission to reject this."))
     elif attendance.overtime_decision != Attendance.OVERTIME_DECISION_PENDING:
         messages.error(request, _("This has already been decided."))
     elif not resolution_note:
         messages.error(request, _("A remark is required to decline this."))
+    elif is_date_locked(attendance.employee_id, attendance.attendance_date):
+        messages.error(
+            request,
+            _("Payroll for this date has already been locked -- it can no longer be changed."),
+        )
     else:
         attendance.overtime_decision = Attendance.OVERTIME_DECISION_DENIED
         attendance.save()

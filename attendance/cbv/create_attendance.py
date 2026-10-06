@@ -72,15 +72,17 @@ from horilla_views.generic.cbv.views import (
 
 def _is_payroll_locked(employee, attendance_date):
     """
-    Whether `attendance_date`'s pay period has already had payroll run
-    for `employee` -- always False today. No pay-group/cutoff concept
-    exists anywhere in the payroll app yet (confirmed directly, not
-    assumed); this is the single, obvious place to wire in the real
-    check once Payroll exposes one, documented alongside the rest of
-    this decision in the companion walkthrough doc
-    ("Krew Attendance - Check-In Check-Out.html", section 9).
+    Whether `attendance_date` falls inside an already-locked Payroll
+    Readiness period for `employee`'s company -- was a permanent
+    `False` stub (no pay-group/cutoff concept existed anywhere in
+    payroll/) until PayrollReadinessSnapshot gave this a real signal to
+    check. See attendance.cbv.payroll_readiness.is_date_locked's own
+    docstring for why this same check also gates Regularization's and
+    the Overtime queue's approve/reject actions.
     """
-    return False
+    from attendance.cbv.payroll_readiness import is_date_locked
+
+    return is_date_locked(employee, attendance_date)
 
 
 def _create_or_override_attendance_row(
