@@ -1,0 +1,50 @@
+{% load i18n horillafilters %}
+{% get_company as theme_obj %}
+
+{% comment %}
+Permanent internal notes, never shown to the candidate.
+
+There is deliberately no edit or delete control: a posted note is a permanent
+record, and CandidateNote refuses updates and deletes at the model level. The
+absence of buttons is the UI honouring that, not the enforcement of it.
+{% endcomment %}
+
+<div id="candidate-notes">
+    <h5 class="font-medium text-sm mb-3">{% trans "Notes" %}</h5>
+
+    <form class="border border-dark-50 rounded-md p-3 mb-3"
+          method="post"
+          hx-post="{% url 'candidate-pool-notes' candidate.pk %}"
+          hx-target="#candidate-notes"
+          hx-swap="outerHTML">
+        {% csrf_token %}
+        <textarea id="id_note_description" name="description" class="oh-input w-full" rows="3"
+                  placeholder="{% trans 'Add an internal note. Notes cannot be edited or deleted once posted.' %}"
+                  required></textarea>
+        <div class="flex justify-end mt-2">
+            <button type="submit"
+                    class="px-3 py-1.5 rounded-md text-xs text-white bg-[{{ theme_obj.primary_600 }}] hover:bg-[{{ theme_obj.primary_800 }}]">
+                {% trans "Post Note" %}
+            </button>
+        </div>
+    </form>
+
+    <ul class="flex flex-col gap-2">
+        {% for note in notes %}
+            <li class="border border-dark-50 rounded-md px-3 py-2">
+                <div class="flex items-center justify-between gap-3">
+                    <p class="text-sm font-medium truncate">
+                        {{ note.created_by.employee_get|default:note.created_by|default:_("System") }}
+                    </p>
+                    <p class="text-xs text-[#565E6C] whitespace-nowrap">{{ note.created_at|date:"d M Y, H:i" }}</p>
+                </div>
+                {% if note.stage_id %}
+                    <p class="text-xs text-[#565E6C]">{{ note.stage_id.stage }}</p>
+                {% endif %}
+                <p class="text-sm mt-1">{{ note.description|linebreaksbr }}</p>
+            </li>
+        {% empty %}
+            <li class="text-xs text-[#565E6C]">{% trans "No notes yet." %}</li>
+        {% endfor %}
+    </ul>
+</div>

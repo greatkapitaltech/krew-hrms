@@ -1,0 +1,50 @@
+{% load i18n %}
+
+{% comment %}
+Candidate Pool row actions, in the same flat icon-button style as the Job
+Opening row actions (cbv/recruitment/actions.html).
+
+Open Candidate Details goes to candidate-view-individual -- the existing PRD
+candidate page. Map to Job Opening opens the standard genericModal, which posts
+to the existing candidate-pool-map route; the mapping rules (PUBLISHED-only,
+idempotent, audited) stay in recruitment.services.candidate.
+{% endcomment %}
+
+<div class="d-flex align-items-center justify-content-center gap-1" onclick="event.stopPropagation()">
+    {% if perms.recruitment.view_candidate %}
+        <a href="{% url 'candidate-view-individual' instance.pk %}"
+           class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+           title="{% trans 'Open Candidate Details' %}">
+            <ion-icon name="person-outline"></ion-icon>
+        </a>
+    {% endif %}
+
+    {% if perms.recruitment.change_candidate %}
+        {# Map any candidate (PRD): mapping adds a new application. #}
+        <button type="button"
+                class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+                hx-get="{% url 'candidate-pool-map-form' instance.pk %}"
+                hx-target="#genericModalBody"
+                hx-swap="innerHTML"
+                data-toggle="oh-modal-toggle"
+                data-target="#genericModal"
+                title="{% trans 'Map to Job Opening' %}">
+            <ion-icon name="git-merge-outline"></ion-icon>
+        </button>
+
+        {% comment %}
+        Re-send the public Form 1 link. POSTed, not a link: it sends mail.
+        Offered only for a candidate attached to an opening, since the
+        application form is per job opening.
+        {% endcomment %}
+        {% if instance.recruitment_id_id %}
+            <button type="button"
+                    class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+                    hx-post="{% url 'candidate-send-application-link' instance.pk %}"
+                    hx-swap="none"
+                    title="{% trans 'Email the application link' %}">
+                <ion-icon name="paper-plane-outline"></ion-icon>
+            </button>
+        {% endif %}
+    {% endif %}
+</div>

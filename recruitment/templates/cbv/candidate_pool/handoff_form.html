@@ -1,0 +1,140 @@
+{% load i18n %}
+
+{% comment %}
+PRD Form 2: the Final HR Round -> Hired handoff.
+
+Name, email and mobile are rendered as text: they belong to the application the
+candidate submitted. Designation, CTC and date of joining are entered here --
+the role and figure actually offered are settled in the final round, so they
+are prefilled from the job opening but editable, with the opening's own
+designation and budget shown underneath as reference. The view re-validates
+every posted value: a readonly attribute is not a constraint.
+
+`survey` is already-rendered, escaped markup for the Form 2 questions, with its
+own submit button suppressed so this page keeps a single submit.
+{% endcomment %}
+
+<div class="oh-general__tab-target" id="candidate-handoff">
+    {% if not can_hand_off %}
+        <div class="oh-alert oh-alert--warning">
+            {% blocktrans with status=status %}
+            The hiring handoff applies to a candidate in the Final HR Round.
+            This candidate is currently {{ status }}.
+            {% endblocktrans %}
+        </div>
+    {% else %}
+        <form method="post"
+              hx-post="{% url 'candidate-pool-handoff' candidate.pk %}"
+              hx-target="#candidate-handoff"
+              hx-swap="outerHTML"
+              enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="oh-card p-3 mb-3">
+                <span class="oh-label">{% trans "Carried from the application" %}</span>
+                <div class="row">
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">{% trans "Full Name" %}</small>
+                        <span>{{ candidate.name }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">{% trans "Email" %}</small>
+                        <span>{{ candidate.email }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">{% trans "Resume" %}</small>
+                        {% comment %}
+                        Carried, not editable: the resume the candidate uploaded
+                        with their application, served from its existing storage
+                        URL. No upload control here -- Handoff must not replace
+                        or re-store the document.
+                        {% endcomment %}
+                        {% if candidate.resume %}
+                            <a href="{{ candidate.resume.url }}" target="_blank" rel="noopener">
+                                {% trans "View" %}
+                            </a>
+                            &middot;
+                            <a href="{{ candidate.resume.url }}" download>
+                                {% trans "Download" %}
+                            </a>
+                        {% else %}
+                            <span>&mdash;</span>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted d-block">{% trans "Phone" %}</small>
+                        <span>{{ candidate.mobile|default:"&mdash;" }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="oh-card p-3 mb-3">
+                <span class="oh-label">{% trans "The offer" %}</span>
+                {{ form.non_field_errors }}
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="oh-label" for="{{ form.job_position_id.id_for_label }}">
+                            {{ form.job_position_id.label }}
+                            <span class="text-danger">*</span>
+                        </label>
+                        {{ form.job_position_id }}
+                        <small class="text-muted d-block">
+                            {% if designation %}
+                                {% blocktrans with role=designation %}Job opening: {{ role }}{% endblocktrans %}
+                            {% else %}
+                                {{ form.job_position_id.help_text }}
+                            {% endif %}
+                        </small>
+                        {{ form.job_position_id.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="oh-label" for="{{ form.offered_ctc.id_for_label }}">
+                            {{ form.offered_ctc.label }}
+                            <span class="text-danger">*</span>
+                        </label>
+                        {{ form.offered_ctc }}
+                        <small class="text-muted d-block">
+                            {% if job_opening.budget_min or job_opening.budget_max %}
+                                {% blocktrans with low=job_opening.budget_min|default:"&mdash;" high=job_opening.budget_max|default:"&mdash;" %}Budget: {{ low }} - {{ high }}{% endblocktrans %}
+                            {% else %}
+                                {{ form.offered_ctc.help_text }}
+                            {% endif %}
+                        </small>
+                        {{ form.offered_ctc.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="oh-label" for="{{ form.joining_date.id_for_label }}">
+                            {{ form.joining_date.label }}
+                            <span class="text-danger">*</span>
+                        </label>
+                        {{ form.joining_date }}
+                        {{ form.joining_date.errors }}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    {% comment %}PRD Form 2: Budget is pulled from the job opening and can be typed by the manager.{% endcomment %}
+                    <div class="col-md-4">
+                        <label class="oh-label" for="{{ form.handoff_budget_min.id_for_label }}">{{ form.handoff_budget_min.label }}</label>
+                        {{ form.handoff_budget_min }}
+                        {{ form.handoff_budget_min.errors }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="oh-label" for="{{ form.handoff_budget_max.id_for_label }}">{{ form.handoff_budget_max.label }}</label>
+                        {{ form.handoff_budget_max }}
+                        {{ form.handoff_budget_max.errors }}
+                    </div>
+                </div>
+            </div>
+
+            {{ survey }}
+
+            <div class="d-flex justify-content-end mt-3">
+                <button type="button" class="oh-btn oh-btn--light-bkg"
+                    onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">{% trans "Cancel" %}</button>
+            <button type="submit" class="oh-btn oh-btn--secondary">
+                    {% trans "Submit handoff and hire" %}
+                </button>
+            </div>
+        </form>
+    {% endif %}
+</div>

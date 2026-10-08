@@ -24,8 +24,9 @@ from horilla_views.generic.cbv.views import (
     TemplateView,
 )
 from notifications.signals import notify
+from recruitment.decorators import drive_manager_required
 from recruitment.filters import StageFilter
-from recruitment.forms import StageCreationForm
+from recruitment.forms import StageCreationForm, StageManagersForm
 from recruitment.models import Stage
 
 
@@ -192,8 +193,39 @@ class StageNav(HorillaNavView):
     group_by_fields = [("recruitment_id", _("Recruitment"))]
 
 
+def _warn_manager_overlap(request, stage):
+    """
+    PRD nudge, never a block: several managers on one stage, or a manager who
+    already runs another stage of the same opening, is allowed but not ideal.
+    """
+    managers = list(stage.stage_managers.all())
+    if len(managers) > 1:
+        messages.warning(
+            request,
+            _(
+                "%(stage)s has %(count)s stage managers. That is allowed, but one "
+                "manager per stage keeps ownership clearest."
+            )
+            % {"stage": stage.stage, "count": len(managers)},
+        )
+    others = Stage.objects.filter(recruitment_id=stage.recruitment_id).exclude(
+        pk=stage.pk
+    )
+    for manager in managers:
+        if others.filter(stage_managers=manager).exists():
+            messages.warning(
+                request,
+                _(
+                    "%(name)s also manages another stage of this job opening. "
+                    "That is allowed, but not ideal."
+                )
+                % {"name": manager.get_full_name()},
+            )
+
+
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="recruitment.add_stage"), name="dispatch")
+@method_decorator(drive_manager_required, name="dispatch")
 class StageFormView(HorillaFormView):
     """
     Form View
@@ -210,6 +242,9 @@ class StageFormView(HorillaFormView):
         context = super().get_context_data(**kwargs)
         rec_id = self.request.GET.get("recruitment_id")
         self.form.fields["recruitment_id"].initial = rec_id
+        if rec_id or self.form.instance.pk:
+            # Opened from a job opening's pipeline tab: the opening is known.
+            self.form.fields["recruitment_id"].widget = forms.HiddenInput()
         if self.form.instance.pk:
             self.form_class.verbose_name = _("Edit Stage")
             self.form_class(instance=self.form.instance)
@@ -228,6 +263,7 @@ class StageFormView(HorillaFormView):
                 stage_managers = self.request.POST.getlist("stage_managers")
                 if stage_managers:
                     stage.stage_managers.set(stage_managers)
+                _warn_manager_overlap(self.request, stage)
                 message = _("Stage updated")
             else:
                 stage_obj = form.save()
@@ -235,17 +271,39 @@ class StageFormView(HorillaFormView):
                     Employee.objects.filter(id__in=form.data.getlist("stage_managers"))
                 )
                 stage_obj.save()
-                recruitment_obj = stage_obj.recruitment_id
-                rec_stages = (
-                    Stage.objects.filter(recruitment_id=recruitment_obj, is_active=True)
-                    .order_by("sequence")
-                    .last()
+                from recruitment.models import (
+                    TERMINAL_STAGE_SEQUENCES,
+                    TERMINAL_STAGE_TYPES,
                 )
-                if rec_stages.sequence is None:
-                    stage_obj.sequence = 1
+
+                recruitment_obj = stage_obj.recruitment_id
+                if stage_obj.stage_type in TERMINAL_STAGE_SEQUENCES:
+                    # A terminal stage keeps its canonical position whenever it
+                    # is (re)created by hand.
+                    stage_obj.sequence = TERMINAL_STAGE_SEQUENCES[stage_obj.stage_type]
                 else:
-                    stage_obj.sequence = rec_stages.sequence + 1
+                    # A new custom stage belongs BEFORE the terminal pair: the
+                    # PRD order is Applied -> custom -> Final HR Round -> Hired.
+                    # Taking max(sequence) across every stage would place it
+                    # after Hired, because the terminal stages are seeded with
+                    # high sequences so they keep sorting last. The stage being
+                    # created is excluded -- it was just saved with the field
+                    # default and would otherwise be its own predecessor.
+                    last_custom = (
+                        Stage.objects.filter(
+                            recruitment_id=recruitment_obj, is_active=True
+                        )
+                        .exclude(stage_type__in=TERMINAL_STAGE_TYPES)
+                        .exclude(pk=stage_obj.pk)
+                        .order_by("sequence")
+                        .last()
+                    )
+                    if last_custom is None or last_custom.sequence is None:
+                        stage_obj.sequence = 1
+                    else:
+                        stage_obj.sequence = last_custom.sequence + 1
                 stage_obj.save()
+                _warn_manager_overlap(self.request, stage_obj)
                 message = _("Stage added")
                 with contextlib.suppress(Exception):
                     managers = stage_obj.stage_managers.select_related(
@@ -277,6 +335,7 @@ class StageFormView(HorillaFormView):
 
 @method_decorator(login_required, name="dispatch")
 @method_decorator(permission_required(perm="recruitment.change_stage"), name="dispatch")
+@method_decorator(drive_manager_required, name="dispatch")
 class StageDuplicateForm(HorillaFormView):
     """
     Duplicate form view
@@ -346,3 +405,53 @@ class StageDetailView(HorillaDetailedView):
         "subtitle": "Stages",
         "avatar": "get_avatar",
     }
+
+
+@method_decorator(login_required, name="dispatch")
+class StageManagersFormView(HorillaFormView):
+    """
+    "Edit Managers" on a fixed stage: changes only who manages it.
+
+    Open to anyone allowed to manage the drive's stages (change_stage, or a
+    manager of this job opening).
+    """
+
+    model = Stage
+    form_class = StageManagersForm
+    new_display_title = _("Edit Managers")
+
+    def dispatch(self, request, *args, **kwargs):
+        from horilla.methods import handle_no_permission
+        from recruitment.templatetags.recruitmentfilters import recruitment_manages
+
+        stage = Stage.objects.filter(pk=kwargs.get("pk")).first()
+        # if stage is None or not (
+        #     request.user.has_perm("recruitment.change_stage")
+        #     or recruitment_manages(request.user, stage.recruitment_id)
+        # ):
+        # PRD: changing a stage's managers is Edit Stage -- drive-level only.
+        from recruitment.services.authorization import is_drive_manager
+
+        if stage is None or not is_drive_manager(request.user, stage.recruitment_id):
+            return handle_no_permission(request)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        self.form_class.verbose_name = _("Edit Managers")
+        return context
+
+    def form_valid(self, form: StageManagersForm) -> HttpResponse:
+        if form.is_valid() and not [
+            m for m in self.request.POST.getlist("stage_managers") if m
+        ]:
+            # PRD: a stage can't be live with zero Stage Managers.
+            form.add_error(None, _("Every stage needs at least one Stage Manager."))
+            return self.form_invalid(form)
+        if form.is_valid():
+            stage = form.save()
+            stage.stage_managers.set(self.request.POST.getlist("stage_managers"))
+            messages.success(self.request, _("Stage managers updated"))
+            _warn_manager_overlap(self.request, stage)
+            return self.HttpResponse()
+        return super().form_valid(form)

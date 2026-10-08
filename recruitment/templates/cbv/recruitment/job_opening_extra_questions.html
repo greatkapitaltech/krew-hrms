@@ -1,0 +1,45 @@
+{% load i18n %}
+{% comment %}
+"+ Add Question" and the questions added for this opening only, for one form
+(Form 1 or Form 2). Used on the Job Opening form and as the refresh fragment
+after a question is added. Context: wrapper_id, form_type, extras, can_add,
+job_opening.
+{% endcomment %}
+<div id="{{ wrapper_id }}" class="mt-2 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="oh-label mb-0">
+            {% if form_type == "form2" %}{% trans "Extra handoff questions for this opening" %}{% else %}{% trans "Extra questions for this opening" %}{% endif %}
+        </span>
+        {% if can_add %}
+            <button type="button"
+                    class="oh-btn oh-btn--light-bkg oh-btn--small"
+                    hx-get="{% url 'job-opening-question-add' job_opening.pk %}?form_type={{ form_type }}"
+                    hx-target="#objectCreateModalTarget"
+                    data-toggle="oh-modal-toggle"
+                    data-target="#objectCreateModal">
+                <ion-icon name="add-outline"></ion-icon>
+                {% trans "Add Question" %}
+            </button>
+        {% endif %}
+    </div>
+    {% if extras %}
+        <table class="oh-table oh-table--sm">
+            <thead>
+                <tr>
+                    <th>{% trans "Question" %}</th>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Required" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for question in extras %}
+                    <tr>
+                        <td>{{ question.wording }}</td>
+                        <td>{{ question.question_type_display }}</td>
+                        <td>{% if question.is_mandatory %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+</div>

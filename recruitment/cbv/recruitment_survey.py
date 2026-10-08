@@ -38,7 +38,36 @@ class QuestionFormView(HorillaFormView):
             self.form_class.verbose_name = _("Update Survey Questions")
         return context
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if self.request.GET.get("picker") and "template_id" in form.fields:
+            # Opened from a template's "+ Add Question": the template links it
+            # when the template is saved, so no template choice here.
+            form.fields["template_id"].widget = forms.MultipleHiddenInput()
+            form.fields["template_id"].required = False
+        return form
+
     def form_valid(self, form: QuestionForm) -> HttpResponse:
+        if form.is_valid() and self.request.GET.get("picker"):
+            # Ad-hoc question from the template editor: saved to the bank, then
+            # added (ticked) to the template's question list.
+            from django.utils.html import escape
+
+            instance = form.save(commit=False)
+            instance.save()
+            label = (
+                escape(instance.question)
+                .replace("\\", "\\\\")
+                .replace("'", "\\'")
+                .replace("\r", " ")
+                .replace("\n", " ")
+            )
+            return HttpResponse(
+                "<script>"
+                f"krewTemplatePickerAdd({instance.pk}, '{label}');"
+                "$('#objectCreateModal').removeClass('oh-modal--show');"
+                "</script>"
+            )
         if form.is_valid():
             if form.instance.pk:
                 message = _("Survey question updated.")
@@ -46,7 +75,10 @@ class QuestionFormView(HorillaFormView):
                 message = _("New survey question created.")
             instance = form.save(commit=False)
             instance.save()
-            instance.recruitment_ids.set(form.recruitment)
+            # Job-opening attachments are managed from the Job Opening form,
+            # not here; only touch them if a caller actually posted them.
+            if "recruitment" in self.request.POST:
+                instance.recruitment_ids.set(form.recruitment)
             instance.template_id.set(form.cleaned_data["template_id"])
             messages.success(self.request, _(message))
             return self.HttpResponse(targets_to_reload=["#filterSubmit"])
@@ -106,6 +138,7 @@ class SurveyTemplateFormView(HorillaFormView):
 
     form_class = TemplateForm
     model = SurveyTemplate
+    template_name = "survey/template_editor.html"
 
     def get_form(self, form_class=None):
         title = self.request.GET.get("title")
@@ -148,6 +181,11 @@ class RecruitmentSurveyDetailView(HorillaDetailedView):
     body = [
         (_("Question"), "question"),
         (_("Question Type"), "get_question_type"),
+        # Which form this question is asked on. Form 1 is the public
+        # application page and Form 2 the internal hiring handoff, so the
+        # distinction matters more than most of this metadata. Django's own
+        # choices accessor -- a hand-written display helper would duplicate it.
+        (_("Form"), "get_form_type_display"),
         (_("Sequence"), "sequence"),
         (_("Recruitment"), "recruitment_col"),
         (_("Options"), "options_col", True),

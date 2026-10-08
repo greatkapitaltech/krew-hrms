@@ -18,19 +18,40 @@
 </div>
 <div class="oh-modal__dialog-body oh-modal__dialog-relative">
     <div class="oh-profile-section rounded-lg" id="sequenceForm">
-        <ul class="mt-3 p-0" id="sortable">
-            {% for stage in stages %}
+        {% comment %}
+        PRD: Applied is always first and Final HR Round / Hired (and Rejected)
+        always last; they are shown locked. Only custom stages can be dragged,
+        and only between them.
+        {% endcomment %}
+        <ul class="mt-3 p-0">
+            {% for stage in stages %}{% if stage.stage_type == "applied" %}
+                <li class="border border-dark-50 bg-[#F7F7F9] flex align-center justify-start p-3 rounded mb-2 text-xs" title="{% trans 'Fixed stage' %}">
+                    <ion-icon name="lock-closed-outline" class="me-3"></ion-icon>
+                    <span>{{ stage }}</span>
+                </li>
+            {% endif %}{% endfor %}
+        </ul>
+        <ul class="p-0" id="sortable">
+            {% for stage in stages %}{% if not stage.is_fixed %}
                 <li
                     class="border border-primary-500 flex align-center justify-start p-3 rounded mb-2 text-xs"
                     style="cursor: grab"
                     data-id="{{stage.id}}"
                 >
                     <span class="text-secondary me-3 fs-5">≡</span>
-                    <span class="font-bold text-blue-400 me-2">{{ stage.sequence }}.</span>
                     <span>{{ stage }}</span>
                 </li>
-            {% endfor %}
+            {% endif %}{% empty %}{% endfor %}
         </ul>
+        <ul class="p-0">
+            {% for stage in stages %}{% if stage.is_fixed and stage.stage_type != "applied" %}
+                <li class="border border-dark-50 bg-[#F7F7F9] flex align-center justify-start p-3 rounded mb-2 text-xs" title="{% trans 'Fixed stage' %}">
+                    <ion-icon name="lock-closed-outline" class="me-3"></ion-icon>
+                    <span>{{ stage }}</span>
+                </li>
+            {% endif %}{% endfor %}
+        </ul>
+        <p class="text-xs text-[#565E6C]">{% trans "Applied, Final HR Round and Hired are fixed. Drag the stages in between to reorder them." %}</p>
         <div class="d-flex flex-row-reverse">
             <button
                 type="submit"

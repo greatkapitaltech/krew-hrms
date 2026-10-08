@@ -1,0 +1,67 @@
+{% load i18n %}
+
+{% comment %}
+Map a Candidate Pool candidate into a job opening.
+
+Only PUBLISHED openings are offered, because that is the rule the service
+enforces (recruitment.services.candidate.map_to_job_opening) -- the select is
+the convenience, not the control.
+
+Posts to the existing candidate-pool-map route, which stays POST-only. Mapping
+creates a NEW application and leaves any existing one untouched, and mapping
+twice is idempotent.
+{% endcomment %}
+
+<div class="oh-modal__dialog-header">
+    <span class="oh-modal__dialog-title">
+        {% trans "Map to Job Opening" %}: {{ candidate.get_full_name }}
+    </span>
+    <button class="oh-modal__close" aria-label="{% trans 'Close' %}"
+            data-target="#genericModal" data-toggle="oh-modal-toggle"></button>
+</div>
+
+<form method="post" action="{% url 'candidate-pool-map' candidate.pk %}">
+    {% csrf_token %}
+    <div class="oh-modal__dialog-body">
+        {% if candidate.recruitment_id %}
+            <p class="small text-muted">
+                {% blocktrans with opening=candidate.recruitment_id %}
+                    Currently applied to {{ opening }}. Mapping adds a new
+                    application and leaves that one unchanged.
+                {% endblocktrans %}
+            </p>
+        {% endif %}
+
+        {% if openings %}
+            <div class="oh-input-group">
+                <label class="oh-label required-star" for="id_job_opening_id">
+                    {% trans "Job Opening" %}
+                </label>
+                <select id="id_job_opening_id" name="job_opening_id"
+                        class="oh-select oh-select-2 w-100" required>
+                    <option value="">{% trans "---Choose Job Opening---" %}</option>
+                    {% for opening in openings %}
+                        <option value="{{ opening.pk }}">{{ opening.title }}</option>
+                    {% endfor %}
+                </select>
+                <small class="text-muted">
+                    {% trans "Only published job openings can receive a candidate." %}
+                </small>
+            </div>
+        {% else %}
+            <div class="oh-alert oh-alert--warning mb-0">
+                {% trans "There are no published job openings to map this candidate into." %}
+            </div>
+        {% endif %}
+    </div>
+
+    {% if openings %}
+        <div class="oh-modal__dialog-footer">
+            <button type="button" class="oh-btn oh-btn--light-bkg"
+                    onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">{% trans "Cancel" %}</button>
+            <button type="submit" class="oh-btn oh-btn--secondary">
+                {% trans "Map" %}
+            </button>
+        </div>
+    {% endif %}
+</form>

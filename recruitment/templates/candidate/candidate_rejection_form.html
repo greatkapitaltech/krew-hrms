@@ -1,5 +1,11 @@
 {% load i18n %}
+{% comment %}
+Reject: a mandatory internal remark only. Rejection is terminal (PRD), so there
+is no "Cancel Rejection" here.
+{% endcomment %}
 {% include "generic/horilla_form.html" %}
+{% comment %}
+Hidden per PRD: rejection is terminal, so there is no Cancel Rejection.
 <script>
 {
     const rejId = "{{ form.instance.id|default:'' }}";
@@ -21,3 +27,4 @@
     }
 }
 </script>
+{% endcomment %}

@@ -29,5 +29,12 @@
         {% endif %}
     {% endfor %}
 
-    <span title="{{instance}}">{{ instance|truncatechars:15 }} </span>
+    {% comment %}
+    PRD: Candidate Details opens from the stage. The full page is
+    candidate-view-individual -- CandidateProfileView.dispatch redirects every
+    non-HTMX request there, so linking the fragment would just bounce.
+    {% endcomment %}
+    <a href="{% url 'candidate-view-individual' instance.pk %}"
+       class="oh-text--dark"
+       title="{{instance}}">{{ instance|truncatechars:15 }}</a>
 </div>

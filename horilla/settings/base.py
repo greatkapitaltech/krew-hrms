@@ -403,6 +403,11 @@ AUDITLOG_EXCLUDE_TRACKING_MODELS = (
 
 EMAIL_BACKEND = "base.backends.ConfiguredEmailBackend"
 
+# When both are set, ConfiguredEmailBackend sends through the internal SES HTTP
+# API (base/ses_api.py) instead of the SMTP Mail Server configuration.
+SES_API_URL = env("SES_API_URL", default="")
+SES_API_KEY = env("SES_API_KEY", default="")
+
 """
 DB_INIT_PASSWORD: str
 

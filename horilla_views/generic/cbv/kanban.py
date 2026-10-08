@@ -20,6 +20,8 @@ class HorillaKanbanView(HorillaCardView):
     custom_card_content_template: str = ""
     group_actions: list = []
     show_kanban_confirmation: bool = True
+    #: False turns off drag-and-drop (cards and columns) for this board.
+    drag_enabled: bool = True
     folded_groups: list = []
     action_method: str = """"""
     group_label_key: str = ""

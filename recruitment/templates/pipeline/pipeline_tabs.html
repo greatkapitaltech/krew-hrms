@@ -42,12 +42,20 @@
               </li>
               {% endif %}
               {% if not rec.closed %}
-                {% if perms.recruitment.change_recruitment or request.user|recruitment_manages:rec %}
+                {% comment %}
+                Close is offered only while the drive is PUBLISHED. Gating on
+                the authoritative status rather than the `closed` mirror keeps
+                it off DRAFT/REVIEW drives, where PUBLISHED -> CLOSED is not a
+                valid transition and the service would reject it anyway.
+                {% endcomment %}
+                {% if rec.status == "PUBLISHED" and perms.recruitment.change_recruitment or rec.status == "PUBLISHED" and request.user|recruitment_manages:rec %}
                   <li class="oh-dropdown__item">
-                    <a href="{% url 'recruitment-close-pipeline' rec.id %}" class="oh-dropdown__link"
-                    onclick="return confirm('{% trans "Are you sure you want to close this recruitment?" %}');"
-                    >{% trans "Close" %}</a
-                    >
+                    <form method="post" action="{% url 'recruitment-close-pipeline' rec.id %}">
+                      {% csrf_token %}
+                      <button type="submit" class="oh-dropdown__link"
+                        onclick="return confirm('{% trans "Close this job opening? It will stop accepting new applications. This cannot be undone." %}');"
+                      >{% trans "Close" %}</button>
+                    </form>
                   </li>
                 {% endif %}
                 {% if perms.recruitment.add_candidate or request.user|recruitment_manages:rec %}
@@ -61,14 +69,15 @@
                     >
                   </li>
                 {% endif %}
-              {% elif perms.recruitment.change_recruitment or request.user|recruitment_manages:rec %}
-                <li class="oh-dropdown__item">
-                  <a href="{% url 'recruitment-reopen-pipeline' rec.id %}" class="oh-dropdown__link"
-                  onclick="return confirm('{% trans "Are you sure you want to reopen this recruitment?" %}');"
-                  >{% trans "Reopen" %}</a
-                  >
-                </li>
               {% endif %}
+              {% comment %}
+              The Reopen action was removed here. CLOSED is a terminal state:
+              the supported way to run a role again is Duplicate, which creates
+              a new job opening in DRAFT with its own lifecycle and audit
+              history. This branch previously reversed `closed` directly and
+              also referenced the now-deleted recruitment-reopen-pipeline URL,
+              which raised NoReverseMatch on every Pipeline/Kanban render.
+              {% endcomment %}
               {% if perms.recruitment.delete_recruitment %}
               <li class="oh-dropdown__item">
                 <a

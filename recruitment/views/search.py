@@ -237,6 +237,10 @@ def filter_survey(request):
             }
         )
     all_template_object_list = all_template_object_list + unused_groups
+    # Application form vs Hiring handoff tabs.
+    from recruitment.views.surveys import tag_template_groups
+
+    all_template_object_list = tag_template_groups(all_template_object_list)
     templates = paginator_qry(
         all_template_object_list, request.GET.get("template_page")
     )

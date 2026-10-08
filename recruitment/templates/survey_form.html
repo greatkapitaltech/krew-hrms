@@ -1,193 +1,314 @@
-{% load i18n %}{% load widget_tweaks %} {% load attendancefilters %}
-{% load static %}
+{% load i18n %}{% load static %}
+{% comment %}
+Candidate-facing screening questions.
+
+Rendered from the PUBLISHED job opening's immutable JobOpeningQuestion
+snapshot (or, before publication, from what publication would freeze). Two
+things differ from the previous version, and both matter:
+
+1. Every input is named `field_name`, which is derived from the question's id
+   (recruitment.services.screening.field_name_for) -- NOT from the question
+   wording. The old template used the wording as the input name, so the answer
+   blob was keyed by wording: renaming a question orphaned historical answers,
+   and two questions sharing wording collided into one field.
+
+2. `is_mandatory` comes from the snapshot, so it is the value frozen at
+   publication. The `required` attribute here is a convenience only -- the
+   server re-validates every mandatory question in
+   screening.submit_answers(), because an HTML attribute is not a constraint.
+
+`questions` is a list of {"question": <snapshot row>, "field_name": <str>}.
+{% endcomment %}
 <style>
-  .question-container {
-    padding: 0px;
-  }
+  .question-container { padding: 0px; }
 </style>
 <div class="oh-general__tab-target" id="personal">
   <div class="oh-wrapper oh-survey-ques">
     <div class="row pb-5">
-      <div class="col-12">{{form.non_field_errors}}</div>
+      <div class="col-12">{{ form.non_field_errors }}</div>
 
-      {% for question in questions %}
+      {% for item in questions %}
+        {% with question=item.question field_name=item.field_name %}
+        <div class="d-block oh-card mt-2">
+          <span class="oh-label oh-label--question">
+            {{ question.wording }}
+            {% if question.is_mandatory %}
+              <span class="text-danger"> * {% trans "Mandatory Question" %}</span>
+            {% endif %}
+          </span>
 
-      {% if question.type == "textarea" %}
-      <div class="d-block oh-card mt-2">
-        {% if question.is_mandatory %}
-          <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-        {% else %}
-          <span class="oh-label oh-label--question">{{ question.question }}</span>
-        {% endif %}
-        <textarea
-          type="text"
-          name="{{question.question}}"
-          class="oh-input w-100"
-          id="id_{{question.id}}"
-          {% if question.is_mandatory %}required{% endif %}
-        ></textarea>
-      </div>
-      {% elif question.type == "options" %}
-        <div class="d-block oh-card">
-          {% if question.is_mandatory %}
-            <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-          {% else %}
-            <span class="oh-label oh-label--question">{{ question.question }}</span>
-          {% endif %}
-          <select
-            name="{{question.question}}"
-            class="oh-select oh-select-2--large oh-select-2 w-100 select2-hidden-accessible"
-            id="id_{{question.id}}"
-            data-select2-id="select2-data-id_employee_id1"
-            aria-hidden="true"
-            {% if question.is_mandatory %}required{% endif %}
-          >
-            <option value="">-------------------------</option>
-            {% for choice in question.choices %}
-            <option value="{{choice}}">{{choice}}</option>
-            {% endfor %}
-          </select>
-        </div>
-        {% elif question.type == "multiple" %}
-            <div class="d-block oh-card">
-              {% if question.is_mandatory %}
-                <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-              {% else %}
-                <span class="oh-label oh-label--question">{{ question.question }}</span>
-              {% endif %}
-              <select
-                  name="multiple_choices_{{ question.question }}"
-                  class="oh-select oh-select-2--large oh-select-2 w-100 select2-hidden-accessible"
-                  style="height: 55px"
-                  id="id_{{ question.id }}"
-                  {% if question.is_mandatory %}required{% endif %}
-                  multiple>
-                  {% for choice in question.choices %}
-                  <option value="{{ choice }}">{{ choice }}</option>
-                  {% endfor %}
-              </select>
+          {% if question.question_type == "textarea" %}
+            <textarea
+              name="{{ field_name }}"
+              class="oh-input w-100"
+              id="id_{{ field_name }}"
+              {% if question.is_mandatory %}required{% endif %}
+            ></textarea>
+
+          {% elif question.question_type == "options" %}
+            <select
+              name="{{ field_name }}"
+              class="oh-select oh-select-2--large oh-select-2 w-100"
+              id="id_{{ field_name }}"
+              {% if question.is_mandatory %}required{% endif %}
+            >
+              <option value="">-------------------------</option>
+              {% for choice in question.choices %}
+                <option value="{{ choice }}">{{ choice }}</option>
+              {% endfor %}
+            </select>
+
+          {% elif question.question_type == "multiple" %}
+            <select
+              name="{{ field_name }}"
+              class="oh-select oh-select-2--large oh-select-2 w-100"
+              style="height: 55px"
+              id="id_{{ field_name }}"
+              {% if question.is_mandatory %}required{% endif %}
+              multiple
+            >
+              {% for choice in question.choices %}
+                <option value="{{ choice }}">{{ choice }}</option>
+              {% endfor %}
+            </select>
+
+          {% elif question.question_type == "checkbox" %}
+            {% comment %}
+            Plain, visible radios. The old "picker" needed a script this public
+            page does not load, so "Yes" only LOOKED selected and nothing was
+            posted -- a mandatory Yes/No could never be answered "No".
+            {% endcomment %}
+            <div class="flex gap-4 py-1">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="{{ field_name }}" value="Yes" {% if question.is_mandatory %}required{% endif %}>
+                <span class="text-sm">{% trans "Yes" %}</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="{{ field_name }}" value="No">
+                <span class="text-sm">{% trans "No" %}</span>
+              </label>
             </div>
-            {% elif question.type == "percentage" %}
-              <div class="d-block oh-card">
-                {% if question.is_mandatory %}
-                  <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-                {% else %}
-                  <span class="oh-label oh-label--question">{{ question.question }}</span>
-                {% endif %}
-                <div class="oh-container oh-container--outline my-2">
-                  {% comment %} <input class="oh-input oh-input--small oh-input--block px-0" min="0" value="$3.00" > {% endcomment %}
-                  <input
-                  type="number"
-                  class="oh-input oh-input oh-input--small oh-input--block px-0"
-                  style="width: 70px; text-align: center;"
-                  min="0"
-                  value="0"
-                  max="100"
-                  name="percentage_{{question.question}}"
-                  id="id_{{question.id}}"
-                  {% if question.is_mandatory %}required{% endif %}
-                />
-                  <input
-                  type="text"
-                  class="oh-input w-25 oh-input oh-input--small oh-input--block px-0"
-                  value="%"
-                  readonly
-                />
-                </div>
-              </div>
-            {% elif question.type == "file" %}
-              <div class="d-block oh-card">
-                {% if question.is_mandatory %}
-                  <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-                {% else %}
-                  <span class="oh-label oh-label--question">{{ question.question }}</span>
-                {% endif %}
-                <input
-                  type="file"
-                  class="oh-input w-100"
-                  name="file_{{question.question}}"
-                  id="id_{{question.id}}"
-                  {% if question.is_mandatory %}required{% endif %}
-                />
-              </div>
-            {% elif question.type == "date" %}
-              <div class="d-block oh-card">
-                {% if question.is_mandatory %}
-                  <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-                {% else %}
-                  <span class="oh-label oh-label--question">{{ question.question }}</span>
-                {% endif %}
-                <input
-                  type="date"
-                  class="oh-input w-100"
-                  name="date_{{question.question}}"
-                  id="id_{{question.id}}"
-                  {% if question.is_mandatory %}required{% endif %}
-                />
-              </div>
-            {% elif question.type == "rating" %}
-              <div class="d-block oh-card">
-                {% if question.is_mandatory %}
-                  <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-                {% else %}
-                  <span class="oh-label oh-label--question">{{ question.question }}</span>
-                {% endif %}
-                {% include "rating_input.html" %}
-              </div>
-            {% elif question.type == "checkbox" %}
-              <div class="d-block oh-card">
-                {% if question.is_mandatory %}
-                  <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-                {% else %}
-                  <span class="oh-label oh-label--question">{{ question.question }}</span>
-                {% endif %}
-                <div class="oh-input-picker-group">
-                  <div class="oh-input-picker oh-input-picker--sm oh-input-picker--selected" style="width: 80px;">
-                    <span>
-                      <ion-icon name="checkmark-circle-outline"></ion-icon>
-                      {% trans "Yes" %}
-                    </span>
-                    <input type="radio" name="{{ question.question }}" value="Yes" selected>
-                  </div>
-                  <div class="oh-input-picker oh-input-picker--sm" style="width: 80px;">
-                    <span>
-                    <ion-icon name="close-circle-outline"></ion-icon>
-                    {% trans "No" %}
-                    </span>
-                    <input type="radio" name="{{ question.question }}" value="No">
-                  </div>
-                </div>
 
+            {% comment %}
+            Replaced: the picker needed a script the public page does not load,
+            so a Yes/No could not be answered "No". Original kept for reference:
+            <div class="oh-input-picker-group">
+              <div class="oh-input-picker oh-input-picker--sm oh-input-picker--selected" style="width: 80px;">
+                <span>
+                  <ion-icon name="checkmark-circle-outline"></ion-icon>
+                  {% trans "Yes" %}
+                </span>
+                <input type="radio" name="{{ field_name }}" value="Yes">
               </div>
-            {% else %}
-              <div class="d-block oh-card">
-                {% if question.is_mandatory %}
-                  <span class="oh-label oh-label--question">{{ question.question }}<span class='text-danger'> * {% trans "Mandatory Question" %}</span></span>
-                {% else %}
-                  <span class="oh-label oh-label--question">{{ question.question }}</span>
-                {% endif %}
-                <input
-                  type="{{question.type}}"
-                  class="oh-input w-100"
-                  name="{{question.question}}"
-                  id="id_{{question.id}}"
-                  {% if question.is_mandatory %}required{% endif %}
-                />
+              <div class="oh-input-picker oh-input-picker--sm" style="width: 80px;">
+                <span>
+                  <ion-icon name="close-circle-outline"></ion-icon>
+                  {% trans "No" %}
+                </span>
+                <input type="radio" name="{{ field_name }}" value="No">
+              </div>
+            </div>
+            {% endcomment %}
 
-              </div>
-            {% endif %} {% endfor %}
-          </div>
-          <div class="d-flex justify-content-end align-items-center w-100 mt-4">
-            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--w-100-resp">
-              {% trans "Save" %}
-            </button>
-          </div>
-          <div class="col-sm-12 col-md-12 col-lg-12">
-            <p class="small text-muted text-center">
-              &copy; {% now 'Y' %} {{white_label_company_name}}. All rights resevered.
-            </p>
-          </div>
+          {% elif question.question_type == "percentage" %}
+            <div class="oh-container oh-container--outline my-2">
+              <input
+                type="number"
+                class="oh-input oh-input--small oh-input--block px-0"
+                style="width: 70px; text-align: center;"
+                min="0"
+                max="100"
+                value="0"
+                name="{{ field_name }}"
+                id="id_{{ field_name }}"
+                {% if question.is_mandatory %}required{% endif %}
+              >
+              <input type="text" class="oh-input w-25 oh-input--small px-0" value="%" readonly>
+            </div>
+
+          {% elif question.question_type == "file" %}
+            {% comment %} `multiple` only when the snapshot allows it, so a single-file
+               question does not invite a multi-select; submit_answers()
+               rejects extra files server-side regardless, because an HTML
+               attribute is not a constraint. `accept` matches the PDF-only
+               rule CandidateDocument enforces on every stored file. {% endcomment %}
+            <input
+              type="file"
+              class="oh-input w-100 krew-file-input"
+              name="{{ field_name }}"
+              id="id_{{ field_name }}"
+              accept="application/pdf,.pdf"
+              data-max-files="{{ question.max_files }}"
+              {% if question.allow_multiple_files %}multiple{% endif %}
+              {% if question.is_mandatory %}required{% endif %}
+            >
+            {% comment %}
+            How many of the allowed files are attached, and what they are, so
+            the applicant can drop one before submitting -- a file input
+            otherwise replaces the whole selection on every pick, with no way
+            to see or undo what is held.
+            {% endcomment %}
+            <div class="krew-file-status small text-muted mt-1"
+                 id="status_{{ field_name }}"
+                 data-empty-label="{% if question.max_files > 1 %}{% blocktrans with max=question.max_files %}0 of {{ max }} files attached{% endblocktrans %}{% else %}{% trans "No file attached" %}{% endif %}">
+              {% if question.max_files > 1 %}
+                {% blocktrans with max=question.max_files %}0 of {{ max }} files attached{% endblocktrans %}
+              {% else %}
+                {% trans "No file attached" %}
+              {% endif %}
+            </div>
+            <ul class="krew-file-list list-unstyled small mb-0 mt-1"
+                id="list_{{ field_name }}"></ul>
+
+          {% elif question.question_type == "date" %}
+            <input
+              type="date"
+              class="oh-input w-100"
+              name="{{ field_name }}"
+              id="id_{{ field_name }}"
+              {% if question.is_mandatory %}required{% endif %}
+            >
+
+          {% elif question.question_type == "rating" %}
+            {# 1-5, submitted as plain text so the value needs no parsing. #}
+            <div class="oh-rate">
+              {% for value in "54321"|make_list %}
+                <input
+                  type="radio"
+                  id="star{{ value }}_{{ field_name }}"
+                  name="{{ field_name }}"
+                  value="{{ value }}"
+                  {% if question.is_mandatory %}required{% endif %}
+                >
+                <label for="star{{ value }}_{{ field_name }}" title="{{ value }} {% trans 'Stars' %}">
+                  {{ value }} {% trans "Stars" %}
+                </label>
+              {% endfor %}
+            </div>
+
+          {% else %}
+            {# text, number, and any future type: a plain input of that type. #}
+            <input
+              type="{{ question.question_type }}"
+              class="oh-input w-100"
+              name="{{ field_name }}"
+              id="id_{{ field_name }}"
+              {% if question.is_mandatory %}required{% endif %}
+            >
+          {% endif %}
+        </div>
+        {% endwith %}
+      {% empty %}
+        <div class="col-12">
+          <p class="text-muted">{% trans "No screening questions for this job opening." %}</p>
+        </div>
+      {% endfor %}
+
+      {% comment %}
+      Suppressed when embedded: the public application page wraps these
+      questions in its own form and supplies the single submit button, so
+      rendering another one here would give the page two ways to post.
+      {% endcomment %}
+      {% if not embedded %}
+      <div class="d-flex justify-content-end align-items-center w-100 mt-4">
+        <button type="submit" class="oh-btn oh-btn--secondary oh-btn--w-100-resp">
+          {% trans "Save" %}
+        </button>
       </div>
+      <div class="col-sm-12">
+        <p class="small text-muted text-center">
+          &copy; {% now 'Y' %} {{ white_label_company_name }}. {% trans "All rights reserved." %}
+        </p>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
+
+{% comment %}
+File-upload questions: show what is attached, enforce the per-question cap in
+the browser, and let the applicant remove a file before submitting.
+
+A file input has no "remove one" of its own -- picking files replaces the whole
+selection -- so the held files are kept in a DataTransfer and written back to
+the input, which keeps a normal multipart submission (no JS upload path, no
+second code path on the server). The cap is enforced again in
+submit_answers(): this is the courtesy, not the rule.
+{% endcomment %}
+<script>
+(function () {
+  function label(input, count) {
+    var max = parseInt(input.dataset.maxFiles || "1", 10);
+    if (max > 1) {
+      return count + " {% trans "of" %} " + max + " {% trans "files attached" %}";
+    }
+    return count === 1
+      ? "{% trans "1 file attached" %}"
+      : "{% trans "No file attached" %}";
+  }
+
+  function render(input) {
+    var name = input.getAttribute("name");
+    var status = document.getElementById("status_" + name);
+    var list = document.getElementById("list_" + name);
+    var files = Array.prototype.slice.call(input.files || []);
+
+    if (status) { status.textContent = label(input, files.length); }
+    if (!list) { return; }
+
+    list.textContent = "";
+    files.forEach(function (file, index) {
+      var row = document.createElement("li");
+      row.className = "d-flex align-items-center justify-content-between py-1";
+
+      var naming = document.createElement("span");
+      naming.className = "text-truncate pe-2";
+      naming.textContent = file.name;
+
+      var remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "oh-btn oh-btn--light-bkg oh-btn--small";
+      remove.textContent = "{% trans "Remove" %}";
+      remove.addEventListener("click", function () {
+        var kept = new DataTransfer();
+        Array.prototype.slice.call(input.files).forEach(function (f, i) {
+          if (i !== index) { kept.items.add(f); }
+        });
+        input.files = kept.files;
+        render(input);
+      });
+
+      row.appendChild(naming);
+      row.appendChild(remove);
+      list.appendChild(row);
+    });
+  }
+
+  document.querySelectorAll(".krew-file-input").forEach(function (input) {
+    input.addEventListener("change", function () {
+      var max = parseInt(input.dataset.maxFiles || "1", 10);
+      if (input.files && input.files.length > max) {
+        // Keep the first `max` rather than discarding the whole selection, and
+        // say what happened instead of silently dropping files.
+        var trimmed = new DataTransfer();
+        Array.prototype.slice.call(input.files, 0, max).forEach(function (f) {
+          trimmed.items.add(f);
+        });
+        input.files = trimmed.files;
+        var status = document.getElementById("status_" + input.getAttribute("name"));
+        if (status) {
+          status.classList.add("text-danger");
+          status.textContent =
+            "{% trans "Only" %} " + max + " {% trans "file(s) allowed - the extra ones were not attached." %}";
+          setTimeout(function () {
+            status.classList.remove("text-danger");
+            render(input);
+          }, 4000);
+          return;
+        }
+      }
+      render(input);
+    });
+  });
+})();
+</script>

@@ -1,7 +1,7 @@
 {% load i18n horillafilters %}
 {% get_company as theme_obj %}
 <h5 class="oh-job__post">{{ recruitment.title }}</h5>
-<p class="oh-onboarding__content oh-job__post_description">{{ recruitment.description|safe }}</p>
+<p class="oh-onboarding__content oh-job__post_description">{{ recruitment.description|linebreaksbr }}</p>
 <span class="fw-bold d-block"> {% trans "Job positions :" %}</span>
 <ul class="oh-job__description-list mt-3">
     {% for job in recruitment.open_positions.all %}
@@ -9,8 +9,11 @@
     {% endfor %}
 </ul>
 
+{% if recruitment.status == "CLOSED" %}
+<p class="mt-4 text-sm text-[#565E6C]">{% trans "This job is no longer accepting applications." %}</p>
+{% else %}
 <a
-    href='{% url "application-form" %}?recruitmentId={{recruitment.id}}'
+    href='{% if career_slug %}{% url "career-apply" career_slug recruitment.id %}{% else %}{% url "application-form" %}?recruitmentId={{recruitment.id}}{% endif %}'
     rel="noopener noreferrer"
     target="_blank"
     class="oh-btn mt-4 text-[{{theme_obj.primary_700}}] hover:text-white hover:bg-[{{theme_obj.primary_600}}]"
@@ -21,3 +24,4 @@
 >
     {% trans "Apply Now" %}
 </a>
+{% endif %}

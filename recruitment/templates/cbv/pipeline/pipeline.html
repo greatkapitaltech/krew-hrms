@@ -96,6 +96,27 @@
     </div>
 
     <script>
+        // Reject (PRD): confirmation first, then the mandatory-remark form.
+        // Horilla replaces window.confirm() with a non-blocking SweetAlert that
+        // returns nothing, so the popup is driven directly here.
+        function krewConfirmReject(url) {
+            Swal.fire({
+                text: "{% trans 'Reject this candidate? They will be emailed a rejection notice. This cannot be undone.' %}",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonColor: "#008000",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: i18nMessages.confirm,
+                cancelButtonText: i18nMessages.cancel,
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    $("#genericModal").addClass("oh-modal--show");
+                    htmx.ajax("GET", url, "#genericModalBody");
+                }
+            });
+        }
+    </script>
+    <script>
         function archiveCandidate(url, msg) {
         	Swal.fire({
         		text: msg,

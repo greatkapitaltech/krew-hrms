@@ -6,6 +6,8 @@ This module is used to register methods to delete/archive/un-archive instances
 
 import json
 
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django import template
 from django.contrib import messages
 from django.contrib.auth.models import Permission
@@ -29,6 +31,7 @@ from horilla.group_by import group_by_queryset
 from horilla.http import HorillaRedirect
 from notifications.signals import notify
 from recruitment.decorators import (
+    drive_manager_required,
     candidate_login_required,
     manager_can_enter,
     recruitment_manager_can_enter,
@@ -178,6 +181,7 @@ def note_delete_individual(request, note_id):
 
 @login_required
 @manager_can_enter(perm="recruitment.delete_stage")
+@drive_manager_required
 @require_http_methods(["POST", "DELETE"])
 def stage_delete(request, stage_id):
     """
@@ -193,24 +197,40 @@ def stage_delete(request, stage_id):
             messages.error(request, _("Stage not found."))
             return HorillaRedirect(request)
 
-        stage_managers = stage_obj.stage_managers.all()
-        for manager in stage_managers:
-            all_this_manger = manager.stage_set.all()
-            if len(all_this_manger) == 1:
-                view_recruitment = Permission.objects.get(codename="view_recruitment")
-                manager.employee_user_id.user_permissions.remove(view_recruitment.id)
-            initial_stage_manager = all_this_manger.filter(stage_type="initial")
-            if len(initial_stage_manager) == 1:
-                add_candidate = Permission.objects.get(
-                    codename="recruitment.add_candidate"
-                )
-                change_candidate = Permission.objects.get(codename="change_candidate")
-                manager.employee_user_id.user_permissions.remove(add_candidate.id)
-                manager.employee_user_id.user_permissions.remove(change_candidate.id)
-            stage_obj.stage_managers.remove(manager)
         try:
-            stage_obj.delete()
+            # One transaction: if the delete is refused (fixed stage, or
+            # candidates still in it) the manager removal and permission
+            # changes below are rolled back too, so the stage is never left
+            # without its managers.
+            with transaction.atomic():
+                stage_managers = stage_obj.stage_managers.all()
+                for manager in stage_managers:
+                    all_this_manger = manager.stage_set.all()
+                    if len(all_this_manger) == 1:
+                        view_recruitment = Permission.objects.get(
+                            codename="view_recruitment"
+                        )
+                        manager.employee_user_id.user_permissions.remove(
+                            view_recruitment.id
+                        )
+                    initial_stage_manager = all_this_manger.filter(stage_type="initial")
+                    if len(initial_stage_manager) == 1:
+                        add_candidate = Permission.objects.get(
+                            codename="recruitment.add_candidate"
+                        )
+                        change_candidate = Permission.objects.get(
+                            codename="change_candidate"
+                        )
+                        manager.employee_user_id.user_permissions.remove(add_candidate.id)
+                        manager.employee_user_id.user_permissions.remove(
+                            change_candidate.id
+                        )
+                    stage_obj.stage_managers.remove(manager)
+                stage_obj.delete()
             messages.success(request, _("Stage deleted successfully."))
+        except ValidationError as e:
+            # Fixed stages (PRD) refuse deletion at the model.
+            messages.error(request, " ".join(e.messages))
         except ProtectedError as e:
             models_verbose_name_sets = set()
             for obj in e.protected_objects:
@@ -242,6 +262,14 @@ def stage_delete(request, stage_id):
     return HorillaRedirect(request)
 
 
+#: PRD (Candidate Pool): "Nothing is ever removed from the Candidate Pool
+#: regardless of outcome." The upstream delete code below is kept, unreachable.
+CANDIDATE_DELETE_REFUSED = _(
+    "Candidates can't be deleted: every application stays in the Candidate "
+    "Pool permanently."
+)
+
+
 @login_required
 @permission_required(perm="recruitment.delete_candidate")
 @require_http_methods(["DELETE", "POST"])
@@ -251,6 +279,14 @@ def candidate_delete(request, cand_id):
     Args:
         id : candidate_id
     """
+    # PRD: nothing ever leaves the Candidate Pool -- applications, notes,
+    # answers and documents are permanent. Hard delete is refused.
+    messages.error(request, CANDIDATE_DELETE_REFUSED)
+    if request.META.get("HTTP_HX_REQUEST") == "true":
+        response = HttpResponse(status=204)
+        response["HX-Trigger"] = "candidateContainerReload"
+        return response
+    return HorillaRedirect(request)
     try:
         try:
             Candidate.objects.get(id=cand_id).delete()
@@ -286,6 +322,9 @@ def candidate_bulk_delete(request):
     """
     This method is used to bulk delete candidates
     """
+    # PRD: nothing ever leaves the Candidate Pool; hard delete is refused.
+    messages.error(request, CANDIDATE_DELETE_REFUSED)
+    return JsonResponse({"message": str(CANDIDATE_DELETE_REFUSED)}, status=400)
     ids = request.POST["ids"]
     ids = json.loads(ids)
     for cand_id in ids:
@@ -362,6 +401,7 @@ def candidate_bulk_archive(request):
 
 @login_required
 @manager_can_enter(perm="recruitment.change_stage")
+@drive_manager_required
 def remove_stage_manager(request, mid, sid):
     """
     This method is used to remove selected stage manager and also removing the  given
@@ -377,6 +417,18 @@ def remove_stage_manager(request, mid, sid):
             request,
             message=_("No %(model_name)s found matching the query.")
             % {"model_name": "Stage" if not stage_obj else "Employee"},
+        )
+    # PRD: a stage can't be live with zero Stage Managers.
+    if (
+        stage_obj.stage_managers.filter(pk=manager.pk).exists()
+        and stage_obj.stage_managers.count() <= 1
+    ):
+        return HorillaRedirect(
+            request,
+            message=_(
+                "Every stage needs at least one Stage Manager. Add another "
+                "manager before removing this one."
+            ),
         )
 
     notify.send(

@@ -1,0 +1,22 @@
+{% load i18n generic_template_filters %}
+
+{% comment %}
+Under each template selector on the Job Opening form (through the form's
+`field_extras` hook; `field.name` picks the section): "+ Add Question" and the
+questions added for THIS opening. The template's own questions are not repeated
+here -- the Save & Review summary shows the full set.
+{% endcomment %}
+
+{% with section_list=form.question_sections|get_item:field.name %}
+    {% if section_list %}
+        <div class="col-12">
+            {% include 'cbv/recruitment/job_opening_extra_questions.html' with wrapper_id="jobOpeningQuestions-"|add:field.name form_type=section_list.0.form_type extras=form.extra_questions|get_item:field.name can_add=form.questions_can_add job_opening=form.instance %}
+        </div>
+    {% elif not form.instance.pk or form.is_duplicate %}
+        <div class="col-12">
+            <div class="mt-2 mb-3">
+                {% include 'cbv/recruitment/job_opening_pending_questions.html' with form_type=field.name|cut:"_templates" pending=form.pending_questions|get_item:field.name %}
+            </div>
+        </div>
+    {% endif %}
+{% endwith %}

@@ -4,6 +4,7 @@ var groupKey = $("#helperContainer").attr("data-group-key");
 var groupOrderBy = $("#helperContainer").attr("data-group-order-by");
 var instanceOrderBy = $("#helperContainer").attr("data-instance-order-by");
 var preMoveCheckUrl = $("#helperContainer").attr("data-pre-move-check-url");
+var dragEnabled = $("#helperContainer").attr("data-drag-enabled") !== "false";
 var model = `${appLabel}.${modelName}`;
 var groupOrder = []
 var stageOrderJson = []
@@ -406,6 +407,8 @@ $(document).ready(function () {
 		});
 	});
 
-	initializeKanbanSortable(".oh-kanban__section-body", ".pipeline_item");
+	if (dragEnabled) {
+		initializeKanbanSortable(".oh-kanban__section-body", ".pipeline_item");
+	}
 
 });

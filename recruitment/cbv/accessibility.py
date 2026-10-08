@@ -16,6 +16,22 @@ from recruitment.methods import (
 from recruitment.models import Candidate, RecruitmentGeneralSetting, RejectedCandidate
 
 
+def hiring_handoff_accessibility(request, instance, user_perm):
+    """
+    The hiring handoff tab belongs to the Final HR Round only.
+
+    This decides whether the tab is OFFERED, nothing more.
+    recruitment.views.candidate_pool.candidate_handoff_tab re-checks company
+    scope, object-level authority and the status before it writes anything --
+    hiding a tab is not access control.
+    """
+    from recruitment.services.candidate import STATUS_FINAL_HR_ROUND, candidate_status
+
+    if candidate_status(instance) != STATUS_FINAL_HR_ROUND:
+        return False
+    return request.user.has_perm("recruitment.change_candidate")
+
+
 def convert_emp(request, instance, user_perm):
     """
     Covert employee accessibility
@@ -187,3 +203,71 @@ def check_candidate_self_tracking(request, instance, user_perm):
             company_id__isnull=True
         ).first()
     return setting.candidate_self_tracking if setting else False
+
+
+def move_backward_accessibility(request, instance=None, user_perms=[], *args, **kwargs):
+    """Move Backward: drive Managers / HR only, when there is a stage to go back to."""
+    from recruitment.services.candidate import can_move_backward
+
+    return instance is not None and can_move_backward(request.user, instance)
+
+
+def _candidate_authority(request, instance):
+    """Who may act on THIS candidate: drive Manager/HR, or their stage's manager."""
+    from recruitment.services.candidate import (
+        STATUS_REJECTED,
+        candidate_status,
+        stage_move_authority,
+    )
+
+    if instance is None or candidate_status(instance) == STATUS_REJECTED:
+        return None
+    return stage_move_authority(request.user, instance)
+
+
+def move_forward_accessibility(request, instance=None, user_perms=[], *args, **kwargs):
+    """Move Forward: own stage (Stage Manager) or any stage (Manager); not once hired."""
+    from recruitment.services.candidate import next_stage_for
+
+    if _candidate_authority(request, instance) is None or instance.hired:
+        return False
+    return next_stage_for(instance) is not None
+
+
+def stage_action_accessibility(request, instance=None, user_perms=[], *args, **kwargs):
+    """Reject / Schedule Interview: active (not hired, not rejected) candidates only."""
+    return _candidate_authority(request, instance) is not None and not instance.hired
+
+
+def schedule_interview_accessibility(request, instance=None, user_perms=[], *args, **kwargs):
+    """Schedule Interview: as Reject, until this stage's interview is in Google."""
+    if not stage_action_accessibility(request, instance):
+        return False
+    meeting = instance.get_interview_meeting()
+    return meeting is None or meeting.status != meeting.Status.LINKED
+
+
+def join_meeting_accessibility(request, instance=None, user_perms=[], *args, **kwargs):
+    """Join Meeting: this stage's interview is in Google with a link."""
+    if _candidate_authority(request, instance) is None:
+        return False
+    meeting = instance.get_interview_meeting()
+    return bool(meeting and meeting.status == meeting.Status.LINKED and meeting.join_url)
+
+
+def fetch_meeting_accessibility(request, instance=None, user_perms=[], *args, **kwargs):
+    """Fetch Meeting Link: scheduled from Krew, not yet found in Google."""
+    if _candidate_authority(request, instance) is None:
+        return False
+    meeting = instance.get_interview_meeting()
+    if not (meeting and meeting.status == meeting.Status.PENDING):
+        return False
+    # Hidden where Google is not set up for the company: it could only fail.
+    from recruitment.services.interview import google_status
+
+    return google_status(meeting.scheduled_by) != "unavailable"
+
+
+def email_candidate_accessibility(request, instance=None, user_perms=[], *args, **kwargs):
+    """Email Candidate: anyone responsible for the candidate, hired included."""
+    return _candidate_authority(request, instance) is not None

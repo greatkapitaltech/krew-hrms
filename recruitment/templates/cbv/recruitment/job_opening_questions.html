@@ -1,0 +1,19 @@
+{% load i18n %}
+
+{% comment %}
+Wrapper for the resolved question sections, used when the list is fetched on its
+own -- after a question is added, the response targets this element and replaces
+it, so the id has to match the one the Job Opening form rendered.
+
+`wrapper_id` is the per-form id when ?form_type= narrowed the request to a
+single section, and the combined id otherwise.
+
+The tables themselves live in job_opening_question_table.html, which the Job
+Opening form and the publication review screen include too, so every screen
+describes the same question set.
+{% endcomment %}
+
+<div id="{{ wrapper_id|default:'jobOpeningQuestions' }}"
+     class="oh-profile-section bg-white rounded-md border border-dark-50 p-3 mt-2 mb-3">
+    {% include 'cbv/recruitment/job_opening_question_table.html' %}
+</div>

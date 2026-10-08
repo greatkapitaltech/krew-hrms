@@ -1,4 +1,36 @@
 {% load i18n %}
+{% comment %}
+Create / edit a bank question. Same field layout as every other question
+screen (survey/question_fields.html): options editor for choice formats,
+max files only for file uploads.
+{% endcomment %}
+<div class="oh-modal__dialog-header">
+    <h2 class="oh-modal__dialog-title font-semibold">
+        {% if form.instance.pk %}{% trans "Edit Question" %}{% else %}{% trans "Create Question" %}{% endif %}
+    </h2>
+    <button type="button" class="oh-modal__close" aria-label="{% trans 'Close' %}"
+            onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<form id="{{ view_id }}Form"
+      hx-post="{{ request.path }}?{{ request.GET.urlencode }}"
+      {% if request.META.HTTP_HX_TARGET %}hx-target="#{{ request.META.HTTP_HX_TARGET }}"{% endif %}
+      class="p-4">
+    {% csrf_token %}
+    {% include 'survey/question_fields.html' %}
+    <div class="flex justify-end gap-2 mt-2">
+        <button type="button" class="oh-btn oh-btn--light-bkg"
+                onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">{% trans "Cancel" %}</button>
+        <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Save" %}</button>
+    </div>
+</form>
+<script>
+    $("#{{ view_id }}Form").find("select.oh-select-2").select2({ width: "100%" });
+</script>
+
+{% comment %}
+Replaced per PRD: one clean question form (survey/question_fields.html) replaces the generic form and its option scripts. Original kept for reference:
 <div id="formContainer">
     {% include "generic/horilla_form.html" %}
     <button
@@ -86,3 +118,4 @@
             });
         });
 </script>
+{% endcomment %}

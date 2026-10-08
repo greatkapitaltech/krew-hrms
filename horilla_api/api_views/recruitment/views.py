@@ -16,11 +16,13 @@ from rest_framework.views import APIView
 
 from base.methods import filtersubordinates
 from horilla_api.api_serializers.recruitment.serializers import (
+    CandidateAnswerSerializer,
     CandidateDocumentRequestSerializer,
     CandidateDocumentSerializer,
     CandidateRatingSerializer,
     CandidateSerializer,
     InterviewScheduleSerializer,
+    JobOpeningQuestionSerializer,
     LinkedInAccountSerializer,
     RecruitmentSerializer,
     RejectedCandidateSerializer,
@@ -67,6 +69,23 @@ from ...api_decorators.base.decorators import (
 from ...api_methods.base.methods import groupby_queryset, permission_based_queryset
 
 
+class RecruitmentAPIView(APIView):
+    """
+    Base for every recruitment API view: after the token (JWT) login, set the
+    same company context the browser gets from CompanyMiddleware. API calls
+    authenticate inside the view, after the middleware has run, so without
+    this every company-scoped lookup here returned all companies' data.
+    """
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        django_request = getattr(request, "_request", request)
+        if getattr(django_request, "user", None) is not None and django_request.user.is_authenticated:
+            from base.middleware import CompanyMiddleware
+
+            CompanyMiddleware(lambda _request: None)(django_request)
+
+
 def object_check(cls, pk):
     try:
         obj = cls.objects.get(id=pk)
@@ -76,7 +95,7 @@ def object_check(cls, pk):
 
 
 # Recruitment Views
-class RecruitmentGetCreateAPIView(APIView):
+class RecruitmentGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = RecruitmentFilter
@@ -118,14 +137,49 @@ class RecruitmentGetCreateAPIView(APIView):
 
     @permission_required("recruitment.add_recruitment")
     def post(self, request, **kwargs):
-        serializer = RecruitmentSerializer(data=request.data)
+        # serializer = RecruitmentSerializer(data=request.data)
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        #
+        # Same company rule as the UI form: one of the user's own companies
+        # (chosen, or resolved from their login), never another tenant's.
+        from recruitment.services import job_opening as lifecycle
+        from recruitment.services.authorization import (
+            resolve_company_for_new_job_opening,
+            selectable_companies_for_user,
+        )
+
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        chosen = data.get("company_id_write")
+        allowed = selectable_companies_for_user(request.user)
+        if chosen:
+            if not allowed.filter(pk=chosen).exists():
+                return Response(
+                    {"error": _("You can't create a job opening for that company.")},
+                    status=403,
+                )
+        else:
+            company = resolve_company_for_new_job_opening(request.user)
+            if company is None:
+                return Response(
+                    {"error": _("Choose the company (company_id_write) for this job opening.")},
+                    status=400,
+                )
+            data["company_id_write"] = company.pk
+        serializer = RecruitmentSerializer(data=data)
+        # Job Position is optional (PRD); DRF's unique-together validator would
+        # demand it. The database constraint still prevents real duplicates.
+        serializer.validators = []
         if serializer.is_valid():
-            serializer.save()
+            job_opening = serializer.save()
+            lifecycle.record_created(request.user, job_opening)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class RecruitmentGetUpdateDeleteAPIView(APIView):
+class RecruitmentGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -140,26 +194,132 @@ class RecruitmentGetUpdateDeleteAPIView(APIView):
         recruitment = object_check(Recruitment, pk)
         if recruitment is None:
             return Response({"error": _("Recruitment not found")}, status=404)
+        # Same rule as the UI edit form: only the opening's managers / HR.
+        from recruitment.services.authorization import user_can_manage_job_opening
+
+        if not user_can_manage_job_opening(
+            request.user, recruitment, "recruitment.change_recruitment"
+        ):
+            return Response(
+                {"error": _("Only this job opening's managers can edit it.")}, status=403
+            )
+        if "company_id_write" in request.data or "company_id" in request.data:
+            return Response(
+                {"error": _("A job opening's company can't be changed.")}, status=400
+            )
+        # A closed (or removed) opening is read-only: Duplicate it instead.
+        if recruitment.status in (
+            Recruitment.Status.CLOSED,
+            Recruitment.Status.REMOVED,
+        ):
+            return Response(
+                {
+                    "error": _(
+                        "A closed job opening can't be edited. Use Duplicate to "
+                        "post it again."
+                    )
+                },
+                status=400,
+            )
         serializer = RecruitmentSerializer(recruitment, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 
-    @permission_required("recruitment.delete_recruitment")
-    def delete(self, request, pk):
-        recruitment = object_check(Recruitment, pk)
-        if recruitment is None:
-            return Response({"error": _("Recruitment not found")}, status=404)
+    # Not offered: job openings are taken down with Remove (lifecycle), never hard-deleted.
+    # @permission_required("recruitment.delete_recruitment")
+    # def delete(self, request, pk):
+    #     recruitment = object_check(Recruitment, pk)
+    #     if recruitment is None:
+    #         return Response({"error": _("Recruitment not found")}, status=404)
+    #     try:
+    #         recruitment.delete()
+    #         return Response(status=status.HTTP_204_NO_CONTENT)
+    #     except Exception as e:
+    #         return Response({"error": str(e)}, status=400)
+
+
+class RecruitmentLifecycleAPIView(RecruitmentAPIView):
+    """
+    Explicit job-opening lifecycle transitions.
+
+    The serializer marks status and its mirrors read-only, so these endpoints
+    are the only way an API client can move a job opening through
+
+        DRAFT -> REVIEW -> PUBLISHED -> CLOSED
+
+    Each call delegates to recruitment.services.job_opening, which enforces
+    company scope, the object-scoped change_recruitment permission, a valid
+    transition, row locking and the business audit event -- identically to the
+    UI, because both go through the same service.
+
+    POST /api/recruitment/recruitment/<pk>/<action>/
+        action in: submit-for-review | send-back | publish | close | remove
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    ACTIONS = {
+        "submit-for-review": "submit_for_review",
+        "send-back": "send_back_for_changes",
+        "publish": "publish",
+        "close": "close",
+        "remove": "remove",
+    }
+
+    def post(self, request, pk, action):
+        from recruitment.services import job_opening as lifecycle
+        from recruitment.services.errors import (
+            JobOpeningNotFound,
+            PublicationValidationError,
+            RecruitmentError,
+            RecruitmentPermissionDenied,
+        )
+
+        operation_name = self.ACTIONS.get(action)
+        if operation_name is None:
+            return Response(
+                {"error": _("Unknown lifecycle action."), "code": "unknown_action"},
+                status=400,
+            )
+        operation = getattr(lifecycle, operation_name)
+
+        kwargs = {}
+        remark = (request.data.get("remark") or "").strip()
+        reason = (request.data.get("reason") or "").strip()
+        if action == "send-back" and remark:
+            kwargs["remark"] = remark
+        if action in ("close", "remove") and reason:
+            kwargs["reason"] = reason
+
         try:
-            recruitment.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
+            job_opening = operation(request.user, pk, **kwargs)
+        except PublicationValidationError as error:
+            # Every blocker at once, so a client is not forced to fix them
+            # one round-trip at a time.
+            return Response(
+                {
+                    "error": str(error),
+                    "code": error.code,
+                    "blockers": [str(blocker) for blocker in error.blockers],
+                },
+                status=400,
+            )
+        except JobOpeningNotFound as error:
+            return Response({"error": str(error), "code": error.code}, status=404)
+        except RecruitmentPermissionDenied as error:
+            return Response({"error": str(error), "code": error.code}, status=403)
+        except RecruitmentError as error:
+            # Invalid transition, already-removed, not-accepting-candidates:
+            # a business rule refused, not a server fault.
+            return Response({"error": str(error), "code": error.code}, status=400)
+
+        return Response(RecruitmentSerializer(job_opening).data, status=200)
 
 
 # Stage Views
-class StageGetCreateAPIView(APIView):
+class StageGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = StageFilter
@@ -203,6 +363,19 @@ class StageGetCreateAPIView(APIView):
 
     @permission_required("recruitment.add_stage")
     def post(self, request, recruitment_id=None, **kwargs):
+        from recruitment.services.authorization import is_drive_manager
+
+        _rec_id = recruitment_id or request.data.get("recruitment_id_write")
+        _opening = Recruitment.objects.filter(pk=_rec_id).first() if _rec_id else None
+        if _opening is not None and not is_drive_manager(request.user, _opening):
+            return Response(
+                {"error": _("Only this job opening's managers can add stages.")}, status=403
+            )
+        if request.data.get("stage_type") in ("applied", "final_hr_round", "hired", "cancelled"):
+            return Response(
+                {"error": _("Fixed stages are created automatically; add a custom stage.")},
+                status=400,
+            )
         data = request.data.copy()
         if (
             recruitment_id
@@ -217,7 +390,7 @@ class StageGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class StageGetUpdateDeleteAPIView(APIView):
+class StageGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -229,17 +402,47 @@ class StageGetUpdateDeleteAPIView(APIView):
 
     @permission_required("recruitment.change_stage")
     def put(self, request, pk):
+        from recruitment.services.authorization import is_drive_manager
+
+        _stage = Stage.objects.filter(pk=pk).first()
+        if _stage is not None and not is_drive_manager(request.user, _stage.recruitment_id):
+            return Response(
+                {"error": _("Only this job opening's managers can edit stages.")}, status=403
+            )
+        if "stage_managers_ids" in request.data and not [
+            m for m in (request.data.getlist("stage_managers_ids") if hasattr(request.data, "getlist") else request.data.get("stage_managers_ids") or []) if m
+        ]:
+            return Response(
+                {"error": _("Every stage needs at least one Stage Manager.")}, status=400
+            )
         stage = object_check(Stage, pk)
         if stage is None:
             return Response({"error": _("Stage not found")}, status=404)
         serializer = StageSerializer(stage, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            from django.core.exceptions import ValidationError as _ModelValidationError
+
+            try:
+                serializer.save()
+            except _ModelValidationError as error:
+                return Response({"error": " ".join(error.messages)}, status=400)
             return Response(serializer.data, status=200)
         return Response(serializer.errors, status=400)
 
     @permission_required("recruitment.delete_stage")
     def delete(self, request, pk):
+        from recruitment.services.authorization import is_drive_manager
+
+        _stage = Stage.objects.filter(pk=pk).first()
+        if _stage is not None and _stage.is_fixed:
+            return Response(
+                {"error": _("Applied, Final HR Round and Hired are fixed stages and cannot be removed.")},
+                status=400,
+            )
+        if _stage is not None and not is_drive_manager(request.user, _stage.recruitment_id):
+            return Response(
+                {"error": _("Only this job opening's managers can remove stages.")}, status=403
+            )
         stage = object_check(Stage, pk)
         if stage is None:
             return Response({"error": _("Stage not found")}, status=404)
@@ -251,7 +454,7 @@ class StageGetUpdateDeleteAPIView(APIView):
 
 
 # Candidate Views
-class CandidateGetCreateAPIView(APIView):
+class CandidateGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = CandidateFilter
@@ -261,22 +464,36 @@ class CandidateGetCreateAPIView(APIView):
         # Handle schema generation for DRF-YASG
         if getattr(self, "swagger_fake_view", False) or request is None:
             return Candidate.objects.none()
-        queryset = Candidate.objects.all()
+
+        # Company-scoped at the database. This previously started from
+        # Candidate.objects.all() and relied on permission_based_queryset,
+        # which returns the FULL queryset to anyone holding view_candidate --
+        # i.e. every tenant's candidates -- and otherwise filters on an
+        # employee_id field that Candidate does not have.
+        from recruitment.services import candidate as candidate_service
+
+        queryset = candidate_service.accessible_candidates(request.user)
         if recruitment_id:
             queryset = queryset.filter(recruitment_id=recruitment_id)
         if stage_id:
             queryset = queryset.filter(stage_id=stage_id)
-        user = request.user
-        # checking user level permissions
-        perm = "recruitment.view_candidate"
-        queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
         return queryset
 
     def get(self, request, pk=None, recruitment_id=None, stage_id=None):
         if pk:
-            candidate = object_check(Candidate, pk)
-            if candidate is None:
+            # Scoped lookup: another tenant's id answers 404, never 200.
+            from recruitment.services import candidate as candidate_service
+            from recruitment.services.errors import (
+                CandidateNotFound,
+                RecruitmentPermissionDenied,
+            )
+
+            try:
+                candidate = candidate_service.get_candidate_for_user(request.user, pk)
+            except CandidateNotFound:
                 return Response({"error": _("Candidate not found")}, status=404)
+            except RecruitmentPermissionDenied as error:
+                return Response({"error": str(error)}, status=403)
             serializer = CandidateSerializer(candidate)
             return Response(serializer.data, status=200)
 
@@ -297,57 +514,211 @@ class CandidateGetCreateAPIView(APIView):
 
     @permission_required("recruitment.add_candidate")
     def post(self, request, recruitment_id=None, stage_id=None, **kwargs):
-        data = request.data.copy()
-        if (
-            recruitment_id
-            and not data.get("recruitment_id_write")
-            and not data.get("recruitment_id")
-        ):
-            data["recruitment_id_write"] = recruitment_id
-        if stage_id and not data.get("stage_id_write") and not data.get("stage_id"):
-            data["stage_id_write"] = stage_id
+        # data = request.data.copy()
+        # if (
+        #     recruitment_id
+        #     and not data.get("recruitment_id_write")
+        #     and not data.get("recruitment_id")
+        # ):
+        #     data["recruitment_id_write"] = recruitment_id
+        # if stage_id and not data.get("stage_id_write") and not data.get("stage_id"):
+        #     data["stage_id_write"] = stage_id
+        # serializer = CandidateSerializer(data=data)
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        #
+        # Manual candidate creation (PRD Form 3), with the app's rules: a
+        # Published opening the user manages, any stage up to Final HR Round
+        # (never Hired or Rejected), created through the candidate service.
+        from recruitment.services import candidate as candidate_service
+        from recruitment.services.authorization import (
+            has_company_wide_job_opening_authority,
+            manages_job_opening,
+        )
+        from recruitment.services.errors import RecruitmentError
+
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        opening_id = recruitment_id or data.get("recruitment_id_write") or data.get("recruitment_id")
+        stage_ref = stage_id or data.get("stage_id_write") or data.get("stage_id")
+        for key in PROTECTED_CANDIDATE_FIELDS:
+            data.pop(key, None)
+
+        stage = None
+        if stage_ref:
+            stage = Stage.objects.filter(pk=stage_ref).select_related("recruitment_id").first()
+            if stage is None:
+                return Response({"error": _("Stage not found")}, status=404)
+            opening_id = opening_id or stage.recruitment_id_id
+        opening = None
+        if opening_id:
+            opening = Recruitment.objects.filter(pk=opening_id).first()
+            if opening is None:
+                return Response({"error": _("Job opening not found")}, status=404)
+            if opening.status != Recruitment.Status.PUBLISHED:
+                return Response(
+                    {"error": _("Only a published job opening can receive candidates.")},
+                    status=400,
+                )
+            # Company-scoped: an opening in another company is refused even for
+            # HR with company-wide authority (JWT calls have no company context).
+            from recruitment.services.authorization import is_drive_manager
+
+            if not is_drive_manager(request.user, opening):
+                return Response(
+                    {"error": _("Only this job opening's managers can add candidates.")},
+                    status=403,
+                )
+            if stage is None:
+                stage = candidate_service.entry_stage(opening)
+            elif stage.recruitment_id_id != opening.pk:
+                return Response(
+                    {"error": _("The stage does not belong to this job opening.")},
+                    status=400,
+                )
+            if stage is not None and stage.stage_type in ("hired", "cancelled"):
+                return Response(
+                    {"error": _("A candidate cannot be added straight into Hired or Rejected.")},
+                    status=400,
+                )
+
         serializer = CandidateSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Opening and stage were resolved above, not taken from the body, so the
+        # (email, opening) unique-together validator -- which would demand the
+        # opening field -- is replaced by the duplicate check below.
+        serializer.validators = []
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        fields = {
+            k: v for k, v in serializer.validated_data.items()
+            if k not in PROTECTED_CANDIDATE_FIELDS
+        }
+        position = fields.get("job_position_id")
+        if opening and position and not opening.open_positions.filter(pk=position.pk).exists():
+            return Response(
+                {"error": _("The job position is not part of this job opening.")},
+                status=400,
+            )
+        if opening and candidate_service.existing_candidate_with_email(
+            fields.get("email"), job_opening=opening
+        ):
+            return Response(
+                {"error": _("This email has already applied to this job opening.")},
+                status=400,
+            )
+        try:
+            candidate = candidate_service.create_candidate(
+                request.user, job_opening=opening, stage_id=stage, **fields
+            )
+        except RecruitmentError as error:
+            return Response({"error": str(error), "code": error.code}, status=400)
+        return Response(CandidateSerializer(candidate).data, status=status.HTTP_201_CREATED)
 
 
-class CandidateGetUpdateDeleteAPIView(APIView):
+#: Candidate fields an API client may not set: the opening, stage and outcome
+#: change only through the pipeline actions (Move Forward / Reject / handoff),
+#: the handoff data only on the Final HR Round -> Hired form, and the company is
+#: derived server-side.
+PROTECTED_CANDIDATE_FIELDS = {
+    "recruitment_id", "recruitment_id_write",
+    "stage_id", "stage_id_write",
+    "hired", "hired_date", "canceled",
+    "converted", "converted_employee_id", "converted_employee_id_write",
+    "start_onboard", "joining_date", "offered_ctc",
+    "handoff_budget_min", "handoff_budget_max",
+    "company_id", "company_id_write", "is_active",
+}
+
+
+def _protected_fields_in(data):
+    return sorted(k for k in data.keys() if k in PROTECTED_CANDIDATE_FIELDS)
+
+
+class CandidateGetUpdateDeleteAPIView(RecruitmentAPIView):
+    """
+    Candidate detail.
+
+    Every method resolves the candidate through the company-scoped service
+    lookup rather than object_check(), which used an unscoped
+    Candidate.objects.get() -- so any authenticated user could read, modify or
+    delete another company's candidate by guessing an id.
+    """
+
     permission_classes = [IsAuthenticated]
 
+    def _resolve(self, request, pk, permission):
+        from recruitment.services import candidate as candidate_service
+        from recruitment.services.errors import (
+            CandidateNotFound,
+            RecruitmentPermissionDenied,
+        )
+
+        try:
+            return (
+                candidate_service.get_candidate_for_user(request.user, pk, permission),
+                None,
+            )
+        except CandidateNotFound:
+            return None, Response({"error": _("Candidate not found")}, status=404)
+        except RecruitmentPermissionDenied as error:
+            return None, Response({"error": str(error)}, status=403)
+
     def get(self, request, pk):
-        candidate = object_check(Candidate, pk)
-        if candidate is None:
-            return Response({"error": _("Candidate not found")}, status=404)
+        candidate, error = self._resolve(request, pk, "recruitment.view_candidate")
+        if error:
+            return error
         serializer = CandidateSerializer(candidate)
         return Response(serializer.data, status=200)
 
-    @permission_required("recruitment.change_candidate")
-    def put(self, request, pk):
-        candidate = object_check(Candidate, pk)
-        if candidate is None:
-            return Response({"error": _("Candidate not found")}, status=404)
-        serializer = CandidateSerializer(candidate, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
+    # Not offered: the UI has no candidate edit (PRD: editing basic details is a future iteration).
+    # @permission_required("recruitment.change_candidate")
+    # def put(self, request, pk):
+    #     candidate, error = self._resolve(request, pk, "recruitment.change_candidate")
+    #     if error:
+    #         return error
+    #     data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+    #     # Company is derived server-side from the job opening / acting user and
+    #     # is never accepted from the client.
+    #     data.pop("company_id", None)
+    #     data.pop("company_id_write", None)
+    #     # Opening, stage, outcome and handoff data change only through the
+    #     # pipeline actions, never by editing the record.
+    #     blocked = _protected_fields_in(data)
+    #     if blocked:
+    #         return Response(
+    #             {
+    #                 "error": _(
+    #                     "These fields cannot be changed here; use the pipeline "
+    #                     "actions (Move Forward, Reject, hiring handoff): %(fields)s"
+    #                 )
+    #                 % {"fields": ", ".join(blocked)},
+    #                 "code": "protected_fields",
+    #             },
+    #             status=400,
+    #         )
+    #     serializer = CandidateSerializer(candidate, data=data, partial=True)
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data, status=200)
+    #     return Response(serializer.errors, status=400)
 
-    @permission_required("recruitment.delete_candidate")
-    def delete(self, request, pk):
-        candidate = object_check(Candidate, pk)
-        if candidate is None:
-            return Response({"error": _("Candidate not found")}, status=404)
-        try:
-            candidate.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
+    # Removed: candidates are never deleted (PRD: nothing leaves the Candidate
+    # Pool), so the API offers no DELETE; DRF answers 405 Method Not Allowed.
+    # @permission_required("recruitment.delete_candidate")
+    # def delete(self, request, pk):
+    #     candidate, error = self._resolve(request, pk, "recruitment.delete_candidate")
+    #     if error:
+    #         return error
+    #     try:
+    #         candidate.delete()
+    #         return Response(status=status.HTTP_204_NO_CONTENT)
+    #     except Exception as e:
+    #         return Response({"error": str(e)}, status=400)
 
 
 # Interview Schedule Views
-class InterviewScheduleGetCreateAPIView(APIView):
+class InterviewScheduleGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = InterviewFilter
@@ -405,7 +776,7 @@ class InterviewScheduleGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class InterviewScheduleGetUpdateDeleteAPIView(APIView):
+class InterviewScheduleGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -441,7 +812,7 @@ class InterviewScheduleGetUpdateDeleteAPIView(APIView):
 
 
 # Skill Views
-class SkillGetCreateAPIView(APIView):
+class SkillGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = SkillsFilter
@@ -479,7 +850,7 @@ class SkillGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class SkillGetUpdateDeleteAPIView(APIView):
+class SkillGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -513,7 +884,7 @@ class SkillGetUpdateDeleteAPIView(APIView):
 
 
 # Survey Template Views
-class SurveyTemplateGetCreateAPIView(APIView):
+class SurveyTemplateGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = SurveyTemplateFilter
@@ -549,6 +920,13 @@ class SurveyTemplateGetCreateAPIView(APIView):
 
     @permission_required("recruitment.add_surveytemplate")
     def post(self, request, **kwargs):
+        from recruitment.services.authorization import selectable_companies_for_user
+
+        chosen = request.data.get("company_id_write")
+        if chosen and not selectable_companies_for_user(request.user).filter(pk=chosen).exists():
+            return Response(
+                {"error": _("You can't create a template for that company.")}, status=403
+            )
         serializer = SurveyTemplateSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -556,7 +934,7 @@ class SurveyTemplateGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class SurveyTemplateGetUpdateDeleteAPIView(APIView):
+class SurveyTemplateGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -571,6 +949,10 @@ class SurveyTemplateGetUpdateDeleteAPIView(APIView):
         template = object_check(SurveyTemplate, pk)
         if template is None:
             return Response({"error": _("SurveyTemplate not found")}, status=404)
+        if "company_id_write" in request.data or "company_id" in request.data:
+            return Response(
+                {"error": _("A template's company can't be changed.")}, status=400
+            )
         serializer = SurveyTemplateSerializer(template, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -582,6 +964,25 @@ class SurveyTemplateGetUpdateDeleteAPIView(APIView):
         template = object_check(SurveyTemplate, pk)
         if template is None:
             return Response({"error": _("SurveyTemplate not found")}, status=404)
+        # Same rule as the UI: a template any job opening uses can't be deleted.
+        openings = list(
+            Recruitment._base_manager.filter(survey_templates=template)
+            .order_by("title")
+            .values_list("title", flat=True)
+            .distinct()[:4]
+        )
+        if openings:
+            shown = ", ".join(openings[:3]) + (" and others" if len(openings) > 3 else "")
+            return Response(
+                {
+                    "error": _(
+                        "This template can't be deleted: it is used by job opening(s) "
+                        "%(openings)s. Remove it from those openings first."
+                    )
+                    % {"openings": shown}
+                },
+                status=400,
+            )
         try:
             template.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -590,7 +991,7 @@ class SurveyTemplateGetUpdateDeleteAPIView(APIView):
 
 
 # Skill Zone Views
-class SkillZoneGetCreateAPIView(APIView):
+class SkillZoneGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = SkillZoneFilter
@@ -604,7 +1005,11 @@ class SkillZoneGetCreateAPIView(APIView):
         user = request.user
         # checking user level permissions
         perm = "recruitment.view_skillzone"
-        queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # No employee_id on this model, so the helper's manager branch crashed
+        # (500) for reporting managers without the permission.
+        if not user.has_perm(perm):
+            return queryset.none()
         return queryset
 
     def get(self, request, pk=None):
@@ -633,7 +1038,7 @@ class SkillZoneGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class SkillZoneGetUpdateDeleteAPIView(APIView):
+class SkillZoneGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -667,7 +1072,7 @@ class SkillZoneGetUpdateDeleteAPIView(APIView):
 
 
 # Skill Zone Candidate Views
-class SkillZoneCandidateGetCreateAPIView(APIView):
+class SkillZoneCandidateGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = SkillZoneCandFilter
@@ -685,7 +1090,11 @@ class SkillZoneCandidateGetCreateAPIView(APIView):
         user = request.user
         # checking user level permissions
         perm = "recruitment.view_skillzonecandidate"
-        queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # No employee_id on this model, so the helper's manager branch crashed
+        # (500) for reporting managers without the permission.
+        if not user.has_perm(perm):
+            return queryset.none()
         return queryset
 
     def get(self, request, pk=None, candidate_id=None, skill_zone_id=None):
@@ -735,7 +1144,7 @@ class SkillZoneCandidateGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class SkillZoneCandidateGetUpdateDeleteAPIView(APIView):
+class SkillZoneCandidateGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -771,7 +1180,7 @@ class SkillZoneCandidateGetUpdateDeleteAPIView(APIView):
 
 
 # Candidate Rating Views
-class CandidateRatingGetCreateAPIView(APIView):
+class CandidateRatingGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     queryset = CandidateRating.objects.none()  # For drf-yasg schema generation
 
@@ -818,7 +1227,7 @@ class CandidateRatingGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class CandidateRatingGetUpdateDeleteAPIView(APIView):
+class CandidateRatingGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -852,7 +1261,7 @@ class CandidateRatingGetUpdateDeleteAPIView(APIView):
 
 
 # Reject Reason Views
-class RejectReasonGetCreateAPIView(APIView):
+class RejectReasonGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = RejectReasonFilter
@@ -866,7 +1275,11 @@ class RejectReasonGetCreateAPIView(APIView):
         user = request.user
         # checking user level permissions
         perm = "recruitment.view_rejectreason"
-        queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # Reject reasons have no employee_id, so the helper's manager branch
+        # crashed (500) for reporting managers without the permission.
+        if not user.has_perm(perm):
+            return queryset.none()
         return queryset
 
     def get(self, request, pk=None):
@@ -895,7 +1308,7 @@ class RejectReasonGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class RejectReasonGetUpdateDeleteAPIView(APIView):
+class RejectReasonGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -929,7 +1342,7 @@ class RejectReasonGetUpdateDeleteAPIView(APIView):
 
 
 # Rejected Candidate Views
-class RejectedCandidateGetCreateAPIView(APIView):
+class RejectedCandidateGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     queryset = RejectedCandidate.objects.none()  # For drf-yasg schema generation
 
@@ -943,7 +1356,11 @@ class RejectedCandidateGetCreateAPIView(APIView):
         user = request.user
         # checking user level permissions
         perm = "recruitment.view_rejectedcandidate"
-        queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # No employee_id on this model, so the helper's manager branch crashed
+        # (500) for reporting managers without the permission.
+        if not user.has_perm(perm):
+            return queryset.none()
         return queryset
 
     def get(self, request, pk=None, candidate_id=None):
@@ -960,23 +1377,24 @@ class RejectedCandidateGetCreateAPIView(APIView):
         serializer = RejectedCandidateSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
-    @permission_required("recruitment.add_rejectedcandidate")
-    def post(self, request, candidate_id=None, **kwargs):
-        data = request.data.copy()
-        if (
-            candidate_id
-            and not data.get("candidate_id_write")
-            and not data.get("candidate_id")
-        ):
-            data["candidate_id_write"] = candidate_id
-        serializer = RejectedCandidateSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    # Not offered: in the UI a rejection happens only through Reject (remark + email).
+    # @permission_required("recruitment.add_rejectedcandidate")
+    # def post(self, request, candidate_id=None, **kwargs):
+    #     data = request.data.copy()
+    #     if (
+    #         candidate_id
+    #         and not data.get("candidate_id_write")
+    #         and not data.get("candidate_id")
+    #     ):
+    #         data["candidate_id_write"] = candidate_id
+    #     serializer = RejectedCandidateSerializer(data=data)
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class RejectedCandidateGetUpdateDeleteAPIView(APIView):
+class RejectedCandidateGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -986,33 +1404,37 @@ class RejectedCandidateGetUpdateDeleteAPIView(APIView):
         serializer = RejectedCandidateSerializer(rejected)
         return Response(serializer.data, status=200)
 
-    @permission_required("recruitment.change_rejectedcandidate")
-    def put(self, request, pk):
-        rejected = object_check(RejectedCandidate, pk)
-        if rejected is None:
-            return Response({"error": _("RejectedCandidate not found")}, status=404)
-        serializer = RejectedCandidateSerializer(
-            rejected, data=request.data, partial=True
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
+    # Not offered: in the UI a rejection happens only through Reject (remark + email).
+    # @permission_required("recruitment.change_rejectedcandidate")
+    # def put(self, request, pk):
+    #     rejected = object_check(RejectedCandidate, pk)
+    #     if rejected is None:
+    #         return Response({"error": _("RejectedCandidate not found")}, status=404)
+    #     serializer = RejectedCandidateSerializer(
+    #         rejected, data=request.data, partial=True
+    #     )
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data, status=200)
+    #     return Response(serializer.errors, status=400)
 
-    @permission_required("recruitment.delete_rejectedcandidate")
-    def delete(self, request, pk):
-        rejected = object_check(RejectedCandidate, pk)
-        if rejected is None:
-            return Response({"error": _("RejectedCandidate not found")}, status=404)
-        try:
-            rejected.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
+    # Not offered: in the UI a rejection happens only through Reject (remark + email).
+    # @permission_required("recruitment.delete_rejectedcandidate")
+    # def delete(self, request, pk):
+    #     rejected = object_check(RejectedCandidate, pk)
+    #     if rejected is None:
+    #         return Response({"error": _("RejectedCandidate not found")}, status=404)
+    #     try:
+    #         rejected.delete()
+    #         return Response(status=status.HTTP_204_NO_CONTENT)
+    #     except Exception as e:
+    #         return Response({"error": str(e)}, status=400)
+    #
+    #
+    # ndidate Document Request Views
 
 
-# Candidate Document Request Views
-class CandidateDocumentRequestGetCreateAPIView(APIView):
+class CandidateDocumentRequestGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     queryset = CandidateDocumentRequest.objects.none()  # For drf-yasg schema generation
 
@@ -1026,7 +1448,11 @@ class CandidateDocumentRequestGetCreateAPIView(APIView):
         user = request.user
         # checking user level permissions
         perm = "recruitment.view_candidatedocumentrequest"
-        queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # No employee_id on this model, so the helper's manager branch crashed
+        # (500) for reporting managers without the permission.
+        if not user.has_perm(perm):
+            return queryset.none()
         return queryset
 
     def get(self, request, pk=None, candidate_id=None):
@@ -1061,7 +1487,7 @@ class CandidateDocumentRequestGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class CandidateDocumentRequestGetUpdateDeleteAPIView(APIView):
+class CandidateDocumentRequestGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -1103,7 +1529,7 @@ class CandidateDocumentRequestGetUpdateDeleteAPIView(APIView):
 
 
 # Candidate Document Views
-class CandidateDocumentGetCreateAPIView(APIView):
+class CandidateDocumentGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     queryset = CandidateDocument.objects.none()  # For drf-yasg schema generation
 
@@ -1151,14 +1577,33 @@ class CandidateDocumentGetCreateAPIView(APIView):
             and not data.get("document_request_id")
         ):
             data["document_request_id_write"] = document_request_id
-        serializer = CandidateDocumentSerializer(data=data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # serializer = CandidateDocumentSerializer(data=data)
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        #
+        # Same path as the UI's Documents tab: candidate access check, PDF by
+        # content, 15 MB, audited.
+        from recruitment.services import candidate as candidate_service
+        from recruitment.services.errors import RecruitmentError
+
+        target = data.get("candidate_id_write") or data.get("candidate_id")
+        if not target:
+            return Response({"error": _("candidate_id_write is required.")}, status=400)
+        try:
+            document = candidate_service.upload_document(
+                request.user,
+                target,
+                request.FILES.get("document"),
+                title=data.get("title"),
+            )
+        except RecruitmentError as error:
+            return Response({"error": str(error), "code": error.code}, status=400)
+        return Response(CandidateDocumentSerializer(document).data, status=status.HTTP_201_CREATED)
 
 
-class CandidateDocumentGetUpdateDeleteAPIView(APIView):
+class CandidateDocumentGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -1168,33 +1613,37 @@ class CandidateDocumentGetUpdateDeleteAPIView(APIView):
         serializer = CandidateDocumentSerializer(document)
         return Response(serializer.data, status=200)
 
-    @permission_required("recruitment.change_candidatedocument")
-    def put(self, request, pk):
-        document = object_check(CandidateDocument, pk)
-        if document is None:
-            return Response({"error": _("CandidateDocument not found")}, status=404)
-        serializer = CandidateDocumentSerializer(
-            document, data=request.data, partial=True
-        )
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=200)
-        return Response(serializer.errors, status=400)
+    # Not offered: candidate documents are permanent in the UI (no edit/delete).
+    # @permission_required("recruitment.change_candidatedocument")
+    # def put(self, request, pk):
+    #     document = object_check(CandidateDocument, pk)
+    #     if document is None:
+    #         return Response({"error": _("CandidateDocument not found")}, status=404)
+    #     serializer = CandidateDocumentSerializer(
+    #         document, data=request.data, partial=True
+    #     )
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data, status=200)
+    #     return Response(serializer.errors, status=400)
 
-    @permission_required("recruitment.delete_candidatedocument")
-    def delete(self, request, pk):
-        document = object_check(CandidateDocument, pk)
-        if document is None:
-            return Response({"error": _("CandidateDocument not found")}, status=404)
-        try:
-            document.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
+    # Not offered: candidate documents are permanent in the UI (no edit/delete).
+    # @permission_required("recruitment.delete_candidatedocument")
+    # def delete(self, request, pk):
+    #     document = object_check(CandidateDocument, pk)
+    #     if document is None:
+    #         return Response({"error": _("CandidateDocument not found")}, status=404)
+    #     try:
+    #         document.delete()
+    #         return Response(status=status.HTTP_204_NO_CONTENT)
+    #     except Exception as e:
+    #         return Response({"error": str(e)}, status=400)
+    #
+    #
+    # nkedIn Account Views
 
 
-# LinkedIn Account Views
-class LinkedInAccountGetCreateAPIView(APIView):
+class LinkedInAccountGetCreateAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend]
     filterset_class = LinkedInAccountFilter
@@ -1208,7 +1657,11 @@ class LinkedInAccountGetCreateAPIView(APIView):
         user = request.user
         # checking user level permissions
         perm = "recruitment.view_linkedinaccount"
-        queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # queryset = permission_based_queryset(user, perm, queryset, user_obj=True)
+        # No employee_id on this model, so the helper's manager branch crashed
+        # (500) for reporting managers without the permission.
+        if not user.has_perm(perm):
+            return queryset.none()
         return queryset
 
     def get(self, request, pk=None):
@@ -1237,7 +1690,7 @@ class LinkedInAccountGetCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class LinkedInAccountGetUpdateDeleteAPIView(APIView):
+class LinkedInAccountGetUpdateDeleteAPIView(RecruitmentAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
@@ -1268,3 +1721,95 @@ class LinkedInAccountGetUpdateDeleteAPIView(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             return Response({"error": str(e)}, status=400)
+
+
+# ---------------------------------------------------------------------------
+# Screening questions (Feature 2)
+# ---------------------------------------------------------------------------
+
+
+class JobOpeningQuestionAPIView(RecruitmentAPIView):
+    """
+    Read-only access to a published job opening's frozen screening questions.
+
+        GET /api/recruitment/job-opening/<pk>/questions/
+
+    Read-only by design: a published snapshot is historical record. There is
+    deliberately no POST/PATCH/PUT/DELETE here, so no client can rewrite the
+    question a candidate actually answered.
+
+    Authorization is the Feature 1 rule -- Django permission plus company and
+    object scope -- resolved by
+    recruitment.services.authorization.get_job_opening_for_user, so supplying
+    another tenant's job opening id returns 404 (never 403, which would confirm
+    the object exists) and an in-scope opening the user may not manage returns
+    403.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from recruitment.services.authorization import get_job_opening_for_user
+        from recruitment.services.errors import (
+            JobOpeningNotFound,
+            RecruitmentPermissionDenied,
+        )
+        from recruitment.services.screening import published_questions
+
+        try:
+            job_opening = get_job_opening_for_user(
+                request.user, pk, "recruitment.view_recruitment"
+            )
+        except JobOpeningNotFound as error:
+            return Response({"error": str(error), "code": error.code}, status=404)
+        except RecruitmentPermissionDenied as error:
+            return Response({"error": str(error), "code": error.code}, status=403)
+
+        serializer = JobOpeningQuestionSerializer(
+            published_questions(job_opening), many=True
+        )
+        return Response(serializer.data, status=200)
+
+
+class CandidateScreeningAnswerAPIView(RecruitmentAPIView):
+    """
+    Read a candidate's screening answers.
+
+        GET /api/recruitment/candidate/<pk>/screening-answers/
+
+    Scoped through the candidate's job opening, so Company A cannot read
+    Company B's answers by changing the candidate id. select_related keeps this
+    to a single query regardless of answer count.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from recruitment.services.authorization import get_job_opening_for_user
+        from recruitment.services.errors import (
+            JobOpeningNotFound,
+            RecruitmentPermissionDenied,
+        )
+        from recruitment.services.screening import answers_for_candidate
+
+        candidate = Candidate.objects.filter(pk=pk).first()
+        if candidate is None or candidate.recruitment_id_id is None:
+            return Response({"error": _("Candidate not found")}, status=404)
+
+        # Authorize against the candidate's job opening rather than the
+        # candidate row, so company scope is enforced the same way everywhere.
+        try:
+            get_job_opening_for_user(
+                request.user,
+                candidate.recruitment_id_id,
+                "recruitment.view_candidate",
+            )
+        except JobOpeningNotFound as error:
+            return Response({"error": str(error), "code": error.code}, status=404)
+        except RecruitmentPermissionDenied as error:
+            return Response({"error": str(error), "code": error.code}, status=403)
+
+        serializer = CandidateAnswerSerializer(
+            answers_for_candidate(candidate), many=True
+        )
+        return Response(serializer.data, status=200)

@@ -30,6 +30,18 @@
               {{f.form.type}}
             </div>
           </div>
+          {% comment %}
+          Which form the question is asked on. SurveyFilter already accepted
+          this, but the bank offered no way to choose it, so Form 1 (the public
+          application) and Form 2 (the internal hiring handoff) questions could
+          only be told apart by opening each one.
+          {% endcomment %}
+          <div class="col-sm-12 col-md-12 col-lg-6">
+            <div class="oh-input-group">
+              <label class="oh-label">{% trans "Form" %}</label>
+              {{f.form.form_type}}
+            </div>
+          </div>
         </div>
       </div>
     </div>

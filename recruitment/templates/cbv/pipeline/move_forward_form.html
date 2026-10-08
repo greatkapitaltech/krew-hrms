@@ -1,0 +1,36 @@
+{% load i18n %}
+
+{% comment %}
+Move Forward: confirm the destination, then write the mandatory remark.
+
+The destination is shown, not chosen -- the next stage comes from the
+pipeline's own order inside the service, so there is no stage selector here.
+Pick-a-stage remains the existing Change Stage control.
+{% endcomment %}
+
+<h2 class="oh-modal__dialog-title font-semibold mb-3">{% trans "Move Forward" %}</h2>
+
+{% if next_stage %}
+    <p class="small text-muted mb-3">
+        {% blocktrans with name=candidate.name stage=next_stage.stage %}
+            {{ name }} will move to {{ stage }}.
+        {% endblocktrans %}
+    </p>
+{% else %}
+    <p class="small text-muted mb-3">
+        {% trans "This candidate is already at the last stage of the pipeline." %}
+    </p>
+{% endif %}
+
+{% if next_stage %}
+    <form hx-post="{{ post_url }}" hx-target="#genericModalBody">
+        {% csrf_token %}
+        {{ form.as_p }}
+    </form>
+
+    <script>
+        // Match the rejection modal: the shared form partial lays fields out
+        // two-up, and a single remark field reads better full width.
+        $("form[hx-post] .col-md-6").removeClass("col-md-6");
+    </script>
+{% endif %}

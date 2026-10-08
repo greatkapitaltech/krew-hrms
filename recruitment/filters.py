@@ -5,7 +5,6 @@ This page is used to register filter for recruitment models
 
 """
 
-import ast
 import uuid
 
 import django_filters
@@ -239,44 +238,41 @@ class CandidateFilter(HorillaFilterSet):
             form_fields[field].widget.attrs["id"] = str(uuid.uuid4())
 
         self._update_field_labels(form_fields)
-        choices = []
-        try:
-            survey_answers = RecruitmentSurveyAnswer.objects.all()
-            for survey in survey_answers:
-                candidate = survey.candidate_id
-                answer_json = survey.answer_json
 
-                # Parse JSON if stored as string
-                if isinstance(answer_json, str):
-                    try:
-                        answer_json = ast.literal_eval(answer_json)
-                    except Exception:
-                        continue
+        # Screening-answer filter choices.
+        #
+        # The previous implementation loaded EVERY RecruitmentSurveyAnswer row
+        # and parsed each JSON blob on every render of this filter form -- a
+        # full table scan plus a literal_eval per row, inside a bare
+        # `except: pass` that hid any failure. It also keyed the label on the
+        # question wording stored in the blob.
+        #
+        # Answers are now rows, so the choices come from one indexed query
+        # joined to the frozen question, ordered and capped. select_related
+        # keeps it to a single query with no N+1 over candidates or questions.
+        from recruitment.models import CandidateAnswer
 
-                # Extract questions & answers
-                for question, answer_list in answer_json.items():
-                    if question == "csrfmiddlewaretoken":
-                        continue
+        answer_rows = (
+            CandidateAnswer.objects.select_related(
+                "job_opening_question", "candidate"
+            )
+            .exclude(answer="")
+            .order_by("-id")[: self.SURVEY_ANSWER_CHOICE_LIMIT]
+        )
+        choices = [
+            (
+                row.candidate_id,
+                f"Q: {row.job_opening_question.wording} || "
+                f"Ans: {row.answer} || {row.candidate.get_full_name()}",
+            )
+            for row in answer_rows
+        ]
 
-                    answer = (
-                        ", ".join(answer_list)
-                        if isinstance(answer_list, list)
-                        else str(answer_list)
-                    )
-
-                    choices.append(
-                        (
-                            candidate.pk,
-                            f"Q: {question} || Ans: {answer} || {candidate.get_full_name()}",
-                        )
-                    )
-        except:
-            pass
-
-        # Add filter dynamically
+        # Add filter dynamically. Filtering now traverses the indexed
+        # CandidateAnswer FK rather than the legacy blob relation.
         survey_answer_by = django_filters.MultipleChoiceFilter(
             choices=choices,
-            field_name="recruitmentsurveyanswer__candidate_id",
+            field_name="screening_answers__candidate_id",
             label=_("Survey Answer By"),
         )
         self.filters["survey_answer_by"] = survey_answer_by
@@ -288,6 +284,11 @@ class CandidateFilter(HorillaFilterSet):
                 "style": "width:100% !important;",
             }
         )
+
+    #: Upper bound on how many answer rows become filter choices. The filter is
+    #: a picker, not a report: rendering one <option> per answer in a large
+    #: database is what made the previous implementation unusable.
+    SURVEY_ANSWER_CHOICE_LIMIT = 500
 
     def _update_field_labels(self, form_fields):
         """Helper method to update field labels from model verbose names"""
@@ -346,6 +347,84 @@ BOOLEAN_CHOICES = (
 )
 
 
+
+class CandidatePoolFilter(CandidateFilter):
+    """
+    The Candidate Pool's short filter (PRD): Job Opening, Current Status,
+    Contact Verification and Date Applied. Inherits search and the job-opening
+    filter from CandidateFilter.
+    """
+
+    STATUS_CHOICES = [
+        ("applied", _("Applied")),
+        ("in_progress", _("In Progress")),
+        ("final_hr_round", _("Final HR Round")),
+        ("hired", _("Hired")),
+        ("rejected", _("Rejected")),
+    ]
+    VERIFICATION_CHOICES = [
+        ("verified", _("Verified")),
+        ("unverified", _("Unverified")),
+        ("na", _("N/A")),
+    ]
+
+    pool_status = django_filters.ChoiceFilter(
+        choices=STATUS_CHOICES, method="filter_pool_status", label=_("Current Status")
+    )
+    pool_verification = django_filters.ChoiceFilter(
+        choices=VERIFICATION_CHOICES,
+        method="filter_pool_verification",
+        label=_("Contact Verification"),
+    )
+    applied_from = django_filters.DateFilter(
+        field_name="created_at",
+        lookup_expr="date__gte",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    applied_to = django_filters.DateFilter(
+        field_name="created_at",
+        lookup_expr="date__lte",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+
+    def filter_pool_status(self, queryset, _name, value):
+        """Mirror recruitment.services.candidate.candidate_status as a query."""
+        rejected = (
+            Q(canceled=True)
+            | Q(rejected_candidate__isnull=False)
+            | Q(stage_id__stage_type="cancelled")
+        )
+        hired = Q(hired=True) | Q(stage_id__stage_type="hired")
+        active = queryset.exclude(rejected)
+        if value == "rejected":
+            return queryset.filter(rejected)
+        if value == "hired":
+            return active.filter(hired)
+        active = active.exclude(hired)
+        if value == "final_hr_round":
+            return active.filter(stage_id__stage_type="final_hr_round")
+        applied = Q(stage_id__isnull=True) | Q(
+            stage_id__stage_type__in=["applied", "initial"]
+        )
+        if value == "applied":
+            return active.filter(applied)
+        if value == "in_progress":
+            return active.exclude(applied).exclude(
+                stage_id__stage_type="final_hr_round"
+            )
+        return queryset
+
+    def filter_pool_verification(self, queryset, _name, value):
+        required = Q(recruitment_id__contact_verification_required=True)
+        if value == "na":
+            return queryset.exclude(required)
+        if value == "verified":
+            return queryset.filter(required, contact_verified_at__isnull=False)
+        if value == "unverified":
+            return queryset.filter(required, contact_verified_at__isnull=True)
+        return queryset
+
+
 class RecruitmentFilter(HorillaFilterSet):
     """
     Filter set class for Recruitment model
@@ -390,6 +469,9 @@ class RecruitmentFilter(HorillaFilterSet):
             "recruitment_managers",
             "company_id",
             "title",
+            # Authoritative lifecycle state -- filter on this rather than the
+            # closed/is_published mirrors, which cannot express Draft vs Review.
+            "status",
             "is_event_based",
             "closed",
             "is_active",

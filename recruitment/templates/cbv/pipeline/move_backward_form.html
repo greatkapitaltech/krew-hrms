@@ -1,0 +1,25 @@
+{% load i18n %}
+
+{% comment %}
+Move Backward (Manager only): the destination is the previous stage, shown not
+chosen; the remark is mandatory and recorded in History.
+{% endcomment %}
+
+<h2 class="oh-modal__dialog-title font-semibold mb-3">{% trans "Move Backward" %}</h2>
+
+{% if previous_stage %}
+    <p class="small text-muted mb-3">
+        {% blocktrans with name=candidate.name stage=previous_stage.stage %}
+            {{ name }} will move back to {{ stage }}.
+        {% endblocktrans %}
+    </p>
+    <form hx-post="{{ post_url }}" hx-target="#genericModalBody">
+        {% csrf_token %}
+        {{ form.as_p }}
+    </form>
+    <script>
+        $("form[hx-post] .col-md-6").removeClass("col-md-6");
+    </script>
+{% else %}
+    <p class="small text-muted mb-3">{% trans "This candidate cannot be moved back." %}</p>
+{% endif %}

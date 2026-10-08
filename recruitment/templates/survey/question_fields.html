@@ -1,0 +1,134 @@
+{% load i18n widget_tweaks %}
+{% comment %}
+The fields of one QuestionForm, laid out once for every screen that adds or
+edits a question (question bank, template, job opening, create screen).
+
+* Options: one input per choice, "+ Add option" / remove, shown only for the
+  choice formats. Every input's name starts with "options", which is what
+  QuestionForm collects on save.
+* Max files: shown only for "File upload".
+Fields a screen decides itself (form type, template, sequence...) arrive as
+hidden fields and are rendered as such.
+{% endcomment %}
+
+<div class="q-fields" id="qf{{ form.auto_id_prefix|default:'' }}{{ form.prefix|default:'' }}">
+    {% if form.non_field_errors %}<div class="mb-2">{{ form.non_field_errors }}</div>{% endif %}
+
+    {% with f=form.question %}{% if f and not f.is_hidden %}
+        <div class="mb-3">
+            <label class="oh-label required-star" for="{{ f.id_for_label }}">{% trans "Question" %}</label>
+            {{ f|add_class:"oh-input w-full"|attr:"placeholder:e.g. Do you have a valid driving licence?" }}
+            {{ f.errors }}
+        </div>
+    {% endif %}{% endwith %}
+
+    {% with f=form.type %}{% if f and not f.is_hidden %}
+        <div class="mb-3">
+            <label class="oh-label required-star" for="{{ f.id_for_label }}">{% trans "Answer format" %}</label>
+            {{ f|add_class:"oh-select w-full q-type"|attr:"style:height:42px" }}
+            {{ f.errors }}
+        </div>
+    {% endif %}{% endwith %}
+
+    <div class="mb-3 q-options hidden">
+        <label class="oh-label required-star">{% trans "Options" %}</label>
+        <div class="q-option-list flex flex-col gap-2">
+            {% for value in form.option_values %}
+                <div class="q-option flex gap-2 items-center">
+                    <input type="text" class="oh-input w-full" name="{% if forloop.first %}options{% else %}options_{{ forloop.counter }}{% endif %}" value="{{ value }}" placeholder="{% trans 'Option' %}">
+                    <button type="button" class="q-option-remove px-2 text-lg text-[#9e9e9e] hover:text-red-500" title="{% trans 'Remove' %}">&times;</button>
+                </div>
+            {% empty %}
+                <div class="q-option flex gap-2 items-center">
+                    <input type="text" class="oh-input w-full" name="options" placeholder="{% trans 'Option' %}">
+                    <button type="button" class="q-option-remove px-2 text-lg text-[#9e9e9e] hover:text-red-500" title="{% trans 'Remove' %}">&times;</button>
+                </div>
+            {% endfor %}
+        </div>
+        <button type="button" class="q-option-add mt-2 text-sm underline">+ {% trans "Add option" %}</button>
+        {{ form.options.errors }}
+    </div>
+
+    {% with f=form.position %}{% if f %}
+        <div class="mb-3">
+            <label class="oh-label" for="{{ f.id_for_label }}">{% trans "Position" %}</label>
+            {{ f|add_class:"oh-select w-full"|attr:"style:height:42px" }}
+            {{ f.errors }}
+        </div>
+    {% endif %}{% endwith %}
+
+    {% with f=form.max_files %}{% if f and not f.is_hidden %}
+        <div class="mb-3 q-max-files hidden">
+            <label class="oh-label" for="{{ f.id_for_label }}">{% trans "Max files allowed" %}</label>
+            {{ f|add_class:"oh-input w-32" }}
+            <small class="block text-xs text-[#565E6C] mt-1">{% trans "PDF only, up to 15 MB each." %}</small>
+            {{ f.errors }}
+        </div>
+    {% endif %}{% endwith %}
+
+    {% with f=form.is_mandatory %}{% if f and not f.is_hidden %}
+        <label class="flex items-center gap-2 mb-3 cursor-pointer">
+            {{ f }} <span class="text-sm">{% trans "Mandatory" %}</span>
+        </label>
+    {% endif %}{% endwith %}
+
+    {% with f=form.template_id %}{% if f and not f.is_hidden %}
+        <div class="mb-3">
+            <label class="oh-label" for="{{ f.id_for_label }}">{% trans "Add to templates" %}</label>
+            {{ f|add_class:"oh-select oh-select-2 w-full" }}
+            {{ f.errors }}
+        </div>
+    {% endif %}{% endwith %}
+
+    {% with f=form.form_type %}{% if f and not f.is_hidden %}
+        <div class="mb-3">
+            <label class="oh-label required-star" for="{{ f.id_for_label }}">{% trans "Form" %}</label>
+            {{ f|add_class:"oh-select w-full" }}
+            {{ f.errors }}
+        </div>
+    {% endif %}{% endwith %}
+
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+</div>
+
+<script>
+(function () {
+    var box = document.currentScript.previousElementSibling;
+    var type = box.querySelector(".q-type") || box.closest("form").querySelector("[name=type]");
+    var options = box.querySelector(".q-options");
+    var list = box.querySelector(".q-option-list");
+    var maxFiles = box.querySelector(".q-max-files");
+    var counter = list.querySelectorAll(".q-option").length + 1;
+
+    function refresh() {
+        var t = type ? type.value : "";
+        options.classList.toggle("hidden", !(t === "options" || t === "multiple"));
+        if (maxFiles) maxFiles.classList.toggle("hidden", t !== "file");
+    }
+    function addRow() {
+        var row = list.querySelector(".q-option").cloneNode(true);
+        var input = row.querySelector("input");
+        input.value = "";
+        input.name = "options_" + (counter++);
+        list.appendChild(row);
+        input.focus();
+    }
+    box.querySelector(".q-option-add").addEventListener("click", addRow);
+    list.addEventListener("click", function (e) {
+        if (!e.target.classList.contains("q-option-remove")) return;
+        var rows = list.querySelectorAll(".q-option");
+        if (rows.length > 1) {
+            e.target.closest(".q-option").remove();
+            // The first input must be named "options" (the form requires it).
+            list.querySelector(".q-option input").name = "options";
+        } else {
+            rows[0].querySelector("input").value = "";
+        }
+    });
+    list.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && e.target.tagName === "INPUT") { e.preventDefault(); addRow(); }
+    });
+    if (type) { type.addEventListener("change", refresh); $(type).on("change", refresh); }
+    refresh();
+})();
+</script>

@@ -95,7 +95,7 @@ class CurrentHiringList(HorillaListView):
 
     columns = [
         (_("Job Positions"), "job_position"),
-        (_("Initial"), "initial_count"),
+        (_("Applied"), "initial_count"),
         (_("Test"), "test_count"),
         (_("Interview"), "interview_count"),
         (_("Hired"), "hired_count"),
@@ -114,8 +114,12 @@ class CurrentHiringList(HorillaListView):
     def get_queryset(self):
         queryset = super().get_queryset()
         queryset = queryset.annotate(
+            # Applied is the seeded entry stage. "initial" is still counted
+            # alongside it for openings that predate the three-stage default and
+            # still carry an Initial stage.
             initial_count=Count(
-                "candidate", filter=Q(candidate__stage_id__stage_type="initial")
+                "candidate",
+                filter=Q(candidate__stage_id__stage_type__in=["applied", "initial"]),
             ),
             test_count=Count(
                 "candidate", filter=Q(candidate__stage_id__stage_type="test")

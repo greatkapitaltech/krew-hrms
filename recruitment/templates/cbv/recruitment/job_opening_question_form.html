@@ -1,0 +1,48 @@
+{% load i18n widget_tweaks %}
+
+{% comment %}
+Add one screening question to THIS job opening.
+
+Modelled on survey/add_form.html, the existing question-add modal, so the
+markup, field loop and button match the rest of the question UI.
+
+The job opening and the form (Form 1 / Form 2) come from the URL, not from the
+user: both are rendered as hidden fields and the view forces the form type on
+save. template_id is hidden and never used here -- a question added from this
+screen must not change a shared reusable template.
+{% endcomment %}
+
+<h2 class="oh-modal__dialog-title font-semibold mb-3">
+    {% if form_type == "form2" %}
+        {% trans "Add Hiring Handoff Question" %}
+    {% else %}
+        {% trans "Add Screening Question" %}
+    {% endif %}
+</h2>
+
+<p class="small text-muted mb-3">
+    {% if job_opening %}
+        {% blocktrans with job=job_opening.title %}
+            This question is added to {{ job }} only. The reusable template is not changed.
+        {% endblocktrans %}
+    {% else %}
+        {% trans "This question is added to this opening only, when you Save & Review. The reusable template is not changed." %}
+    {% endif %}
+</p>
+
+{% comment %}
+post_url comes from the view: the same modal serves a saved opening (posts to
+its own add route) and the create screen (posts to the pending route, since
+there is no opening id to reverse with yet).
+{% endcomment %}
+<form method="post"
+      hx-post="{{ post_url }}"
+      hx-target="#objectCreateModalTarget">
+    {% csrf_token %}
+    {% include 'survey/question_fields.html' %}
+    <div class="flex justify-end gap-2 mt-2">
+        <button type="button" class="oh-btn oh-btn--light-bkg"
+                onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">{% trans "Cancel" %}</button>
+        <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Save" %}</button>
+    </div>
+</form>

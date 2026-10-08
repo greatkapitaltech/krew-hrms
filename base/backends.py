@@ -11,6 +11,7 @@ from django.core.cache import cache
 from django.core.mail import EmailMessage
 from django.core.mail.backends.smtp import EmailBackend
 
+from base import ses_api
 from base.models import DynamicEmailConfiguration, EmailLog
 from horilla import settings
 from horilla.horilla_middlewares import _thread_locals
@@ -197,6 +198,8 @@ if EMAIL_BACKEND and EMAIL_BACKEND != default:
 class ConfiguredEmailBackend(BACKEND_CLASS):
 
     def send_messages(self, email_messages):
+        if ses_api.is_enabled():
+            return self._send_via_ses_api(email_messages)
         response = super(BACKEND_CLASS, self).send_messages(email_messages)
         for message in email_messages:
             from_email = (
@@ -213,6 +216,26 @@ class ConfiguredEmailBackend(BACKEND_CLASS):
             )
             email_log.save()
         return response
+
+    def _send_via_ses_api(self, email_messages):
+        sent = 0
+        for message in email_messages:
+            try:
+                delivered = ses_api.send(message)
+            except Exception:
+                if not self.fail_silently:
+                    raise
+                logger.exception("SES API send failed for %r", message.subject)
+                delivered = False
+            EmailLog(
+                subject=message.subject,
+                from_email=message.from_email or "",
+                to=message.to,
+                body=message.body,
+                status="sent" if delivered else "failed",
+            ).save()
+            sent += int(delivered)
+        return sent
 
 
 if EMAIL_BACKEND != default:

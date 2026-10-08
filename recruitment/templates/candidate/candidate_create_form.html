@@ -57,26 +57,13 @@
           {% endif %}
         </div>
         {% csrf_token %}
-        <div class="row">
-          <div
-            class="col-12 col-sm-12 col-md-12 col-lg-6 d-flex align-items-center"
-          >
-            <div
-              class="oh-profile-section__edit-photo me-4 mb-3"
-              data-toggle="oh-modal-toggle"
-              data-target="#uploadPhotoModal"
-            >
-              <img
-              src="{{form.instance.get_avatar}}"
-              class="oh-profile-section__modal-image preview"
-                alt="{{ form.instance }}"
-              />
-            </div>
-          </div>
-        </div>
-        <input type="file" hidden name="profile" id="hidden_profile" />
-        {{form.profile.errors}}
-
+        {% comment %}
+        The profile-photo picker is deliberately gone: a recruiter adding a
+        candidate by hand has no photo to upload, and the candidate supplies
+        their own details through the application link this form sends them.
+        The hidden `profile` input lived outside the form fields, so removing
+        the field from CandidateCreationForm alone would have left it here.
+        {% endcomment %}
           {{ form.as_p }}
 
           <div class="w-100 d-flex align-items-center justify-content-end">

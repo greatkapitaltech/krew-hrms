@@ -104,6 +104,41 @@
       </button>
     </form>
     {% endif %}
+    {% comment %}
+    Custom bulk actions declared by the view (HorillaListView.bulk_actions).
+    Each posts the selected ids as a JSON array in `ids` -- the same shape the
+    bulk-update form above uses -- and is hidden until something is selected,
+    like the Update badge.
+    {% endcomment %}
+    {% for bulk_action in bulk_actions %}
+    <div
+      id="bulk_action_{{forloop.counter}}_{{view_id}}"
+      class="oh-checkpoint-badge {{bulk_action.class|default:'text-primary'}} d-none quick-bulk-action"
+      style="cursor: pointer;"
+      onclick="
+        var ids = $('#{{selected_instances_key_id}}').attr('data-ids') || '[]';
+        if (JSON.parse(ids).length === 0) { return; }
+        {% if bulk_action.confirm %}
+        if (!confirm('{{bulk_action.confirm|escapejs}}')) { return; }
+        {% endif %}
+        var form = $(this).find('form');
+        form.find('[name=ids]').val(ids);
+        form.find('[type=submit]').click();
+      "
+      >
+      <form style="display: inline;"
+        hx-post="{{bulk_action.url}}"
+        onsubmit="event.preventDefault()"
+        hx-on:submit="htmxLoadIndicator(this);">
+        <input type="hidden" name="ids">
+        <span class="label">{{bulk_action.action}}</span>
+        <button hidden onclick="event.stopPropagation()" type="submit"></button>
+      </form>
+      (<span class="count_{{view_id}}">
+        0
+      </span>)
+    </div>
+    {% endfor %}
     {% include "generic/import_block.html" %}
     {% if filter_selected %}
     <div
