@@ -316,4 +316,9 @@ API user resolves to an `Employee` the same way `login_user` requires above.
   once pays off across every app.
 - `base/horilla_company_manager.py` and `base/middleware.py` are the two
   files to reread whenever multi-tenant behavior looks wrong (data leaking
-  across companies, or a company's own data going missing).
+  across companies, or a company's own data going missing).          
+
+<!-- dsdsss -->
+
+
+
