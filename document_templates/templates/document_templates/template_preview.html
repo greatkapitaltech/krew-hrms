@@ -1,0 +1,18 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% block content %}
+    <section class="oh-wrapper oh-main__topbar">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1 class="oh-main__titlebar-title fw-bold">{% trans "Preview" %} - {{ template.title }}</h1>
+        </div>
+        <div class="oh-main__titlebar oh-main__titlebar--right">
+            <a href="{% url 'document-template-list' %}" class="oh-btn oh-btn--light">{% trans "Back" %}</a>
+        </div>
+    </section>
+    <div class="oh-wrapper">
+        <p class="oh-text-muted">{% trans "Rendered with sample data - not saved, no PDF generated." %}</p>
+        <div class="oh-document-preview" style="background:#fff; padding:24px; border:1px solid #ddd;">
+            {{ rendered|safe }}
+        </div>
+    </div>
+{% endblock content %}

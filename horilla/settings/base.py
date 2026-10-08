@@ -64,6 +64,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "drf_yasg",
+    "ckeditor",
+    "ckeditor_uploader",
     # Core Horilla apps
     "horilla_auth",
     THEME_APP,
@@ -96,6 +98,7 @@ INSTALLED_APPS = [
     "horilla_ldap",
     "horilla_dbtemplate",
     "horilla_tour",
+    "document_templates",
 ]
 
 # ========================================
@@ -237,6 +240,39 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media/")
+
+# ========================================
+# CKEDITOR (document_templates app)
+# ========================================
+CKEDITOR_UPLOAD_PATH = "ckeditor_uploads/"
+CKEDITOR_IMAGE_BACKEND = "pillow"
+CKEDITOR_RESTRICT_BY_USER = True
+CKEDITOR_CONFIGS = {
+    "default": {
+        "toolbar": "full",
+    },
+    "document_template": {
+        "toolbar": "Custom",
+        "toolbar_Custom": [
+            ["Bold", "Italic", "Underline"],
+            ["NumberedList", "BulletedList", "Blockquote"],
+            ["JustifyLeft", "JustifyCenter", "JustifyRight"],
+            ["Link", "Unlink"],
+            ["Image", "Table", "HorizontalRule"],
+            ["TextColor", "BGColor"],
+            ["Source"],
+        ],
+        # Authors are HR staff with the add/change_documenttemplate
+        # permission (same trust level as horilla_dbtemplate.Template.content
+        # and HorillaMailTemplate.body, both raw/unfiltered too) - disable
+        # CKEditor's content filter so inline colors/table styling used for
+        # realistic offer-letter/payslip layouts survive Source-mode edits
+        # instead of being stripped.
+        "allowedContent": True,
+        "height": 500,
+        "width": "100%",
+    },
+}
 
 # Same story for file storage: DEFAULT_FILE_STORAGE (legacy) is a no-op
 # under Django 5.x. addons.py mutates STORAGES["default"]["BACKEND"]
@@ -529,6 +565,7 @@ SIDEBARS = [
     "asset",
     "helpdesk",
     "report",
+    "document_templates",
 ]
 
 # Audit logging is opt-in: the horilla_audit app registers models explicitly

@@ -1,0 +1,63 @@
+<style>
+    /* Theme tokens for every document_templates page - defined once here so
+       the hardcoded hex colors used throughout these pages (card
+       backgrounds, borders, muted text, avatar chips, the indigo accent)
+       actually flip when the app's dark mode is on. This app's dark mode
+       toggles a plain `body.dark` class (horilla_theme/assets/css/dark.css),
+       not a prefers-color-scheme media query or data-theme attribute, and
+       it only overrides specific utility classes (.bg-white, .text-color-600,
+       ...) - inline hex styles on our own markup are invisible to it, so we
+       route everything through these variables instead. */
+    :root {
+        --doc-card-bg: #ffffff;
+        /* Matches .fixed-table's own border color - the table this app's
+           other (CBV-based) list pages actually render with - rather than
+           an arbitrary Tailwind gray, so these plain-FBV pages read as the
+           same app. */
+        --doc-card-border: #efefef;
+        --doc-header-bg: #f9fafb;
+        --doc-text-muted: #6b7280;
+        --doc-text-body: #374151;
+        --doc-chip-border-inactive: #d1d5db;
+        --doc-avatar-bg: #eef2ff;
+        --doc-avatar-text: #4f46e5;
+        --doc-accent: #4f46e5;
+    }
+    body.dark {
+        --doc-card-bg: #242424;
+        /* Same border color dark.css itself uses for .oh-modal__dialog. */
+        --doc-card-border: #444444;
+        --doc-header-bg: #1a1a1a;
+        --doc-text-muted: #bbbbbb;
+        --doc-text-body: #e5e5e5;
+        --doc-chip-border-inactive: #4a4a4a;
+        --doc-avatar-bg: #2a2a55;
+        --doc-avatar-text: #a5b4fc;
+        --doc-accent: #a5b4fc;
+    }
+
+    .doc-table { border-collapse: collapse; width: 100%; }
+    .doc-table th, .doc-table td {
+        border-bottom: 1px solid var(--doc-card-border);
+        border-right: 1px solid var(--doc-card-border);
+        padding: 12px 16px;
+        vertical-align: middle;
+        text-align: left;
+    }
+    .doc-table th:last-child, .doc-table td:last-child { border-right: none; }
+    .doc-table tbody tr:last-child td { border-bottom: none; }
+    .doc-table th.text-center, .doc-table td.text-center { text-align: center; }
+    .doc-table .doc-table__shrink { width: 1%; white-space: nowrap; }
+
+    .doc-card { background: var(--doc-card-bg); border: 1px solid var(--doc-card-border); border-radius: 12px; overflow: hidden; }
+    .doc-table thead tr { background: var(--doc-header-bg); }
+    .doc-muted { color: var(--doc-text-muted); }
+    /* text-sm on this app's own Tailwind scale (0.875rem/14px) - used for
+       every secondary UI bit below the main table text (filter chips,
+       pagination, the search box) instead of an arbitrary 13px. */
+    .doc-text-sm { font-size: 0.875rem; }
+
+    @media (max-width: 576px) {
+        .doc-table th, .doc-table td { padding: 10px 12px; font-size: 0.875rem; }
+    }
+</style>

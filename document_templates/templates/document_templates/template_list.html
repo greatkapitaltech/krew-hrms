@@ -1,0 +1,157 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% block content %}
+    {% include "document_templates/_table_lines.html" %}
+    <section class="oh-wrapper oh-main__topbar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1
+                class="oh-main__titlebar-title fw-bold"
+                style="margin:0; display:inline-flex; align-items:center; gap:10px; padding:10px 18px; border:1px solid var(--doc-accent); border-radius:10px; background:var(--doc-avatar-bg); color:var(--doc-accent); font-weight:700;"
+            >
+                <ion-icon name="document-text-outline"></ion-icon>{% trans "Document Templates" %}
+            </h1>
+        </div>
+        <div class="oh-main__titlebar oh-main__titlebar--right" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            {% if perms.document_templates.add_documenttemplate %}
+                <a
+                    href="#"
+                    class="oh-btn oh-btn--secondary"
+                    data-toggle="oh-modal-toggle"
+                    data-target="#genericModal"
+                    hx-get="{% url 'document-template-create' %}"
+                    hx-target="#genericModalBody"
+                >
+                    <ion-icon name="add-outline" class="mr-1"></ion-icon>{% trans "Create" %}
+                </a>
+            {% endif %}
+            <a
+                href="{% url 'document-template-asset-list' %}"
+                class="oh-btn fw-bold"
+                style="border:1px solid var(--doc-accent); color:var(--doc-accent); background:var(--doc-avatar-bg); border-radius:10px;"
+            >
+                <ion-icon name="image-outline" class="mr-1"></ion-icon>{% trans "Assets" %}
+            </a>
+            <a
+                href="{% url 'generated-document-list' %}"
+                class="oh-btn fw-bold"
+                style="border:1px solid var(--doc-accent); color:var(--doc-accent); background:var(--doc-avatar-bg); border-radius:10px;"
+            >
+                <ion-icon name="file-tray-stacked-outline" class="mr-1"></ion-icon>{% trans "Generated Documents" %}
+            </a>
+        </div>
+    </section>
+
+    <div class="oh-wrapper">
+      {# --- Type filter chips, same style/behaviour as Generated Documents --- #}
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+          <a
+              href="?"
+              style="display:inline-flex; align-items:center; padding:6px 14px; border-radius:20px; border:1px solid {% if not active_type %}var(--doc-accent){% else %}var(--doc-chip-border-inactive){% endif %}; color:{% if not active_type %}var(--doc-accent){% else %}var(--doc-text-body){% endif %}; font-size:0.875rem; text-decoration:none;"
+          >{% trans "All" %}</a>
+          {% for value, label in document_types %}
+              <a
+                  href="?type={{ value }}"
+                  style="display:inline-flex; align-items:center; padding:6px 14px; border-radius:20px; border:1px solid {% if active_type == value %}var(--doc-accent){% else %}var(--doc-chip-border-inactive){% endif %}; color:{% if active_type == value %}var(--doc-accent){% else %}var(--doc-text-body){% endif %}; font-size:0.875rem; text-decoration:none;"
+              >{% include "document_templates/_type_badge.html" with document_type=value display=label %}</a>
+          {% endfor %}
+      </div>
+
+      <div class="doc-card">
+        <div style="overflow-x:auto;">
+        <table class="oh-table doc-table" style="margin-bottom:0;">
+            <thead>
+                <tr>
+                    <th>{% trans "Title" %}</th>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Company" %}</th>
+                    <th class="doc-table__shrink">{% trans "Default" %}</th>
+                    <th class="text-center doc-table__shrink">{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for template in templates %}
+                    <tr>
+                        <td class="fw-bold">
+                            {{ template.title }}
+                            {% if template.unmapped_placeholders %}
+                                <ion-icon
+                                    name="warning-outline"
+                                    style="color:#f59e0b; vertical-align:middle; margin-left:4px;"
+                                    title="{% blocktrans with fields=template.unmapped_placeholders|join:', ' %}Unrecognized placeholders: {{ fields }}{% endblocktrans %}"
+                                ></ion-icon>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% include "document_templates/_type_badge.html" with document_type=template.document_type display=template.get_document_type_display %}
+                        </td>
+                        <td>{{ template.company|default:_("All companies") }}</td>
+                        <td class="doc-table__shrink">
+                            {% if template.is_default %}
+                                <span style="display:inline-flex;align-items:center;">
+                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:#22c55e;margin-right:6px;"></span>{% trans "Yes" %}
+                                </span>
+                            {% else %}
+                                <span class="doc-muted">{% trans "No" %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="doc-table__shrink">
+                            <div class="d-flex align-items-center justify-content-center gap-1">
+                                <a
+                                    href="{% url 'document-template-preview' template.pk %}"
+                                    class="oh-btn oh-btn--info oh-btn--sq-sm"
+                                    title="{% trans 'Preview' %}"
+                                >
+                                    <ion-icon name="eye-outline"></ion-icon>
+                                </a>
+                                {% if perms.document_templates.change_documenttemplate %}
+                                    <a
+                                        href="#"
+                                        class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
+                                        data-toggle="oh-modal-toggle"
+                                        data-target="#genericModal"
+                                        hx-get="{% url 'document-template-update' template.pk %}"
+                                        hx-target="#genericModalBody"
+                                        title="{% trans 'Edit' %}"
+                                    >
+                                        <ion-icon name="create-outline"></ion-icon>
+                                    </a>
+                                {% endif %}
+                                {% if perms.document_templates.add_generateddocument %}
+                                    <a
+                                        href="#"
+                                        class="oh-btn oh-btn--success oh-btn--sq-sm"
+                                        data-toggle="oh-modal-toggle"
+                                        data-target="#genericModal"
+                                        hx-get="{% url 'document-template-generate' template.pk %}"
+                                        hx-target="#genericModalBody"
+                                        title="{% trans 'Generate' %}"
+                                    >
+                                        <ion-icon name="download-outline"></ion-icon>
+                                    </a>
+                                {% endif %}
+                                {% if perms.document_templates.delete_documenttemplate %}
+                                    <form method="post" action="{% url 'document-template-delete' template.pk %}">
+                                        {% csrf_token %}
+                                        <button
+                                            type="submit"
+                                            class="oh-btn oh-btn--danger oh-btn--sq-sm"
+                                            onclick="return confirm('{% trans "Delete this template?" %}')"
+                                            title="{% trans 'Delete' %}"
+                                        >
+                                            <ion-icon name="trash-outline"></ion-icon>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5">{% trans "No document templates yet." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% include "document_templates/_pagination.html" with page_obj=templates %}
+      </div>
+    </div>
+{% endblock content %}

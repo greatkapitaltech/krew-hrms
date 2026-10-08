@@ -10,15 +10,18 @@ cffi
 chardet
 charset-normalizer
 click
+cobble
 cryptography==44.0.2
 cssselect2
 Django==5.2
 django-auditlog
 django-apscheduler
+django-ckeditor
 django-cors-headers
 django-environ
 django-filter
 django-import-export
+django-js-asset
 django-jsonfield
 django-mathfilters
 django-microsoft-auth
@@ -38,6 +41,7 @@ html5lib
 Jinja2
 idna
 lxml
+mammoth
 numpy
 oauthlib
 openpyxl
