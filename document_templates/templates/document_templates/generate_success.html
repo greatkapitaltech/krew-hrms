@@ -1,0 +1,31 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <h2
+        class="oh-modal__dialog-title fw-bold"
+        style="display:inline-flex; align-items:center; gap:10px; padding:10px 18px; border:1px solid var(--doc-accent); border-radius:10px; background:var(--doc-avatar-bg); color:var(--doc-accent); font-weight:700;"
+    >
+        <ion-icon name="checkmark-done-outline"></ion-icon>{% trans "Document generated" %}
+    </h2>
+    <button
+        type="button"
+        class="oh-modal__close--custom"
+        onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+        aria-label="{% trans 'Close' %}"
+    >
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body" style="text-align:center; padding:32px 16px;">
+    <ion-icon
+        name="checkmark-circle-outline"
+        style="font-size:48px; color:#22c55e; margin-bottom:12px;"
+    ></ion-icon>
+    <p style="margin-bottom:20px;">{{ generated.template.title|default:generated.get_document_type_display }}</p>
+    <a
+        href="{% url 'generated-document-download' generated.pk %}"
+        target="_blank"
+        class="oh-btn oh-btn--success oh-btn--shadow"
+    >
+        <ion-icon name="document-text-outline" class="mr-1"></ion-icon>{% trans "Open PDF" %}
+    </a>
+</div>

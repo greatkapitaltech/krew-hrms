@@ -1,0 +1,60 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <h2
+        class="oh-modal__dialog-title fw-bold"
+        style="display:inline-flex; align-items:center; gap:10px; padding:10px 18px; border:1px solid var(--doc-accent); border-radius:10px; background:var(--doc-avatar-bg); color:var(--doc-accent); font-weight:700;"
+    >
+        <ion-icon name="image-outline"></ion-icon>{% trans "Upload Asset" %}
+    </h2>
+    <button
+        type="button"
+        class="oh-modal__close--custom"
+        onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+        aria-label="{% trans 'Close' %}"
+    >
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    {% if form.non_field_errors %}
+        <div class="oh-alert oh-alert--danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <form
+        method="post"
+        enctype="multipart/form-data"
+        hx-post="{{ request.path }}"
+        hx-target="#genericModalBody"
+        hx-encoding="multipart/form-data"
+    >
+        {% csrf_token %}
+        <div class="oh-input-group">
+            {{ form.name.label_tag }}
+            {{ form.name }}
+            {{ form.name.errors }}
+        </div>
+        <div class="oh-input-group">
+            {{ form.asset_type.label_tag }}
+            {{ form.asset_type }}
+            {{ form.asset_type.errors }}
+        </div>
+        <div class="oh-input-group">
+            {{ form.company.label_tag }}
+            {{ form.company }}
+            {{ form.company.errors }}
+        </div>
+        <div class="oh-input-group">
+            {{ form.file.label_tag }}
+            {{ form.file }}
+            {{ form.file.errors }}
+            <p class="oh-text-muted">{% trans "Images: png/jpg/jpeg. Documents: pdf/docx." %}</p>
+        </div>
+        <div class="oh-modal__dialog-footer">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">{% trans "Upload" %}</button>
+        </div>
+    </form>
+</div>
+<script>
+    $(document).ready(function () {
+        $("#genericModalBody select.oh-select-2").select2({ width: "100%" });
+    });
+</script>

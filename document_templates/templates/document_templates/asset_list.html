@@ -1,0 +1,95 @@
+{% extends 'index.html' %}
+{% load i18n %}
+{% block content %}
+    {% include "document_templates/_table_lines.html" %}
+    <section class="oh-wrapper oh-main__topbar" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+        <div class="oh-main__titlebar oh-main__titlebar--left">
+            <h1
+                class="oh-main__titlebar-title fw-bold"
+                style="margin:0; display:inline-flex; align-items:center; gap:10px; padding:10px 18px; border:1px solid var(--doc-accent); border-radius:10px; background:var(--doc-avatar-bg); color:var(--doc-accent); font-weight:700;"
+            >
+                <ion-icon name="image-outline"></ion-icon>{% trans "Template Assets" %}
+            </h1>
+        </div>
+        <div class="oh-main__titlebar oh-main__titlebar--right" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            {% if perms.document_templates.add_templateasset %}
+                <a
+                    href="#"
+                    class="oh-btn oh-btn--secondary"
+                    data-toggle="oh-modal-toggle"
+                    data-target="#genericModal"
+                    hx-get="{% url 'document-template-asset-create' %}"
+                    hx-target="#genericModalBody"
+                >
+                    <ion-icon name="cloud-upload-outline" class="mr-1"></ion-icon>{% trans "Upload" %}
+                </a>
+            {% endif %}
+            <a
+                href="{% url 'document-template-list' %}"
+                class="oh-btn fw-bold ml-2"
+                style="border:1px solid var(--doc-accent); color:var(--doc-accent); background:var(--doc-avatar-bg); border-radius:10px;"
+            >
+                <ion-icon name="document-text-outline" class="mr-1"></ion-icon>{% trans "Templates" %}
+            </a>
+        </div>
+    </section>
+
+    <div class="oh-wrapper">
+      <div class="doc-card">
+        <div style="overflow-x:auto;">
+        <table class="oh-table doc-table" style="margin-bottom:0;">
+            <thead>
+                <tr>
+                    <th>{% trans "Name" %}</th>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Company" %}</th>
+                    <th class="text-center doc-table__shrink">{% trans "File" %}</th>
+                    <th class="text-center doc-table__shrink">{% trans "Actions" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asset in assets %}
+                    <tr>
+                        <td class="fw-bold">{{ asset.name }}</td>
+                        <td>
+                            <span style="display:inline-flex;align-items:center;">
+                                {% if asset.asset_type == "IMAGE" %}
+                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:#3b82f6;margin-right:6px;"></span>
+                                {% else %}
+                                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:#f59e0b;margin-right:6px;"></span>
+                                {% endif %}
+                                {{ asset.get_asset_type_display }}
+                            </span>
+                        </td>
+                        <td>{{ asset.company|default:_("All companies") }}</td>
+                        <td class="text-center doc-table__shrink">
+                            <a href="{{ asset.file.url }}" target="_blank" class="oh-btn oh-btn--info oh-btn--sq-sm" title="{% trans 'View' %}">
+                                <ion-icon name="eye-outline"></ion-icon>
+                            </a>
+                        </td>
+                        <td class="text-center doc-table__shrink">
+                            {% if perms.document_templates.delete_templateasset %}
+                                <form method="post" action="{% url 'document-template-asset-delete' asset.pk %}">
+                                    {% csrf_token %}
+                                    <button
+                                        type="submit"
+                                        class="oh-btn oh-btn--danger oh-btn--sq-sm"
+                                        onclick="return confirm('{% trans "Delete this asset?" %}')"
+                                        title="{% trans 'Delete' %}"
+                                    >
+                                        <ion-icon name="trash-outline"></ion-icon>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5">{% trans "No assets uploaded yet." %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% include "document_templates/_pagination.html" with page_obj=assets %}
+      </div>
+    </div>
+{% endblock content %}

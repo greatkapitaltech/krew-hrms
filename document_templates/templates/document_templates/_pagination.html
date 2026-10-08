@@ -1,0 +1,22 @@
+{% load i18n %}
+{% if page_obj.has_other_pages %}
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-top:1px solid var(--doc-card-border); flex-wrap:wrap; gap:8px;">
+        <span style="font-size:0.875rem; color:var(--doc-text-muted);">
+            {% blocktrans with num=page_obj.number total=page_obj.paginator.num_pages %}Page {{ num }} of {{ total }}{% endblocktrans %}
+        </span>
+        <div style="display:flex; gap:6px;">
+            {% if page_obj.has_previous %}
+                <a
+                    href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}{% if active_type %}&type={{ active_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+                    style="padding:6px 12px; border:1px solid var(--doc-chip-border-inactive); border-radius:6px; font-size:0.875rem; text-decoration:none; color:var(--doc-text-body);"
+                >{% trans "Previous" %}</a>
+            {% endif %}
+            {% if page_obj.has_next %}
+                <a
+                    href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}{% if active_type %}&type={{ active_type }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}"
+                    style="padding:6px 12px; border:1px solid var(--doc-chip-border-inactive); border-radius:6px; font-size:0.875rem; text-decoration:none; color:var(--doc-text-body);"
+                >{% trans "Next" %}</a>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}

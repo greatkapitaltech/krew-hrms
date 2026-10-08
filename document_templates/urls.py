@@ -1,0 +1,66 @@
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path(
+        "document-templates/",
+        views.document_template_list,
+        name="document-template-list",
+    ),
+    path(
+        "document-templates/create/",
+        views.document_template_create,
+        name="document-template-create",
+    ),
+    path(
+        "document-templates/<int:pk>/update/",
+        views.document_template_update,
+        name="document-template-update",
+    ),
+    path(
+        "document-templates/<int:pk>/delete/",
+        views.document_template_delete,
+        name="document-template-delete",
+    ),
+    path(
+        "document-templates/<int:pk>/preview/",
+        views.document_template_preview,
+        name="document-template-preview",
+    ),
+    path(
+        "document-templates/<int:pk>/generate/",
+        views.document_template_generate,
+        name="document-template-generate",
+    ),
+    path(
+        "document-templates/generate-auto/<str:document_type>/",
+        views.document_template_generate_auto,
+        name="document-template-generate-auto",
+    ),
+    path(
+        "document-template-assets/",
+        views.template_asset_list,
+        name="document-template-asset-list",
+    ),
+    path(
+        "document-template-assets/create/",
+        views.template_asset_create,
+        name="document-template-asset-create",
+    ),
+    path(
+        "document-template-assets/<int:pk>/delete/",
+        views.template_asset_delete,
+        name="document-template-asset-delete",
+    ),
+    path(
+        "generated-documents/",
+        views.generated_document_list,
+        name="generated-document-list",
+    ),
+    path(
+        "generated-documents/<int:pk>/download/",
+        views.generated_document_download,
+        name="generated-document-download",
+    ),
+]

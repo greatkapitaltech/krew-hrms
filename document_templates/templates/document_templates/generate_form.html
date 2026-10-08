@@ -1,0 +1,76 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <h2
+        class="oh-modal__dialog-title fw-bold"
+        style="display:inline-flex; align-items:center; gap:10px; padding:10px 18px; border:1px solid var(--doc-accent); border-radius:10px; background:var(--doc-avatar-bg); color:var(--doc-accent); font-weight:700;"
+    >
+        <ion-icon name="download-outline"></ion-icon>
+        {% trans "Generate" %} &mdash; {{ template.title|default:document_type_display }}
+    </h2>
+    <button
+        type="button"
+        class="oh-modal__close--custom"
+        onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+        aria-label="{% trans 'Close' %}"
+    >
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    {% if form.non_field_errors %}
+        <div class="oh-alert oh-alert--danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <form
+        method="post"
+        hx-post="{{ request.path }}"
+        hx-target="#genericModalBody"
+    >
+        {% csrf_token %}
+        {% if extra_fields %}<input type="hidden" name="extra_fields_submitted" value="1">{% endif %}
+        {% if document_type == "OFFER_LETTER" %}
+            <div class="oh-input-group">
+                {{ form.candidate_id.label_tag }}
+                {{ form.candidate_id }}
+                {{ form.candidate_id.errors }}
+            </div>
+        {% elif document_type == "PAYSLIP" %}
+            <div class="oh-input-group">
+                {{ form.payslip_id.label_tag }}
+                {{ form.payslip_id }}
+                {{ form.payslip_id.errors }}
+            </div>
+        {% else %}
+            <div class="oh-input-group">
+                {{ form.employee_id.label_tag }}
+                {{ form.employee_id }}
+                {{ form.employee_id.errors }}
+            </div>
+        {% endif %}
+        {% if extra_fields %}
+            <p class="oh-text-muted" style="margin:12px 0 8px;">
+                {% trans "This template also has fields with no automatic data source - fill in whatever applies (leave blank to print as-is):" %}
+            </p>
+            <div style="max-height:320px; overflow-y:auto; padding-right:4px;">
+                {% for field in extra_fields %}
+                    <div class="oh-input-group">
+                        <label for="id_extra__{{ field.name }}">{{ field.label }}</label>
+                        <input
+                            type="text"
+                            name="extra__{{ field.name }}"
+                            id="id_extra__{{ field.name }}"
+                            class="oh-input w-100"
+                        >
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        <div class="oh-modal__dialog-footer">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">{% trans "Generate PDF" %}</button>
+        </div>
+    </form>
+</div>
+<script>
+    $(document).ready(function () {
+        $("#genericModalBody select.oh-select-2").select2({ width: "100%" });
+    });
+</script>

@@ -51,9 +51,31 @@ RUN apt-get update \
         libxslt1.1 \
         libffi8 \
         curl \
+        ca-certificates \
         netcat-openbsd \
+        fontconfig \
+        fonts-dejavu-core \
+        xfonts-75dpi \
+        xfonts-base \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
+
+# wkhtmltopdf (payroll payslip PDFs, document_templates generated documents)
+# is not in Debian's own repo as a reliably headless-capable build, so pull
+# the official packaging project's static (patched-Qt) release instead -
+# that's the same binary pdfkit's own docs point people to. Picks the .deb
+# matching this image's architecture so the same Dockerfile builds on both
+# amd64 and arm64 hosts.
+RUN set -eux; \
+    ARCH="$(dpkg --print-architecture)"; \
+    curl -fsSL -o /tmp/wkhtmltox.deb \
+        "https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-3/wkhtmltox_0.12.6.1-3.bookworm_${ARCH}.deb"; \
+    apt-get update; \
+    (dpkg -i /tmp/wkhtmltox.deb || apt-get install -y -f --no-install-recommends); \
+    rm -f /tmp/wkhtmltox.deb; \
+    rm -rf /var/lib/apt/lists/*; \
+    apt-get clean; \
+    wkhtmltopdf --version
 
 # Create non-root user FIRST
 RUN useradd --create-home --uid 1000 appuser

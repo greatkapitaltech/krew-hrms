@@ -1,0 +1,13 @@
+{% load i18n %}
+<span style="display:inline-flex;align-items:center;">
+    {% if document_type == "OFFER_LETTER" %}
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:#22c55e;margin-right:6px;"></span>
+    {% elif document_type == "RELIEVING_LETTER" %}
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:#ef4444;margin-right:6px;"></span>
+    {% elif document_type == "EXPERIENCE_LETTER" %}
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:#3b82f6;margin-right:6px;"></span>
+    {% elif document_type == "PAYSLIP" %}
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:#f59e0b;margin-right:6px;"></span>
+    {% endif %}
+    {{ display }}
+</span>

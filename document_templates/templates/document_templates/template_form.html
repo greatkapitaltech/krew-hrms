@@ -1,0 +1,97 @@
+{% load i18n %}
+<div class="oh-modal__dialog-header">
+    <h2
+        class="oh-modal__dialog-title fw-bold"
+        style="display:inline-flex; align-items:center; gap:10px; padding:10px 18px; border:1px solid var(--doc-accent); border-radius:10px; background:var(--doc-avatar-bg); color:var(--doc-accent); font-weight:700;"
+    >
+        <ion-icon name="document-text-outline"></ion-icon>
+        {% if template %}{% trans "Edit Document Template" %}{% else %}{% trans "Create Document Template" %}{% endif %}
+    </h2>
+    <button
+        type="button"
+        class="oh-modal__close--custom"
+        onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+        aria-label="{% trans 'Close' %}"
+    >
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+<div class="oh-modal__dialog-body">
+    {% if form.non_field_errors %}
+        <div class="oh-alert oh-alert--danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+    <form
+        method="post"
+        enctype="multipart/form-data"
+        hx-post="{{ request.path }}"
+        hx-target="#genericModalBody"
+        hx-encoding="multipart/form-data"
+    >
+        {% csrf_token %}
+        <div class="oh-input-group">
+            {{ form.title.label_tag }}
+            {{ form.title }}
+            {{ form.title.errors }}
+        </div>
+        <div class="oh-input-group">
+            {{ form.document_type.label_tag }}
+            {{ form.document_type }}
+            {{ form.document_type.errors }}
+        </div>
+        <div class="oh-input-group">
+            {{ form.company.label_tag }}
+            {{ form.company }}
+            {{ form.company.errors }}
+        </div>
+        <div class="oh-input-group">
+            {{ form.is_default.label_tag }}
+            {{ form.is_default }}
+        </div>
+        <div class="oh-input-group">
+            {{ form.docx_file.label_tag }}
+            {{ form.docx_file }}
+            {{ form.docx_file.errors }}
+            <p class="oh-text-muted">{{ form.docx_file.help_text }}</p>
+        </div>
+        {% if template.unmapped_placeholders %}
+            <div class="oh-alert oh-alert--danger">
+                {% trans "Unrecognized placeholders in this template:" %}
+                {% for field in template.unmapped_placeholders %}
+                    <code>{% templatetag openvariable %} {{ field }} {% templatetag closevariable %}</code>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
+        <div class="oh-input-group">
+            {{ form.content.label_tag }}
+            <p class="oh-text-muted">
+                {% trans "Use merge fields like" %}
+                <code>{% templatetag openvariable %} employee_name {% templatetag closevariable %}</code>,
+                <code>{% templatetag openvariable %} company_name {% templatetag closevariable %}</code>,
+                <code>{% templatetag openvariable %} job_position {% templatetag closevariable %}</code>
+                {% trans "- the exact fields available depend on the document type." %}
+            </p>
+            {{ form.content }}
+            {{ form.content.errors }}
+        </div>
+        <div class="oh-modal__dialog-footer">
+            <button type="submit" class="oh-btn oh-btn--secondary oh-btn--shadow">{% trans "Save" %}</button>
+        </div>
+    </form>
+    {{ form.media }}
+</div>
+<script>
+    $(document).ready(function () {
+        $("#genericModalBody select.oh-select-2").select2({ width: "100%" });
+    });
+    // CKEditor syncs its content into the underlying <textarea> on the
+    // form's native "submit" event - but htmx has already read the form's
+    // values into evt.detail.parameters by the time that event fires (and
+    // by the time htmx:configRequest fires), so updating the textarea
+    // afterward is too late. Write straight into the outgoing parameters
+    // instead.
+    document.body.addEventListener("htmx:configRequest", function (evt) {
+        if (window.CKEDITOR && CKEDITOR.instances["id_content"]) {
+            evt.detail.parameters.content = CKEDITOR.instances["id_content"].getData();
+        }
+    });
+</script>

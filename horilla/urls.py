@@ -72,6 +72,8 @@ urlpatterns = [
     path("", include("horilla_tour.urls")),
     path("employee/", include("employee.urls")),
     path("horilla-widget/", include("horilla_widgets.urls")),
+    path("ckeditor/", include("ckeditor_uploader.urls")),
+    path("", include("document_templates.urls")),
     re_path(
         "^inbox/notifications/", include(notifications.urls, namespace="notifications")
     ),
