@@ -28,6 +28,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core import serializers
 from django.core.cache import cache as CACHE
+from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
@@ -68,6 +69,7 @@ from horilla_documents.models import Document
 from notifications.signals import notify
 from recruitment.auth import CandidateAuthenticationBackend
 from recruitment.decorators import (
+    drive_manager_required,
     all_manager_can_enter,
     candidate_login_required,
     manager_can_enter,
@@ -683,64 +685,50 @@ def candidate_component(request):
 @manager_can_enter("recruitment.change_candidate")
 def change_candidate_stage(request):
     """
-    This method is used to update candidates stage
+    Update one or many candidates' stage.
+
+    Every move goes through recruitment.services.candidate.move_to_stage, which
+    owns the rules this view used to work around: the candidate is resolved by a
+    company-scoped lookup (this previously used an unscoped
+    Candidate.objects.get(), so any id from any tenant resolved), the target
+    stage is verified to belong to that candidate's own job opening, the row is
+    locked for the move, and exactly one audit event is written in the same
+    transaction.
+
+    The service is also why the duplicated double-save in the single-candidate
+    branch is gone -- it saved, checked vacancy, then saved again.
     """
+    from recruitment.services import candidate as candidate_service
+    from recruitment.services.errors import RecruitmentError
+
+    def _move(cand_id, stage_id, context):
+        """Move one candidate, translating business errors into messages."""
+        try:
+            moved = candidate_service.move_to_stage(request.user, cand_id, stage_id)
+        except RecruitmentError as error:
+            messages.error(request, str(error))
+            return None
+        stage = moved.stage_id
+        if stage and stage.stage_type == "hired" and stage.recruitment_id.is_vacancy_filled():
+            context["message"] = _("Vaccancy is filled")
+            context["vacancy"] = stage.recruitment_id.vacancy
+        messages.success(request, _("Candidate stage updated"))
+        return moved
+
     if request.method == "POST":
         canIds = request.POST["canIds"]
         stage_id = request.POST["stageId"]
         context = {}
         if request.GET.get("bulk") == "True":
-            canIds = json.loads(canIds)
-            for cand_id in canIds:
-                try:
-                    candidate = Candidate.objects.get(id=cand_id)
-                    stage = Stage.objects.filter(
-                        recruitment_id=candidate.recruitment_id, id=stage_id
-                    ).first()
-                    if stage:
-                        candidate.stage_id = stage
-                        candidate.save()
-                        if stage.stage_type == "hired":
-                            if stage.recruitment_id.is_vacancy_filled():
-                                context["message"] = _("Vaccancy is filled")
-                                context["vacancy"] = stage.recruitment_id.vacancy
-                        messages.success(request, _("Candidate stage updated"))
-                except Candidate.DoesNotExist:
-                    messages.error(request, _("Candidate not found."))
+            for cand_id in json.loads(canIds):
+                _move(cand_id, stage_id, context)
         else:
-            try:
-                candidate = Candidate.objects.get(id=canIds)
-                stage = Stage.objects.filter(
-                    recruitment_id=candidate.recruitment_id, id=stage_id
-                ).first()
-                if stage:
-                    candidate.stage_id = stage
-                    candidate.save()
-                    if stage.stage_type == "hired":
-                        if stage.recruitment_id.is_vacancy_filled():
-                            context["message"] = _("Vaccancy is filled")
-                            context["vacancy"] = stage.recruitment_id.vacancy
-                    candidate.stage_id = stage
-                    candidate.save()
-                    messages.success(request, _("Candidate stage updated"))
-            except Candidate.DoesNotExist:
-                messages.error(request, _("Candidate not found."))
+            _move(canIds, stage_id, context)
         return JsonResponse(context)
+
     stage_id = request.GET.get("stage_id")
     candidate_id = request.GET.get("candidate_id")
-    candidate = Candidate.find(candidate_id)
-    if not candidate:
-        return HorillaRedirect(
-            request, message=_("No Candidate found matching the query.")
-        )
-
-    stage = Stage.objects.filter(
-        recruitment_id=candidate.recruitment_id, id=stage_id
-    ).first()
-    if stage:
-        candidate.stage_id = stage
-        candidate.save()
-        messages.success(request, _("Candidate stage updated"))
+    _move(candidate_id, stage_id, {})
     return stage_component(request)
 
 
@@ -869,37 +857,35 @@ def recruitment_update_pipeline(request, rec_id):
 
 
 @login_required
-@recruitment_manager_can_enter(perm="recruitment.change_recruitment")
+@require_http_methods(["POST"])
 def recruitment_close_pipeline(request, rec_id):
     """
-    This method is used to close recruitment from pipeline view
+    Close a published job opening from the pipeline view.
+
+    Delegates to the lifecycle service, which enforces company scope,
+    the change_recruitment permission scoped to THIS job opening, a valid
+    PUBLISHED -> CLOSED transition, and writes the JOB_OPENING_CLOSED audit
+    event -- all inside one transaction with the row locked.
+
+    The decorator-based permission check was removed deliberately: those
+    decorators grant access to anyone who manages *any* job opening. The
+    service performs the object-scoped check instead.
     """
+    from recruitment.services.errors import RecruitmentError
+    from recruitment.services.job_opening import close
+
     try:
-        recruitment_obj = Recruitment.objects.get(id=rec_id)
-        recruitment_obj.closed = True
-        recruitment_obj.save()
-        messages.success(request, _("Recruitment closed successfully"))
-    except (Recruitment.DoesNotExist, OverflowError):
-        messages.error(request, _("Recruitment Does not exists.."))
+        close(request.user, rec_id)
+        messages.success(request, _("Job opening closed successfully."))
+    except RecruitmentError as error:
+        messages.error(request, str(error))
     return HorillaRedirect(request)
 
 
-@login_required
-@recruitment_manager_can_enter(perm="recruitment.change_recruitment")
-def recruitment_reopen_pipeline(request, rec_id):
-    """
-    This method is used to reopen recruitment from pipeline view
-    """
-    recruitment_obj = Recruitment.find(rec_id)
-    if not recruitment_obj:
-        return HorillaRedirect(
-            request, message=_("No Recruitment found matching the query.")
-        )
-
-    recruitment_obj.closed = False
-    recruitment_obj.save()
-    messages.success(request, _("Recruitment reopend successfully"))
-    return HorillaRedirect(request)
+# recruitment_reopen_pipeline has been removed. CLOSED is a terminal state:
+# the PRD's answer to "post this role again" is Duplicate, which creates a
+# new job opening in DRAFT with its own lifecycle and audit history. There is
+# deliberately no CLOSED -> PUBLISHED path anywhere in the product.
 
 
 @login_required
@@ -918,8 +904,11 @@ def candidate_stage_update(request, cand_id):
             {"type": "error", "message": _("No Candidate found matching the query.")}
         )
 
-    history_queryset = candidate_obj.history_set.all().first()
-    stage_obj = Stage.objects.get(id=stage_id)
+    stage_obj = Stage.objects.filter(id=stage_id).first()
+    if stage_obj is None:
+        return JsonResponse(
+            {"type": "error", "message": _("No Stage found matching the query.")}
+        )
     if candidate_obj.stage_id == stage_obj:
         return JsonResponse({"type": "noChange", "message": _("No change detected.")})
     # Here set the last updated schedule date on this stage if schedule exists in history
@@ -929,43 +918,54 @@ def candidate_stage_update(request, cand_id):
         # this condition is executed when a candidate dropped back to any previous
         # stage, if there any scheduled date then set it back
         schedule_date = history_queryset.first().schedule_date
-    stage_manager_on_this_recruitment = (
-        is_stagemanager(request)[1]
-        .filter(recruitment_id=stage_obj.recruitment_id)
-        .exists()
-    )
-    if (
-        stage_manager_on_this_recruitment
-        or request.user.is_superuser
-        or is_recruitmentmanager(rec_id=stage_obj.recruitment_id.id)[0]
-    ):
-        candidate_obj.stage_id = stage_obj
-        candidate_obj.hired = stage_obj.stage_type == "hired"
-        candidate_obj.canceled = stage_obj.stage_type == "cancelled"
+
+    # Authorization and the move itself belong to the service. The previous
+    # check here asked "does this user manage ANY stage, filtered to this
+    # recruitment" plus "is this user a recruitment manager", neither of which
+    # considered the candidate's company -- so a manager in one tenant could
+    # drag a candidate belonging to another. The service checks the permission
+    # against this candidate's own company/opening/stage, locks the row, and
+    # audits the move.
+    from recruitment.services import candidate as candidate_service
+    from recruitment.services.errors import RecruitmentError
+
+    try:
+        candidate_obj = candidate_service.move_to_stage(
+            request.user, candidate_obj.pk, stage_obj.pk
+        )
+    except RecruitmentError as error:
+        return JsonResponse({"type": "danger", "message": str(error)})
+
+    # Presentation-only fields the pipeline drag-and-drop still expects. These
+    # are not lifecycle state: hired/canceled are derived by Candidate.save()
+    # from the stage type inside the service.
+    if schedule_date is not None or candidate_obj.start_onboard:
         candidate_obj.schedule_date = schedule_date
         candidate_obj.start_onboard = False
         candidate_obj.save()
-        with contextlib.suppress(Exception):
-            managers = stage_obj.stage_managers.select_related("employee_user_id")
-            users = [employee.employee_user_id for employee in managers]
-            notify.send(
-                request.user.employee_get,
-                recipient=users,
-                verb=f"New candidate arrived on stage {stage_obj.stage}",
-                verb_ar=f"وصل مرشح جديد إلى المرحلة {stage_obj.stage}",
-                verb_de=f"Neuer Kandidat ist auf der Stufe {stage_obj.stage} angekommen",
-                verb_es=f"Nuevo candidato llegó a la etapa {stage_obj.stage}",
-                verb_fr=f"Nouveau candidat arrivé à l'étape {stage_obj.stage}",
-                icon="person-add",
-                redirect=reverse("pipeline"),
-            )
 
-        return JsonResponse(
-            {"type": "success", "message": _("Candidate stage updated")}
+    # Notify the stage's managers that a candidate arrived. Best-effort: the
+    # move is already committed and audited by the service, so a notification
+    # failure must not undo it or surface as an error.
+    with contextlib.suppress(Exception):
+        managers = stage_obj.stage_managers.select_related("employee_user_id")
+        users = [employee.employee_user_id for employee in managers]
+        notify.send(
+            request.user.employee_get,
+            recipient=users,
+            verb=f"New candidate arrived on stage {stage_obj.stage}",
+            verb_ar=f"وصل مرشح جديد إلى المرحلة {stage_obj.stage}",
+            verb_de=f"Neuer Kandidat ist auf der Stufe {stage_obj.stage} angekommen",
+            verb_es=f"Nuevo candidato llegó a la etapa {stage_obj.stage}",
+            verb_fr=f"Nouveau candidat arrivé à l'étape {stage_obj.stage}",
+            icon="person-add",
+            redirect=reverse("pipeline"),
         )
-    return JsonResponse(
-        {"type": "danger", "message": _("Something went wrong, Try agian.")}
-    )
+
+    # The failure paths all return earlier now: an unresolvable candidate, an
+    # unknown stage, a no-change move and any business error each return their
+    # own response above. Reaching this point means the move succeeded.
+    return JsonResponse({"type": "success", "message": _("Candidate stage updated")})
 
 
 @login_required
@@ -1349,14 +1349,36 @@ def update_stage_order(request, pk):
         return HorillaRedirect(
             request, message=_("No Recruitment found matching the query.")
         )
+    # Only this drive's managers (not a manager of some other drive).
+    from recruitment.services.authorization import is_drive_manager
+
+    if not is_drive_manager(request.user, recruitment):
+        return HorillaRedirect(
+            request,
+            message=_("Only this job opening's managers can reorder its stages."),
+        )
 
     if request.method == "POST":
         try:
             order = json.loads(request.POST.get("order", "[]"))
-            for index, stage_id in enumerate(order):
-                stage = recruitment.stage_set.get(id=stage_id)
-                stage.sequence = index + 1
-                stage.save()
+            # for index, stage_id in enumerate(order):
+            #     stage = recruitment.stage_set.get(id=stage_id)
+            #     stage.sequence = index + 1
+            #     stage.save()
+            # PRD: Applied (first), Final HR Round, Hired and Rejected are fixed;
+            # only custom stages are reordered, and always between Applied and
+            # Final HR Round. Fixed stages in the posted order are ignored.
+            all_stages = list(recruitment.stage_set.all())
+            custom = {s.pk: s for s in all_stages if not s.is_fixed}
+            applied = next(
+                (s.sequence for s in all_stages if s.stage_type == "applied"), 0
+            ) or 0
+            ordered = [custom[int(i)] for i in order if str(i).isdigit() and int(i) in custom]
+            ordered += [s for s in custom.values() if s not in ordered]
+            for position, stage in enumerate(ordered, start=1):
+                if stage.sequence != applied + position:
+                    stage.sequence = applied + position
+                    stage.save()
             messages.success(request, _("Sequence Updated Successfully"))
             return JsonResponse({"status": "success"})
         except Exception as e:
@@ -1399,17 +1421,68 @@ def add_candidate(request):
 @login_required
 @require_http_methods(["POST"])
 @hx_request_required
+@drive_manager_required
 def stage_title_update(request, stage_id):
     """
     This method is used to update the name of recruitment stage
     """
     stage_obj = Stage.objects.get(id=stage_id)
     stage_obj.stage = request.POST["stage"]
-    stage_obj.save()
+    # stage_obj.save()
+    try:
+        stage_obj.save()
+    except ValidationError as error:
+        # Fixed stages can't be renamed (PRD); the model refuses.
+        from django.utils.html import escape
+
+        message = escape(" ".join(error.messages))
+        return HttpResponse(
+            f'<div class="oh-alert-container"><div class="oh-alert oh-alert--animated oh-alert--danger">{message}</div></div>'
+        )
     message = _("The stage title has been updated successfully")
     return HttpResponse(
         f'<div class="oh-alert-container"><div class="oh-alert oh-alert--animated oh-alert--success">{message}</div></div>'
     )
+
+
+def _send_application_link_for_new_candidate(request, candidate_obj):
+    """
+    Email a hand-entered candidate the public application link (PRD Form 3).
+
+    Skipped, with a message rather than silently, when the opening is not
+    PUBLISHED: the public form only serves a live opening, so a link would
+    lead the candidate to a page that refuses them.
+
+    The candidate is already saved and the send is best-effort -- a mail
+    failure must not read as "candidate not added".
+    """
+    from recruitment.models import Recruitment
+    from recruitment.services.candidate_mail import send_application_link
+
+    opening = candidate_obj.recruitment_id
+    if opening is None:
+        return
+    if opening.status != Recruitment.Status.PUBLISHED:
+        messages.info(
+            request,
+            _(
+                "No application link was sent: %(job)s is not published yet. "
+                "Publish it and use Send Application Link."
+            )
+            % {"job": opening.title},
+        )
+        return
+
+    if send_application_link(candidate_obj, actor=request.user, request=request):
+        messages.success(request, _("Application link emailed to the candidate."))
+    else:
+        messages.warning(
+            request,
+            _(
+                "The application link could not be emailed. Check the Mail "
+                "Server configuration under Settings."
+            ),
+        )
 
 
 @login_required
@@ -1429,13 +1502,13 @@ def candidate(request):
     if request.method == "POST":
         form = CandidateCreationForm(request.POST, request.FILES)
         if form.is_valid():
+            from recruitment.services.candidate import entry_stage
+
             candidate_obj = form.save(commit=False)
             candidate_obj.start_onboard = False
             candidate_obj.source = "software"
             if candidate_obj.stage_id is None:
-                candidate_obj.stage_id = Stage.objects.filter(
-                    recruitment_id=candidate_obj.recruitment_id, stage_type="initial"
-                ).first()
+                candidate_obj.stage_id = entry_stage(candidate_obj.recruitment_id)
             # when creating new candidate from onboarding view
             if request.GET.get("onboarding") == "True":
                 candidate_obj.hired = True
@@ -1443,6 +1516,11 @@ def candidate(request):
             if form.data.get("job_position_id"):
                 candidate_obj.save()
                 messages.success(request, _("Candidate added."))
+                # PRD Form 3: a candidate entered by hand is emailed the public
+                # Form 1 link so they supply their own details, answers and
+                # documents instead of a recruiter transcribing them. Only for
+                # an opening whose public form is actually live.
+                _send_application_link_for_new_candidate(request, candidate_obj)
             else:
                 messages.error(request, _("Job position field is required"))
                 return render(
@@ -1720,11 +1798,32 @@ def candidate_about_tab(request, pk, **kwargs):
     if not candidate_obj:
         messages.error(request, _("Candidate not found"))
         return HorillaRedirect(request)
+    # PRD "Candidate Information" is one section covering the details captured
+    # through the application, the screening answers AND the resume. The
+    # template includes the screening-answer and resume partials, so this view
+    # supplies what they read -- the same service call candidate_survey_tab
+    # makes, not a second implementation.
+    from recruitment.models import FORM_ONE, FORM_TWO
+    from recruitment.services.screening import answers_for_candidate
+
     return render(
         request,
         "cbv/candidates/profile_about_tab.html",
         {
             "candidate": candidate_obj,
+            # Application (Form 1) answers only; Form 2 lives in Hiring Handoff.
+            "screening_answers": list(
+                answers_for_candidate(candidate_obj, form_type=FORM_ONE)
+            ),
+            # Second section of the tab: the Final HR Round -> Hired handoff.
+            "handoff_answers": list(
+                answers_for_candidate(candidate_obj, form_type=FORM_TWO)
+            ),
+            # The legacy answer blob, still shown for applications whose
+            # answers could not be converted by migration 0013.
+            "survey": RecruitmentSurveyAnswer.objects.filter(
+                candidate_id=candidate_obj
+            ).first(),
         },
     )
 
@@ -1754,12 +1853,22 @@ def candidate_survey_tab(request, pk, **kwargs):
     """
 
     candidate_obj = Candidate.find(pk)
+    # Screening answers are rows joined to the frozen question, so each one
+    # shows the question as it was when the job opening was published. One
+    # query, pre-joined -- no per-answer lookup while rendering.
+    from recruitment.services.screening import answers_for_candidate
+
+    screening_answers = list(answers_for_candidate(candidate_obj))
+    # The legacy blob is still passed so applications whose answers could not be
+    # converted (unmatched/ambiguous wording -- see migration 0013) remain
+    # visible instead of silently vanishing. Nothing writes it any more.
     survey = RecruitmentSurveyAnswer.objects.filter(candidate_id=pk).first()
     return render(
         request,
         "cbv/candidates/profile_survey_tab.html",
         {
             "candidate": candidate_obj,
+            "screening_answers": screening_answers,
             "survey": survey,
         },
     )
@@ -1808,12 +1917,38 @@ def candidate_history_tab(request, pk, **kwargs):
     method for rendering history tab
     """
 
-    candidate_obj = Candidate.find(pk)
+    # candidate_obj = Candidate.find(pk)
+    # Same per-candidate rule as the rest of the candidate pages: company
+    # scope plus drive manager / that stage's manager / company-wide HR.
+    from recruitment.services import candidate as candidate_service
+    from recruitment.services.errors import RecruitmentError
+
+    try:
+        candidate_obj = candidate_service.get_candidate_for_user(request.user, pk)
+    except RecruitmentError as error:
+        return HorillaRedirect(request, message=str(error))
+    # PRD History/Audit: the candidate's recruitment timeline -- application,
+    # stage changes, interview scheduling, offer/handoff/hired, rejection.
+    # Those are business events in RecruitmentAuditEvent. candidate.tracking
+    # only carries simple-history field diffs, and the activity feed's
+    # normaliser expects auditlog LogEntry objects, so the events are passed
+    # separately and rendered alongside it rather than forced through it.
+    from recruitment.models import RecruitmentAuditEvent
+
+    recruitment_events = (
+        RecruitmentAuditEvent.objects.entire()
+        .filter(candidate=candidate_obj)
+        .select_related("actor", "stage")
+        .order_by("-timestamp", "-id")
+        if candidate_obj
+        else []
+    )
     return render(
         request,
         "candidate/history.html",
         {
             "candidate": candidate_obj,
+            "recruitment_events": recruitment_events,
         },
     )
 
@@ -1989,21 +2124,20 @@ def candidate_update(request, cand_id, **kwargs):
                 request.POST, request.FILES, instance=candidate_obj
             )
             if form.is_valid():
+                from recruitment.services.candidate import entry_stage
+
                 candidate_obj = form.save()
                 if candidate_obj.stage_id is None:
-                    candidate_obj.stage_id = Stage.objects.filter(
-                        recruitment_id=candidate_obj.recruitment_id,
-                        stage_type="initial",
-                    ).first()
+                    candidate_obj.stage_id = entry_stage(candidate_obj.recruitment_id)
                 if candidate_obj.stage_id is not None:
                     if (
                         candidate_obj.stage_id.recruitment_id
                         != candidate_obj.recruitment_id
                     ):
-                        candidate_obj.stage_id = (
-                            candidate_obj.recruitment_id.stage_set.filter(
-                                stage_type="initial"
-                            ).first()
+                        # The stage belongs to a different opening -- fall back
+                        # to this opening's own entry stage.
+                        candidate_obj.stage_id = entry_stage(
+                            candidate_obj.recruitment_id
                         )
                 if _query_param_truthy(request.GET, "onboarding"):
                     candidate_obj.hired = True
@@ -2593,8 +2727,36 @@ def stage_sequence_update(request):
     if not sequence_data:
         return JsonResponse({"type": "error", "message": _("Missing Sequence")})
 
+    # for stage_id, seq in sequence_data.items():
+    #     stage = Stage.objects.get(id=stage_id)
+    #     stage.sequence = seq
+    #     stage.save()
+    # PRD: fixed stages never move, and a custom stage stays between Applied
+    # and Final HR Round; anything else in the payload is ignored.
+    from recruitment.models import TERMINAL_STAGE_DEFAULTS
+
+    lowest_terminal = min(sequence for _t, _n, sequence in TERMINAL_STAGE_DEFAULTS)
     for stage_id, seq in sequence_data.items():
-        stage = Stage.objects.get(id=stage_id)
+        stage = Stage.objects.filter(id=stage_id).first()
+        try:
+            seq = int(seq)
+        except (TypeError, ValueError):
+            continue
+        if stage is None or stage.is_fixed:
+            continue
+        # Only stages of drives this user manages.
+        from recruitment.services.authorization import is_drive_manager
+
+        if not is_drive_manager(request.user, stage.recruitment_id):
+            continue
+        applied = (
+            stage.recruitment_id.stage_set.filter(stage_type="applied")
+            .values_list("sequence", flat=True)
+            .first()
+            or 0
+        )
+        if not applied < seq < lowest_terminal:
+            continue
         stage.sequence = seq
         stage.save()
     return JsonResponse({"type": "success", "message": "Stage sequence updated"})
@@ -3156,18 +3318,72 @@ def update_candidate_rating(request, cand_id):
     return redirect(recruitment_pipeline)
 
 
-def open_recruitments(request):
+def open_recruitments(request, slug=None):
     """
     This method is used to render the open recruitment page
     """
-    recruitments = Recruitment.default.filter(
-        closed=False, is_published=True, is_active=True
+    # A CLOSED opening stays on the public listing (PRD: "new applications
+    # stop being accepted, but the listing stays visible"). Whether it still
+    # ACCEPTS an application is a separate gate, enforced in
+    # surveys.application_form() on status == PUBLISHED.
+    #
+    # Company-scoped (PRD): a signed-in user sees only their selected
+    # company's openings (the company manager applies the context), and the
+    # public page is narrowed with ?company=<id> -- the per-company link.
+    from django.contrib.messages import get_messages
+    from django.core.cache import cache
+
+    from django.http import Http404
+
+    from recruitment.services.job_opening import (
+        PUBLIC_LISTING_TTL,
+        apply_career_page_framing,
+        company_id_for_career_slug,
+        public_listing_cache_key,
+    )
+
+    # company = request.GET.get("company")
+    # company = company if company and company.isdigit() else None
+    # Public link is /recruitment/careers/<slug>/ (e.g. acme-manufacturing),
+    # not ?company=<id>.
+    company = None
+    if slug:
+        company = company_id_for_career_slug(slug)
+        if company is None:
+            raise Http404("No career page found.")
+    # Anonymous visitors (career pages, iframes) get the cached page from
+    # Redis; it is retired whenever a job opening changes. Signed-in users and
+    # pages carrying a one-off message are always rendered live.
+    cache_key = None
+    if company and not request.user.is_authenticated and not len(get_messages(request)):
+        cache_key = public_listing_cache_key(company)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return apply_career_page_framing(HttpResponse(cached), company)
+
+    if company:
+        base_qs = Recruitment.default.filter(company_id=company)
+    elif request.user.is_authenticated:
+        base_qs = Recruitment.objects.all()
+    else:
+        # Anonymous without a career link: no company's jobs are listed.
+        base_qs = Recruitment.default.none()
+    recruitments = base_qs.filter(
+        status__in=[Recruitment.Status.PUBLISHED, Recruitment.Status.CLOSED],
+        is_active=True,
     )
     context = {
         "recruitments": recruitments,
+        # View/Apply on a career page stay under /careers/<slug>/.
+        "career_slug": slug if company else None,
     }
     response = render(request, "recruitment/open_recruitments.html", context)
-    response["X-Frame-Options"] = "ALLOW-FROM *"
+    # response["X-Frame-Options"] = "ALLOW-FROM *"
+    # ALLOW-FROM is obsolete (browsers ignore it, so any site could embed the
+    # page). Only the company's listed career sites may embed it now.
+    apply_career_page_framing(response, company)
+    if cache_key:
+        cache.set(cache_key, response.content, PUBLIC_LISTING_TTL)
 
     return response
 

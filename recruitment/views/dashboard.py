@@ -62,8 +62,10 @@ def dashboard(request):
 
     initial = []
     for job in jobs:
+        # Applied is the seeded entry stage; "initial" is still counted for
+        # openings that predate the three-stage default.
         ini = Candidate.objects.filter(
-            job_position_id=job, stage_id__stage_type="initial"
+            job_position_id=job, stage_id__stage_type__in=["applied", "initial"]
         )
         initial.append(ini.count())
 

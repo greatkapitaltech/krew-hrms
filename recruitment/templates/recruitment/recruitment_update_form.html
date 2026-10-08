@@ -147,17 +147,14 @@
                     >
                     {{form.linkedin_account_id}} {{form.linkedin_account_id.errors}}
                 </div>
-                <div class="col-12 col-sm-12 col-md-12 col-lg-4">
-                    <label
-                        class="oh-label"
-                        for="{{form.is_published.id_for_label}}"
-                        title="{{form.is_published.help_text}}"
-                        >{{form.is_published.label}} ?</label
-                    >
-                    <div class="w-100 d-flex" style="align-items: center">
-                        <div class="oh-switch">{{form.is_published}}</div>
-                    </div>
-                </div>
+                {% comment %}
+                The "Is Published?" switch was removed. is_published is now a
+                derived mirror of Recruitment.status, written only by
+                apply_status(), and RecruitmentCreationForm excludes it -- so
+                {{form.is_published}} already rendered nothing here, leaving a
+                label beside an empty switch. Publication is the explicit
+                Publish transition, which validates and audits.
+                {% endcomment %}
                 <div class="col-12 col-sm-12 col-md-12 col-lg-4">
                     <label class="oh-label" for="{{form.optional_profile_image.id_for_label}}" title="{{form.optional_profile_image.help_text}}">
                         {{form.optional_profile_image.label}} ?

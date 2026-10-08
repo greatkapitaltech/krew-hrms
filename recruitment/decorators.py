@@ -216,3 +216,39 @@ def candidate_login_required(view_func):
         return redirect("candidate-login/")
 
     return _wrapped_view
+
+
+def drive_manager_required(view):
+    """
+    PRD: adding, editing, removing and staffing stages are drive-level actions
+    (the opening's Managers / HR), not Stage Manager actions. Resolves the job
+    opening from the stage in the URL (stage_id / sid / pk) or a posted
+    recruitment_id, then refuses anyone who does not manage it.
+    """
+    from horilla.http import HorillaRedirect
+    from django.utils.translation import gettext as _
+    from recruitment.services.authorization import is_drive_manager
+
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        opening = None
+        stage_pk = kwargs.get("stage_id") or kwargs.get("sid") or kwargs.get("pk")
+        if stage_pk:
+            stage = Stage.objects.filter(pk=stage_pk).select_related("recruitment_id").first()
+            opening = stage.recruitment_id if stage else None
+        if opening is None:
+            rec_id = request.POST.get("recruitment_id") or request.GET.get("recruitment_id")
+            if rec_id and str(rec_id).isdigit():
+                opening = Recruitment.objects.filter(pk=rec_id).first()
+        if opening is not None and not is_drive_manager(request.user, opening):
+            messages.error(
+                request,
+                _("Only this job opening's managers can add, edit or remove stages."),
+            )
+            if request.headers.get("HX-Request") == "true":
+                return HorillaRedirect(request)
+            return handle_no_permission(request)
+        return view(request, *args, **kwargs)
+
+    return wrapper
+

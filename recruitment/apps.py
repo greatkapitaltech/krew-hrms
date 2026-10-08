@@ -26,6 +26,12 @@ class RecruitmentConfig(AppConfig):
 
         from horilla.urls import urlpatterns
         from recruitment import signals
+        from recruitment import audit_signals  # noqa: F401  (set-up audit trail)
+        # Start the background jobs (auto-close at End Date) in every server
+        # process, like payroll/attendance. It was only imported from
+        # recruitment/migrations/__init__.py, which gunicorn never loads, so in
+        # production the scheduler never started.
+        from recruitment import scheduler  # noqa: F401
 
         settings.APPS.append("recruitment")
         urlpatterns.append(

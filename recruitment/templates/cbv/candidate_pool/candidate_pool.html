@@ -1,0 +1,27 @@
+{% extends "index.html" %}
+{% load i18n %}
+{% load static %}
+
+{% comment %}
+Candidate Pool container. The nav bar and the table both load over HTMX, the
+same pattern the Candidates and Interview screens use, so the Pool behaves like
+every other Recruitment list (filter tags, pagination, group-by all work).
+
+Rows open the SAME Candidate Detail the Pipeline opens -- there is deliberately
+no second detail implementation here.
+{% endcomment %}
+
+{% block content %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+
+<div class="oh-wrapper">
+    <div hx-get="{% url 'candidate-pool-nav' %}?{{ request.GET.urlencode }}" hx-trigger="load"></div>
+
+    {% include "generic/components.html" %}
+
+    <div class="oh-wrapper" id="listContainer"
+         hx-get="{% url 'candidate-pool-list' %}?{{ request.GET.urlencode }}"
+         hx-trigger="load">
+    </div>
+</div>
+{% endblock content %}

@@ -1,0 +1,107 @@
+{% load i18n %}
+
+{% comment %}
+The resolved Form 1 and Form 2 question sets for one job opening.
+
+"Source" is the point of this table: Template means the question comes from the
+selected reusable template and is shared with every other opening using it;
+Job Opening means it was added for this opening alone and the template is
+untouched.
+
+Before publication this is what publication WOULD freeze. Afterwards it is the
+frozen snapshot itself, so the review screen keeps showing the real set and
+later template edits cannot change it.
+
+Context: `sections` (from recruitment.services.screening.question_sections),
+`job_opening`, and `can_add` -- the review screen includes this with can_add
+unset, so no Add Question button appears there.
+{% endcomment %}
+
+{% for section in sections %}
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="oh-label mb-0">{{ section.title }}</span>
+            {% comment %}
+            Shown either way: hiding it on a published opening read as the
+            action being missing rather than deliberately closed, so it stays
+            visible and disabled with the reason.
+            {% endcomment %}
+            {% if can_add %}
+                <button type="button"
+                        class="oh-btn oh-btn--light-bkg oh-btn--small"
+                        hx-get="{% url 'job-opening-question-add' job_opening.pk %}?form_type={{ section.form_type }}"
+                        hx-target="#objectCreateModalTarget"
+                        data-toggle="oh-modal-toggle"
+                        data-target="#objectCreateModal">
+                    <ion-icon name="add-outline"></ion-icon>
+                    {% trans "Add Question" %}
+                </button>
+            {% else %}
+                <button type="button" class="oh-btn oh-btn--light-bkg oh-btn--small" disabled
+                        title="{% trans 'Published - this question set is frozen' %}">
+                    <ion-icon name="add-outline"></ion-icon>
+                    {% trans "Add Question" %}
+                </button>
+            {% endif %}
+        </div>
+
+        <p class="small text-muted mb-2">
+            {{ section.subtitle }}
+            <br>
+            {% trans "Template" %}:
+            {% for template in section.templates %}
+                {{ template }}{% if not forloop.last %}, {% endif %}
+            {% empty %}
+                {% trans "None selected" %}
+            {% endfor %}
+        </p>
+
+        {% if section.questions %}
+            <table class="oh-table oh-table--sm">
+                <thead>
+                    <tr>
+                        <th>{% trans "Question" %}</th>
+                        <th>{% trans "Type" %}</th>
+                        <th>{% trans "Required" %}</th>
+                        <th>{% trans "Max Files" %}</th>
+                        <th>{% trans "Source" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for question in section.questions %}
+                        <tr>
+                            <td>{{ question.wording }}</td>
+                            <td>{{ question.question_type_display }}</td>
+                            <td>
+                                {% if question.is_mandatory %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}
+                            </td>
+                            <td>
+                                {% if question.is_file %}
+                                    {{ question.max_files }}
+                                {% else %}
+                                    &mdash;
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if question.source == "job_opening" %}
+                                    <span class="oh-badge oh-badge--warning">{% trans "Job Opening" %}</span>
+                                {% else %}
+                                    <span class="oh-badge oh-badge--secondary">{% trans "Template" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if section.questions.0.frozen %}
+                <small class="text-muted">
+                    {% trans "Frozen at publication — editing the template no longer affects this opening." %}
+                </small>
+            {% endif %}
+        {% else %}
+            <p class="text-muted small mb-0">
+                {% trans "No questions yet. Select a template, or add a question for this opening." %}
+            </p>
+        {% endif %}
+    </div>
+{% endfor %}

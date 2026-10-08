@@ -1,0 +1,75 @@
+{% load i18n %}
+
+{% comment %}
+Questions added on the CREATE screen, before the job opening exists.
+
+They are held per form type and written as real questions attached to this
+opening the moment it is saved, so "pick a template, then add a few questions
+for this opening" happens in one pass. Nothing reaches the question bank until
+then -- abandoning the form leaves nothing behind.
+
+The template's own questions are not listed here: there is no opening yet to
+resolve them against. They appear, together with these, on the Save & Review
+summary and on the opening's own form afterwards.
+{% endcomment %}
+
+<div id="pendingQuestions-{{ form_type }}">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="oh-label mb-0">
+            {% if form_type == "form2" %}
+                {% trans "Extra handoff questions for this opening" %}
+            {% else %}
+                {% trans "Extra questions for this opening" %}
+            {% endif %}
+        </span>
+        <button type="button"
+                class="oh-btn oh-btn--light-bkg oh-btn--small"
+                hx-get="{% url 'job-opening-pending-question-add' %}?form_type={{ form_type }}"
+                hx-target="#objectCreateModalTarget"
+                data-toggle="oh-modal-toggle"
+                data-target="#objectCreateModal">
+            <ion-icon name="add-outline"></ion-icon>
+            {% trans "Add Question" %}
+        </button>
+    </div>
+
+    {% if pending %}
+        <table class="oh-table oh-table--sm">
+            <thead>
+                <tr>
+                    <th>{% trans "Question" %}</th>
+                    <th>{% trans "Type" %}</th>
+                    <th>{% trans "Required" %}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in pending %}
+                    <tr>
+                        <td>{{ entry.question }}</td>
+                        <td>{{ entry.type_label|default:entry.type }}</td>
+                        <td>
+                            {% if entry.is_mandatory %}{% trans "Yes" %}{% else %}{% trans "No" %}{% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="oh-btn oh-btn--light-bkg oh-btn--small"
+                                    hx-get="{% url 'job-opening-pending-question-remove' %}?form_type={{ form_type }}&index={{ forloop.counter0 }}"
+                                    hx-target="#pendingQuestions-{{ form_type }}"
+                                    hx-swap="outerHTML"
+                                    title="{% trans 'Remove' %}">
+                                {% trans "Remove" %}
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <small class="text-muted d-block">
+            {% trans "Added to this opening when you Save & Review. The template is not changed." %}
+        </small>
+    {% else %}
+        <small class="text-muted d-block">
+            {% trans "The selected template's questions apply. Add Question puts extra ones on this opening only." %}
+        </small>
+    {% endif %}
+</div>

@@ -2,7 +2,56 @@
 {% load horillafilters %}
 {% load static %}
 
-{% if candidate.recruitmentsurveyanswer_set.all %}
+{% comment %}
+Screening answers come from CandidateAnswer -> JobOpeningQuestion, so each row
+shows the question AS IT WAS when the job opening was published. The previous
+version iterated the answer_json blob, whose keys were the question wording at
+submission time with a per-type prefix -- editing a question afterwards silently
+changed what this page claimed the candidate had been asked.
+
+candidate.screening_answers is pre-joined to the snapshot by the view, so this
+loop issues no query per row.
+{% endcomment %}
+{% if candidate.screening_answers.all %}
+    <div class="oh-survey__table">
+        {% for answer in candidate.screening_answers.all %}
+            <div class="oh-survey__table-row">
+                <div class="oh-survey__table-col">
+                    {{ answer.job_opening_question.wording }}
+                    {% if answer.job_opening_question.is_mandatory %}
+                        <span class="text-danger">*</span>
+                    {% endif %}
+                </div>
+                <div class="oh-survey__table-col">
+                    {% if answer.job_opening_question.question_type == "file" %}
+                        {% if answer.attachment %}
+                            <a href="{{ answer.attachment.url }}" target="_blank">{{ answer.answer|default:answer.attachment.name }}</a>
+                        {% else %}
+                            &mdash;
+                        {% endif %}
+                    {% elif answer.job_opening_question.question_type == "percentage" %}
+                        {{ answer.answer|default:"0" }}%
+                    {% elif answer.job_opening_question.question_type == "rating" %}
+                        {{ answer.answer|default:"&mdash;" }} / 5
+                    {% elif answer.answer %}
+                        {{ answer.answer }}
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% elif candidate.recruitmentsurveyanswer_set.all %}
+    {% comment %}
+    Fallback for applications whose answers were not converted from the legacy
+    blob (unmatched or ambiguous wording -- see migration 0013). The blob is
+    preserved on purpose, so those answers stay visible here rather than
+    silently disappearing until someone reviews them.
+    {% endcomment %}
+    <div class="oh-alert oh-alert--warning mb-2">
+        {% trans "These answers are shown from the legacy record and are pending review." %}
+    </div>
     {% for surveys in candidate.recruitmentsurveyanswer_set.all %}
         <div class="oh-survey__table">
             {% for question, answer_list in surveys.answer.items %}

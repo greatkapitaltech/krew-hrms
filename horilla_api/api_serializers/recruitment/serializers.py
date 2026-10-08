@@ -112,6 +112,25 @@ class RecruitmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recruitment
         fields = "__all__"
+        # Lifecycle state is not client-writable. Without this, a PATCH of
+        # {"status": "PUBLISHED"} (or of the is_published/closed mirrors)
+        # would move a job opening through the workflow with no transition
+        # validation, no object-scoped permission check and no audit event.
+        # Clients use the explicit submit-for-review / publish / close
+        # endpoints instead.
+        read_only_fields = (
+            "status",
+            "is_published",
+            "closed",
+            "submitted_for_review_at",
+            "submitted_for_review_by",
+            "published_at",
+            "published_by",
+            "closed_at",
+            "closed_by",
+            "removed_at",
+            "removed_by",
+        )
         extra_kwargs = {
             "recruitment_managers": {"read_only": True},
             "open_positions": {"read_only": True},
@@ -527,6 +546,64 @@ class CandidateDocumentSerializer(serializers.ModelSerializer):
                 "title": obj.document_request_id.title,
             }
         return None
+
+
+class JobOpeningQuestionSerializer(serializers.ModelSerializer):
+    """
+    A published job opening's frozen screening question. READ-ONLY.
+
+    Every field is read-only, so a client cannot change wording, question_type,
+    options, is_mandatory or display_order on a published snapshot through the
+    API -- not by PATCH, not by PUT, not by supplying an id. Changing a
+    published question set is not an update; it is a new job opening.
+
+    `is_reconstructed` is exposed deliberately: a consumer needs to know when a
+    snapshot was rebuilt by migration from today's question text rather than
+    captured at the original publication.
+    """
+
+    class Meta:
+        from recruitment.models import JobOpeningQuestion
+
+        model = JobOpeningQuestion
+        fields = [
+            "id",
+            "job_opening",
+            "source_question",
+            "wording",
+            "question_type",
+            "options",
+            "is_mandatory",
+            "display_order",
+            "is_reconstructed",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
+class CandidateAnswerSerializer(serializers.ModelSerializer):
+    """
+    One candidate answer, always presented with its frozen question.
+
+    The question fields are nested read-only, so a client reading an answer sees
+    the wording as it was published rather than the current question text.
+    """
+
+    job_opening_question = JobOpeningQuestionSerializer(read_only=True)
+
+    class Meta:
+        from recruitment.models import CandidateAnswer
+
+        model = CandidateAnswer
+        fields = [
+            "id",
+            "candidate",
+            "job_opening_question",
+            "answer",
+            "attachment",
+            "created_at",
+        ]
+        read_only_fields = ["id", "job_opening_question", "created_at"]
 
 
 class LinkedInAccountSerializer(serializers.ModelSerializer):

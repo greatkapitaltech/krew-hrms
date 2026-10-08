@@ -6,7 +6,18 @@
     }
 </style>
 
-{% remove_item_at survey.answer 0 as filtered_answers %}
+{% comment %}
+Screening answers render from CandidateAnswer -> JobOpeningQuestion, so every
+row shows the question wording, type and mandatory flag AS FROZEN when the job
+opening was published. Editing the reusable question afterwards cannot change
+what this page says the candidate was asked.
+
+The legacy `survey.answer` blob (keyed by question wording, with per-type name
+prefixes) is only used as a fallback for answers migration 0013 could not map
+confidently. That path also relied on `remove_item_at ... 0` to drop the first
+blob key positionally, which silently discarded a real answer whenever
+csrfmiddlewaretoken was not first.
+{% endcomment %}
 
 <div class="space-y-2">
     <div class="oh-btn-group p-3 justify-between items-center">
@@ -15,6 +26,46 @@
         </span>
     </div>
 
+    {% for answer in screening_answers %}
+        <div class="bg-white rounded-lg border border-[#e7e7e7] p-4 hover:shadow-md transition-shadow">
+            <div class="text-base font-semibold text-gray-900 mb-2">
+                {{ forloop.counter }}. {{ answer.job_opening_question.wording }}
+                {% if answer.job_opening_question.is_mandatory %}
+                    <span class="text-danger">*</span>
+                {% endif %}
+            </div>
+            <div class="text-gray-600">
+                {% if answer.job_opening_question.question_type == "file" %}
+                    {% if answer.attachment %}
+                        <a href="{{ answer.attachment.url }}" class="text-blue-600 hover:underline" target="_blank">
+                            {{ answer.answer|default:answer.attachment.name }}
+                        </a>
+                    {% else %}
+                        &mdash;
+                    {% endif %}
+                {% elif answer.job_opening_question.question_type == "percentage" %}
+                    {{ answer.answer|default:"0" }}%
+                {% elif answer.job_opening_question.question_type == "rating" %}
+                    {{ answer.answer|default:"0" }} / 5
+                {% elif answer.job_opening_question.question_type == "checkbox" %}
+                    {{ answer.answer|default:"&mdash;" }}
+                {% elif answer.answer %}
+                    {{ answer.answer }}
+                {% else %}
+                    &mdash;
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+
+    {% if not screening_answers and survey %}
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+            {% trans "These answers come from the legacy record and are pending review." %}
+        </div>
+    {% endif %}
+
+    {% if not screening_answers %}
+    {% remove_item_at survey.answer 0 as filtered_answers %}
     {% for question, answer_list in filtered_answers %}
         {% if question|slice:"0:11" == "percentage_" %}
             <div class="bg-white rounded-lg border border-[#e7e7e7] p-4 hover:shadow-md transition-shadow">
@@ -139,4 +190,5 @@
             </div>
         </div>
     {% endfor %}
+    {% endif %}
 </div>

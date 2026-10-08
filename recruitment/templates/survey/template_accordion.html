@@ -107,6 +107,8 @@
                                     <div class="oh-sticky-table__tr">
                                         <div class="oh-sticky-table__th">{% trans "Question" %}</div>
                                         <div class="oh-sticky-table__th">{% trans "Type" %}</div>
+                                        {# Form 1 (public application) vs Form 2 (hiring handoff). #}
+                                        <div class="oh-sticky-table__th">{% trans "Form" %}</div>
                                         {% if perms.recruitment.change_recruitmentsurvey or perms.recruitment.delete_recruitmentsurvey %}
                                             <div class="oh-sticky-table__th" style="width: 90px">
                                                 {% trans "Actions" %}
@@ -137,6 +139,7 @@
                                                 </div>
                                             </div>
                                             <div class="oh-sticky-table__td">{{ question.get_type_display }}</div>
+                                            <div class="oh-sticky-table__td">{{ question.get_form_type_display }}</div>
                                             {% if perms.recruitment.change_recruitmentsurvey or perms.recruitment.delete_recruitmentsurvey %}
                                                 <div class="oh-sticky-table__td" onclick="event.stopPropagation()">
                                                     <div class="oh-btn-group">

@@ -39,6 +39,7 @@
         data-instance-order-by = "{{view.instance_order_by}}"
         data-group-order-by = "{{view.group_order_by}}"
         data-pre-move-check-url = "{{ view.pre_move_check_url }}"
+        data-drag-enabled = "{{ view.drag_enabled|yesno:'true,false' }}"
     > </div>
 
     <div class="flex gap-2.5 flex-nowrap overflow-auto groupContainer">
@@ -138,7 +139,7 @@
 </script>
 <script src="{% static 'js/genericKanban.js' %}"></script>
 
-{% if not is_choice_group %}
+{% if not is_choice_group and view.drag_enabled %}
 	<script>
 		$(document).ready(function () {
 			setTimeout(function() {

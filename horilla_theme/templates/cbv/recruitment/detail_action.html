@@ -1,5 +1,18 @@
 {% load basefilters i18n static %}
-{% if perms.recruitment.change_recruitment %}
+{% comment %}
+Pipeline / Stages for this opening, deep-linked through RecruitmentFilter's
+existing ?obj_id=<pk> single-opening filter.
+{% endcomment %}
+{% if perms.recruitment.view_recruitment and instance.status != "DRAFT" and instance.status != "REVIEW" %}
+    <a
+        class="oh-btn oh-btn--light-bkg oh-btn--secondary w-24 px-4 py-2 rounded-md text-xs flex items-center justify-center gap-2 transition duration-300"
+        href="{% url 'cbv-pipeline' %}?obj_id={{ instance.id }}"
+        title="{% trans 'Pipeline / Stages' %}"
+    >
+        <ion-icon name="git-branch-outline"></ion-icon>{% trans "Pipeline" %}
+    </a>
+{% endif %}
+{% if perms.recruitment.change_recruitment and instance.status != "CLOSED" and instance.status != "REMOVED" %}
     <a
         class="oh-btn oh-btn--light-bkg oh-btn--secondary w-24 px-4 py-2 rounded-md text-xs flex items-center justify-center gap-2 transition duration-300"
         data-toggle="oh-modal-toggle"
@@ -11,6 +24,10 @@
         <ion-icon name="create-outline"></ion-icon>{% trans "Edit" %}
     </a>
 
+{% endif %}
+
+{% comment %}
+Hidden per PRD: Archive bypasses the job-opening lifecycle and Delete hard-deletes; use Remove / Close from the list row.
     {% if perms.recruitment.delete_recruitment %}
         <a
             class="w-24 px-4 py-2 bg-danger text-white rounded-md text-xs flex items-center justify-center gap-2 hover:bg-danger-dark transition duration-300"
@@ -54,6 +71,7 @@
         {% trans "Delete" %}
     </a>
 {% endif %}
+{% endcomment %}
 
 {% if request.GET.detail %}
     <script>

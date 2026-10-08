@@ -159,12 +159,39 @@ class ListCandidates(HorillaListView):
             self.option_method = None
         self.action_method = "actions_col"
 
+        # Exportable screening-question columns.
+        #
+        # Sourced from the published JobOpeningQuestion snapshots so the column
+        # headings are the questions as they were frozen at publication, then
+        # topped up from the reusable bank so a question that has never been
+        # published still offers a column. Deduplicated by wording, because a
+        # column is one heading regardless of how many openings froze it.
+        from recruitment.models import JobOpeningQuestion
+
+        self.survey_question_mapping = {}
+        seen_wordings = set()
+
+        snapshot_questions = (
+            JobOpeningQuestion.objects.values("wording")
+            .annotate(pk=Min("source_question"))
+            .order_by("wording")
+        )
+        for question in snapshot_questions:
+            wording = question["wording"]
+            if question["pk"] is None or wording in seen_wordings:
+                continue
+            seen_wordings.add(wording)
+            survey_question = (wording, f"get_survey_question_{question['pk']}")
+            if survey_question not in self.export_fields:
+                self.export_fields.append(survey_question)
+
         unique_questions = RecruitmentSurvey.objects.values("question").annotate(
             pk=Min("pk")
         )
-        self.survey_question_mapping = {}
-
         for question in unique_questions:
+            if question["question"] in seen_wordings:
+                continue
+            seen_wordings.add(question["question"])
             survey_question = (
                 question["question"],
                 f"get_survey_question_{question['pk']}",
@@ -269,9 +296,35 @@ class ListCandidates(HorillaListView):
         """
 
         request = getattr(_thread_locals, "request", None)
+
+        # Candidate export is bulk PII, so it requires the explicit
+        # export_candidate permission. base.methods.has_export_access is
+        # deliberately NOT used: it returns True for every user of a company
+        # that has no DefaultExportPermission row configured, which is too
+        # permissive for this data. Enforced here, server-side, not by hiding
+        # the button.
+        from recruitment.services import candidate as candidate_service
+        from recruitment.services.errors import RecruitmentPermissionDenied
+
+        try:
+            candidate_service.assert_can_export(request.user)
+        except RecruitmentPermissionDenied as error:
+            return HttpResponse(str(error), status=403)
+
         ids = ast.literal_eval(request.POST["ids"])
         _columns = ast.literal_eval(request.POST["columns"])
-        queryset = self.model.objects.filter(id__in=ids)
+        # Company-scoped: a supplied id belonging to another tenant is not
+        # exported, so an IDOR through the id list cannot leak candidates.
+        queryset = candidate_service.accessible_candidates(request.user).filter(
+            id__in=ids
+        )
+        export_format_for_audit = request.POST.get("format", "xlsx")
+        candidate_service.record_export(
+            request.user,
+            queryset,
+            export_format=export_format_for_audit,
+            filters={"selected_ids": len(ids)},
+        )
         question_mapping = self.survey_question_mapping
         export_format = request.POST.get("format", "xlsx")
 
@@ -585,19 +638,9 @@ class CardCandidates(HorillaCardView):
 
             """,
         },
-        {
-            "action": _("Edit Rejected Candidate"),
-            "accessibility": "recruitment.cbv.accessibility.edit_reject",
-            "attrs": """
-                hx-target="#genericModalBody"
-                hx-swap="innerHTML"
-                data-toggle="oh-modal-toggle"
-                data-target="#genericModal"
-                hx-get="{get_add_to_reject}"
-                class="oh-dropdown__link"
-
-            """,
-        },
+        # "Edit Rejected Candidate" deliberately removed: rejection is terminal
+        # and sends the candidate an email, so the reason is not re-opened
+        # afterwards. It stays visible in History.
         {
             "action": _("Edit Profile"),
             "attrs": """
@@ -807,23 +850,35 @@ class ExportView(TemplateView):
 @method_decorator(manager_can_enter(perm="recruitment.view_candidate"), name="dispatch")
 class AddToRejectedCandidatesView(View):
     """
-    Class for Add to reject candidate
+    Reject a candidate: mandatory remark, automatic candidate email.
+
+    The save goes through recruitment.services.candidate.reject_candidate,
+    which owns everything this view previously left undone. Saving the form
+    directly only wrote a RejectedCandidate row: the candidate was never
+    actually marked ``canceled``, never moved to the cancelled stage, no audit
+    event was written, and -- the PRD requirement -- no email reached the
+    candidate. The service does all four in one transaction, so the Pool, the
+    pipeline and History cannot disagree about who was rejected.
+
+    form.save() is deliberately NOT called: the service creates the
+    RejectedCandidate row itself, and saving here too would race it.
     """
 
     template_name = "onboarding/rejection/form.html"
+
+    def _instance(self, candidate_id):
+        if not candidate_id:
+            return None
+        return RejectedCandidate.objects.filter(candidate_id=candidate_id).first()
 
     def get(self, request, *args, **kwargs):
         """
         get method
         """
         candidate_id = request.GET.get("candidate_id")
-        instance = None
-        if candidate_id:
-            instance = RejectedCandidate.objects.filter(
-                candidate_id=candidate_id
-            ).first()
         form = RejectedCandidateForm(
-            initial={"candidate_id": candidate_id}, instance=instance
+            initial={"candidate_id": candidate_id},
+            instance=self._instance(candidate_id),
         )
         return render(request, self.template_name, {"form": form})
 
@@ -831,16 +886,41 @@ class AddToRejectedCandidatesView(View):
         """
         post method
         """
+        from recruitment.services import candidate as candidate_service
+        from recruitment.services.errors import RecruitmentError
+
         candidate_id = request.GET.get("candidate_id")
-        instance = None
-        if candidate_id:
-            instance = RejectedCandidate.objects.filter(
-                candidate_id=candidate_id
-            ).first()
-        form = RejectedCandidateForm(request.POST, instance=instance)
+        form = RejectedCandidateForm(
+            request.POST, instance=self._instance(candidate_id)
+        )
         if form.is_valid():
-            form.save()
-            messages.success(request, _("Candidate reject reason saved"))
+            # The candidate is taken from the validated form rather than the
+            # query string, so a mismatched id cannot reject someone else.
+            candidate = form.cleaned_data["candidate_id"]
+            reasons = [
+                reason.pk for reason in form.cleaned_data.get("reject_reason_id") or []
+            ]
+            try:
+                rejected = candidate_service.reject_candidate(
+                    request.user,
+                    candidate.pk,
+                    reason=form.cleaned_data["description"],
+                    reject_reason_ids=reasons,
+                )
+            except RecruitmentError as error:
+                form.add_error(None, str(error))
+                return render(request, self.template_name, {"form": form})
+            messages.success(request, _("Candidate rejected."))
+            if getattr(rejected, "rejection_email_sent", None) is False:
+                # The rejection stands; the notification did not go out. Say so
+                # rather than leaving the user to assume the candidate knows.
+                messages.warning(
+                    request,
+                    _(
+                        "The rejection email could not be sent. Check the Mail "
+                        "Server configuration under Settings."
+                    ),
+                )
             return HorillaRedirect(request)
         return render(request, self.template_name, {"form": form})
 
@@ -959,13 +1039,26 @@ class ToSkillZoneFormView(HorillaFormView):
 )
 class RejectReasonFormView(HorillaFormView):
     """
-    Form View
+    Reject a candidate: mandatory remark, automatic candidate email.
+
+    This is the view the pipeline's Reject action actually reaches. The save
+    goes through recruitment.services.candidate.reject_candidate, which owns
+    everything this view previously left undone: it only wrote a
+    RejectedCandidate row, so the candidate was never actually marked
+    ``canceled``, never moved to the cancelled stage, no audit event was
+    written, and -- the PRD requirement -- no email reached the candidate. The
+    Pool read them as rejected (it reconciles the row) while the pipeline still
+    showed them as active, and nothing was ever sent.
+
+    form.save() is deliberately NOT called: the service creates the
+    RejectedCandidate row itself, and saving here too would race it.
     """
 
     model = RejectedCandidate
     form_class = RejectedCandidateForm
-    new_display_title = "Rejected Candidate"
-    dynamic_create_fields = [("reject_reason_id", DynamicRejectReasonFormView)]
+    new_display_title = "Reject Candidate"
+    # Hidden per PRD (remark only, no reason picker):
+    # dynamic_create_fields = [("reject_reason_id", DynamicRejectReasonFormView)]
     template_name = "candidate/candidate_rejection_form.html"
 
     def get_initial(self) -> dict:
@@ -982,11 +1075,40 @@ class RejectReasonFormView(HorillaFormView):
 
     def form_valid(self, form: RejectedCandidateForm) -> HttpResponse:
         """
-        Handles valid form submission and saves rejected candidate reason.
+        Reject the candidate through the service, then report what happened.
         """
-        if form.is_valid():
-            message = "Candidate reject reason saved"
-            messages.success(self.request, _(message))
-            form.save()
-            return self.HttpResponse()
-        return super().form_valid(form)
+        from recruitment.services import candidate as candidate_service
+        from recruitment.services.errors import RecruitmentError
+
+        if not form.is_valid():
+            return super().form_valid(form)
+
+        # Taken from the validated form rather than the query string, so a
+        # mismatched id cannot reject someone else.
+        candidate = form.cleaned_data["candidate_id"]
+        reasons = [
+            reason.pk for reason in form.cleaned_data.get("reject_reason_id") or []
+        ]
+        try:
+            rejected = candidate_service.reject_candidate(
+                self.request.user,
+                candidate.pk,
+                reason=form.cleaned_data["description"],
+                reject_reason_ids=reasons,
+            )
+        except RecruitmentError as error:
+            form.add_error(None, str(error))
+            return super().form_invalid(form)
+
+        messages.success(self.request, _("Candidate rejected."))
+        if getattr(rejected, "rejection_email_sent", None) is False:
+            # The rejection stands; the notification did not go out. Say so
+            # rather than leaving the user to assume the candidate knows.
+            messages.warning(
+                self.request,
+                _(
+                    "The rejection email could not be sent. Check the Mail "
+                    "Server configuration under Settings."
+                ),
+            )
+        return self.HttpResponse()

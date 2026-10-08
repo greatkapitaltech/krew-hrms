@@ -11,6 +11,7 @@ from recruitment import cbvs
 from recruitment import dashboard as rec_dashboard
 from recruitment.cbv import (
     candidate_mail_log,
+    candidate_pool,
     candidate_profile,
     candidate_reject_reason,
     candidates,
@@ -27,8 +28,12 @@ from recruitment.cbv import (
 from recruitment.forms import QuestionForm, RecruitmentCreationForm, StageCreationForm
 from recruitment.models import Candidate, Recruitment, RecruitmentSurvey, Stage
 from recruitment.views import actions
+from recruitment.views import career_page as career_page_views
+from recruitment.views import interview_meetings
+from recruitment.views import candidate_pool as candidate_pool_views
 from recruitment.views import dashboard as views_dashboard
-from recruitment.views import linkedin, search, surveys, views
+from recruitment.views import lifecycle
+from recruitment.views import linkedin, search, stage_actions, surveys, views
 
 urlpatterns = [
     path(
@@ -116,10 +121,86 @@ urlpatterns = [
         views.recruitment_close_pipeline,
         name="recruitment-close-pipeline",
     ),
+    # No reopen route: CLOSED is terminal (see views.recruitment_close_pipeline).
+    # ---- Job-opening lifecycle (DRAFT -> REVIEW -> PUBLISHED -> CLOSED) ----
+    # All POST-only: a lifecycle transition is never a GET, so it cannot be
+    # triggered by a link, a prefetch or a crawler.
     path(
-        "recruitment-reopen-pipeline/<int:rec_id>/",
-        views.recruitment_reopen_pipeline,
-        name="recruitment-reopen-pipeline",
+        "job-opening/<int:rec_id>/submit-for-review/",
+        lifecycle.submit_for_review,
+        name="job-opening-submit-for-review",
+    ),
+    path(
+        "job-opening/<int:rec_id>/send-back/",
+        lifecycle.send_back_for_changes,
+        name="job-opening-send-back",
+    ),
+    path(
+        "job-opening/<int:rec_id>/publish/",
+        lifecycle.publish,
+        name="job-opening-publish",
+    ),
+    path(
+        "job-opening/<int:rec_id>/close/",
+        lifecycle.close,
+        name="job-opening-close",
+    ),
+    path(
+        "job-opening/<int:rec_id>/remove/",
+        lifecycle.remove,
+        name="job-opening-remove",
+    ),
+    path(
+        "job-opening/<int:rec_id>/review-summary/",
+        lifecycle.publication_checklist,
+        name="job-opening-review-summary",
+    ),
+    # Per-opening screening questions: the resolved Form 1 / Form 2 sets, and
+    # adding a question that belongs to THIS opening only (attached through
+    # RecruitmentSurvey.recruitment_ids, never to the shared template).
+    # Career Page: public job link, embed code and allowed embedding sites.
+    path(
+        "job-opening/career-page/",
+        career_page_views.career_page,
+        name="job-opening-career-page",
+    ),
+    # Interview in Google Calendar; the Meet link is fetched back into Krew.
+    path(
+        "interview-meeting/schedule/<int:cand_id>/",
+        interview_meetings.schedule_interview,
+        name="interview-meeting-schedule",
+    ),
+    path(
+        "interview-meeting/<int:pk>/refresh/",
+        interview_meetings.refresh_meeting,
+        name="interview-meeting-refresh",
+    ),
+    path(
+        "job-opening/<int:rec_id>/questions/",
+        surveys.job_opening_questions,
+        name="job-opening-questions",
+    ),
+    path(
+        "job-opening/<int:rec_id>/questions/add/",
+        surveys.job_opening_question_add,
+        name="job-opening-question-add",
+    ),
+    # Questions added on the create screen, before the opening exists: held in
+    # the session and attached the moment it is saved.
+    path(
+        "job-opening/pending-questions/",
+        surveys.job_opening_pending_questions,
+        name="job-opening-pending-questions",
+    ),
+    path(
+        "job-opening/pending-questions/add/",
+        surveys.job_opening_pending_question_add,
+        name="job-opening-pending-question-add",
+    ),
+    path(
+        "job-opening/pending-questions/remove/",
+        surveys.job_opening_pending_question_remove,
+        name="job-opening-pending-question-remove",
     ),
     path("pipeline/", views.recruitment_pipeline, name="pipeline"),
     path("pipeline-search/", views.filter_pipeline, name="pipeline-search"),
@@ -153,6 +234,33 @@ urlpatterns = [
         "candidate-stage-change/",
         views.change_candidate_stage,
         name="candidate-stage-change",
+    ),
+    # Pipeline decision actions. Move Forward carries the mandatory remark; the
+    # bulk pair deliberately skips it (PRD) but nothing else.
+    path(
+        "candidate-move-forward/<int:pk>/",
+        stage_actions.move_forward,
+        name="candidate-move-forward",
+    ),
+    path(
+        "candidate-move-backward/<int:pk>/",
+        stage_actions.move_backward,
+        name="candidate-move-backward",
+    ),
+    path(
+        "candidate-send-application-link/<int:pk>/",
+        stage_actions.send_application_link,
+        name="candidate-send-application-link",
+    ),
+    path(
+        "candidates-bulk-move-forward/",
+        stage_actions.bulk_move_forward,
+        name="candidates-bulk-move-forward",
+    ),
+    path(
+        "candidates-bulk-reject/",
+        stage_actions.bulk_reject,
+        name="candidates-bulk-reject",
     ),
     # path("pipeline-card/", views.recruitment_pipeline_card, name="pipeline-card"),
     path(
@@ -206,6 +314,11 @@ urlpatterns = [
         "stage-update-pipeline/<int:pk>/",
         stage_view.StageFormView.as_view(),
         name="stage-update-pipeline",
+    ),
+    path(
+        "stage-managers-update/<int:pk>/",
+        stage_view.StageManagersFormView.as_view(),
+        name="stage-managers-update",
     ),
     # path(
     #     "stage-update-pipeline/<int:stage_id>/",
@@ -403,6 +516,36 @@ urlpatterns = [
         surveys.application_form,
         name="application-form",
     ),
+    # Public contact-verification routes for the application page. Deliberately
+    # unauthenticated -- the applicant has no account -- and deliberately
+    # free of any company or opening id that the server does not re-resolve
+    # itself. The email token is single-use; the OTP attempt is addressed
+    # through the session, not a request parameter.
+    path(
+        "application-start-verification/",
+        surveys.application_start_verification,
+        name="application-start-verification",
+    ),
+    path(
+        "application-verify-email/<str:token>/",
+        surveys.application_verify_email,
+        name="application-verify-email",
+    ),
+    path(
+        "application-verification-status/",
+        surveys.application_verification_status,
+        name="application-verification-status",
+    ),
+    path(
+        "application-send-otp/",
+        surveys.application_send_otp,
+        name="application-send-otp",
+    ),
+    path(
+        "application-verify-otp/",
+        surveys.application_verify_otp,
+        name="application-verify-otp",
+    ),
     path(
         "send-acknowledgement/", views.send_acknowledgement, name="send-acknowledgement"
     ),
@@ -537,11 +680,6 @@ urlpatterns = [
         "recruitment-survey-question-template-delete/<int:survey_id>/",
         surveys.delete_survey_question,
         name="recruitment-survey-question-template-delete",
-    ),
-    path(
-        "candidate-survey/",
-        surveys.candidate_survey,
-        name="candidate-survey",
     ),
     path(
         "filter-survey/",
@@ -685,6 +823,23 @@ urlpatterns = [
         "open-recruitments/",
         views.open_recruitments,
         name="open-recruitments",
+    ),
+    # A company's public job list (career page / iframe), by unguessable slug.
+    path(
+        "careers/<slug:slug>/",
+        views.open_recruitments,
+        name="career-page",
+    ),
+    # Public View / Apply for one of that company's openings.
+    path(
+        "careers/<slug:slug>/jobs/<int:rec_id>/",
+        career_page_views.career_job_details,
+        name="career-job-details",
+    ),
+    path(
+        "careers/<slug:slug>/apply/<int:rec_id>/",
+        career_page_views.career_apply,
+        name="career-apply",
     ),
     path(
         "recruitment-details/<int:id>/",
@@ -1107,5 +1262,59 @@ urlpatterns = [
         "dashboard/api/joinings/",
         rec_dashboard.recruitment_joinings_monthly,
         name="recruitment-dashboard-joinings",
+    ),
+    # --- Candidate Pool (Feature 3) -------------------------------------
+    # Container, table and nav, following the same three-route pattern as the
+    # Candidates screen. Candidate Detail is reached through the existing
+    # candidate-view-individual / CandidateProfileView, not re-implemented.
+    path(
+        "candidate-pool/",
+        candidate_pool.CandidatePoolView.as_view(),
+        name="candidate-pool",
+    ),
+    path(
+        "candidate-pool/list/",
+        candidate_pool.CandidatePoolListView.as_view(),
+        name="candidate-pool-list",
+    ),
+    path(
+        "candidate-pool/nav/",
+        candidate_pool.CandidatePoolNavView.as_view(),
+        name="candidate-pool-nav",
+    ),
+    path(
+        "candidate-pool/export/",
+        candidate_pool_views.candidate_pool_export,
+        name="candidate-pool-export",
+    ),
+    path(
+        "candidate-pool/add/",
+        candidate_pool.PoolCandidateFormView.as_view(),
+        name="candidate-pool-add",
+    ),
+    path(
+        "candidate-pool/<int:pk>/map/form/",
+        candidate_pool_views.map_candidate_form,
+        name="candidate-pool-map-form",
+    ),
+    path(
+        "candidate-pool/<int:pk>/map/",
+        candidate_pool_views.map_candidate_to_job_opening,
+        name="candidate-pool-map",
+    ),
+    path(
+        "candidate-pool/<int:pk>/notes/",
+        candidate_pool_views.candidate_notes_tab,
+        name="candidate-pool-notes",
+    ),
+    path(
+        "candidate-pool/<int:pk>/documents/",
+        candidate_pool_views.candidate_documents_tab,
+        name="candidate-pool-documents",
+    ),
+    path(
+        "candidate-pool/<int:pk>/handoff/",
+        candidate_pool_views.candidate_handoff_tab,
+        name="candidate-pool-handoff",
     ),
 ]

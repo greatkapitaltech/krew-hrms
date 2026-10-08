@@ -1,45 +1,120 @@
 {% load i18n %}
 <div class="flex items-center justify-center gap-1" onclick="event.stopPropagation()">
+    {% comment %}
+    Replaced: the copied ?recruitmentId= link no longer opens for visitors.
     <a href="#" class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" onclick="event.preventDefault(); copyLink(window.location.origin+'/recruitment/application-form?recruitmentId={{instance.id}}')" title="{% trans "Share Link" %}">
       <ion-icon name="share-social-outline"></ion-icon>
     </a>
-    {% if perms.recruitment.change_recruitment %}
+    {% endcomment %}
+    {# Closed: only Pipeline, Duplicate and Remove. #}
+    {% if perms.recruitment.change_recruitment and instance.status != "CLOSED" %}
+    <a hx-get="{% url 'job-opening-career-page' %}?opening={{instance.id}}" hx-target="#genericModalBody" hx-swap="innerHTML"
+       data-toggle="oh-modal-toggle" data-target="#genericModal"
+       class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" title="{% trans 'Career page' %}">
+      <ion-icon name="share-social-outline"></ion-icon>
+    </a>
+    {% endif %}
+    {% comment %}
+    Pipeline / Stages for THIS opening. cbv-pipeline renders one tab per
+    opening; ?obj_id=<pk> is RecruitmentFilter's existing single-opening
+    filter, so the page opens straight onto this opening's stages rather than
+    making the user find its tab.
+
+    Gated on view_recruitment, which is the effective rule behind the sidebar's
+    pipeline entry (recruitment.sidebar.pipeline_accessibility).
+    {% endcomment %}
+    {# Not for Draft / In Review: the pipeline only lists live openings. #}
+    {% if perms.recruitment.view_recruitment and instance.status != "DRAFT" and instance.status != "REVIEW" %}
+    <a href="{% url 'cbv-pipeline' %}?obj_id={{instance.id}}" class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" title="{% trans 'Pipeline / Stages' %}">
+      <ion-icon name="git-branch-outline"></ion-icon>
+    </a>
+    {% endif %}
+    {% if perms.recruitment.change_recruitment and instance.status != "CLOSED" %}
     <a  hx-get="{% url 'recruitment-update' instance.id %}?instance_ids={{instance.ordered_ids}}" hx-target='#genericModalBody' hx-swap='innerHTML' data-toggle='oh-modal-toggle' data-target='#genericModal'  class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" title="{% trans 'Edit' %}"><ion-icon name="create-outline"></ion-icon></a>
     {% endif %}
-    <a hx-get="{% url 'recruitment-duplicate' instance.id %}" hx-target='#genericModalBody' hx-swap='innerHTML' data-toggle='oh-modal-toggle' data-target='#genericModal'  class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" title="{% trans 'Duplicate' %}"><ion-icon name="copy-outline"></ion-icon></a>
-    {% if perms.recruitment.delete_recruitment %}
-      {% if instance.is_active %}
+
+    {% comment %}
+    Lifecycle actions (PRD): Save & Review -> Publish, then Close / Remove.
+    A draft opens the summary screen, whose Publish passes it through REVIEW.
+
+    Each is a POST with a CSRF token because the endpoints are POST-only -- a
+    state transition must not be reachable by a link, prefetch or crawler.
+    The button shown depends on the current state, and the backend re-checks
+    permission, company scope and transition validity regardless, so hiding a
+    button is presentation only, never the security boundary.
+    {% endcomment %}
+
+    {% if perms.recruitment.change_recruitment %}
+      {% if instance.status == "DRAFT" or instance.status == "REVIEW" %}
         <a
-          hx-get="{% url 'recruitment-archive' instance.id %}"
-          hx-swap="none"
-          hx-confirm="{% trans 'Are you sure you want to archive this recruitment?' %}"
-          hx-on::after-request="if(event.detail.successful){$('#applyFilter').click();$('#reloadMessagesButton').click();}"
+          hx-get="{% url 'job-opening-review-summary' instance.id %}"
+          hx-target="#genericModalBody"
+          hx-swap="innerHTML"
+          data-toggle="oh-modal-toggle"
+          data-target="#genericModal"
           class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
-          title="{% trans 'Archive' %}"
-        ><ion-icon name="archive"></ion-icon></a>
-      {% else %}
-        <a
-          hx-get="{% url 'recruitment-archive' instance.id %}"
+          title="{% trans 'Review & Publish' %}"
+        ><ion-icon name="checkmark-done-outline"></ion-icon></a>
+      {% elif instance.status == "PUBLISHED" %}
+        {# Manual Close for any published opening; one with an End Date also closes automatically. #}
+        <form
+          hx-post="{% url 'job-opening-close' instance.id %}"
           hx-swap="none"
-          hx-confirm="{% trans 'Are you sure you want to unarchive this recruitment?' %}"
+          hx-confirm="{% trans 'Close this job opening? It will stop accepting new applications. This cannot be undone.' %}"
           hx-on::after-request="if(event.detail.successful){$('#applyFilter').click();$('#reloadMessagesButton').click();}"
-          class="oh-btn oh-btn--light-bkg oh-btn--sq-sm"
-          title="{% trans 'Unarchive' %}"
-        ><ion-icon name="archive"></ion-icon></a>
+          onsubmit="event.stopPropagation()"
+        >
+          {% csrf_token %}
+          <button type="submit" class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" title="{% trans 'Close' %}">
+            <ion-icon name="close-circle-outline"></ion-icon>
+          </button>
+        </form>
       {% endif %}
     {% endif %}
-    {% if perms.recruitment.delete_recruitment %}
+
+    {% if perms.recruitment.archive_recruitment and instance.status != "REMOVED" %}
       <form
-        hx-post="{% url 'recruitment-delete' instance.id %}"
+        hx-post="{% url 'job-opening-remove' instance.id %}"
         hx-swap="none"
-        hx-confirm="{% trans 'Are you sure you want to delete this recruitment?' %}"
+        hx-confirm="{% trans 'Remove this job opening? It is withdrawn from active use but kept for audit -- no candidates or applications are deleted.' %}"
         hx-on::after-request="if(event.detail.successful){$('#applyFilter').click();$('#reloadMessagesButton').click();}"
         onsubmit="event.stopPropagation()"
       >
         {% csrf_token %}
-        <button type="submit" class="oh-btn oh-btn--danger oh-btn--sq-sm" title="{% trans 'Delete' %}">
-          <ion-icon name="trash-outline" role="img" class="md hydrated" aria-label="trash outline"></ion-icon>
+        <button type="submit" class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" title="{% trans 'Remove' %}">
+          <ion-icon name="eye-off-outline"></ion-icon>
         </button>
       </form>
     {% endif %}
+    <a hx-get="{% url 'recruitment-duplicate' instance.id %}" hx-target='#genericModalBody' hx-swap='innerHTML' data-toggle='oh-modal-toggle' data-target='#genericModal'  class="oh-btn oh-btn--light-bkg oh-btn--sq-sm" title="{% trans 'Duplicate' %}"><ion-icon name="copy-outline"></ion-icon></a>
+    {% comment %}
+    The legacy Archive / Unarchive pair was removed from this row. It was not
+    merely a duplicate of Remove above: recruitment-archive flips is_active
+    directly, and is_active is now a derived mirror that only
+    Recruitment.apply_status() may write. Toggling it here left the mirror
+    disagreeing with the authoritative `status` field -- e.g. is_active=False
+    on a PUBLISHED opening. "Remove" (job-opening-remove) is the supported
+    action; it goes through the lifecycle service, so status and every mirror
+    move together and the transition is audited.
+
+    The recruitment-archive route itself is untouched and still reachable from
+    the detail view, so nothing else that relies on it is broken by this.
+    {% endcomment %}
+    {% comment %}
+    Hidden per PRD: job openings are never hard-deleted; Remove archives them.
+        {% if perms.recruitment.delete_recruitment %}
+          <form
+            hx-post="{% url 'recruitment-delete' instance.id %}"
+            hx-swap="none"
+            hx-confirm="{% trans 'Are you sure you want to delete this recruitment?' %}"
+            hx-on::after-request="if(event.detail.successful){$('#applyFilter').click();$('#reloadMessagesButton').click();}"
+            onsubmit="event.stopPropagation()"
+          >
+            {% csrf_token %}
+            <button type="submit" class="oh-btn oh-btn--danger oh-btn--sq-sm" title="{% trans 'Delete' %}">
+              <ion-icon name="trash-outline" role="img" class="md hydrated" aria-label="trash outline"></ion-icon>
+            </button>
+          </form>
+        {% endif %}
+    {% endcomment %}
   </div>

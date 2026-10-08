@@ -1,0 +1,34 @@
+{% load i18n %}
+{% comment %}Candidate Pool filter (PRD): Job Opening, Current Status, Contact Verification, Date Applied.{% endcomment %}
+<div class="oh-dropdown__filter-body">
+    <div class="oh-accordion">
+        <div class="oh-accordion-header">{% trans 'Candidate Pool' %}</div>
+        <div class="oh-accordion-body">
+            <div class="row">
+                <div class="col-sm-12 col-md-12 col-lg-6">
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans 'Job Opening' %}</label>
+                        {{ form.recruitment_id }}
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans 'Current Status' %}</label>
+                        {{ form.pool_status }}
+                    </div>
+                </div>
+                <div class="col-sm-12 col-md-12 col-lg-6">
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans 'Contact Verification' %}</label>
+                        {{ form.pool_verification }}
+                    </div>
+                    <div class="oh-input-group">
+                        <label class="oh-label">{% trans 'Date Applied' %}</label>
+                        <div class="d-flex gap-2">
+                            {{ form.applied_from }}
+                            {{ form.applied_to }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

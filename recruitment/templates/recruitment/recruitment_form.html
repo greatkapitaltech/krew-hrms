@@ -132,20 +132,57 @@
                     >
                     {{form.company_id}} {{form.company_id.errors}}
                 </div>
+                {% comment %}
+                Form 1 and Form 2 base templates, kept separate: Form 1 is the
+                public application's screening questions, Form 2 the Final HR
+                Round -> Hired handoff. Each selector offers only its own
+                form's templates.
+
+                The Skills selector is gone -- the PRD defers skills tagging
+                out of the Recruitment MVP. The model field and the Skills
+                settings module are untouched.
+                {% endcomment %}
                 <div class="col-12 col-sm-12 col-md-12 col-lg-6">
                     <label
                         class="oh-label"
-                        for="{{form.survey_templates.id_for_label}}"
-                        >{{form.survey_templates.label}}</label
+                        for="{{form.form1_templates.id_for_label}}"
+                        title="{{form.form1_templates.help_text}}"
+                        >{{form.form1_templates.label}}</label
                     >
-                    {{form.survey_templates}}
+                    {{form.form1_templates}} {{form.form1_templates.errors}}
                 </div>
                 <div class="col-12 col-sm-12 col-md-12 col-lg-6">
-                    <label class="oh-label" for="{{form.skills.id_for_label}}"
-                        >{{form.skills.label}}</label
+                    <label
+                        class="oh-label"
+                        for="{{form.form2_templates.id_for_label}}"
+                        title="{{form.form2_templates.help_text}}"
+                        >{{form.form2_templates.label}}</label
                     >
-                    {{form.skills}}
+                    {{form.form2_templates}} {{form.form2_templates.errors}}
                 </div>
+                {% comment %}
+                The resolved question set for each form, plus Add Question for
+                questions that belong to this opening alone.
+
+                Only when editing: an opening-specific question is attached to
+                a job opening, so there has to be one. On create the selectors
+                above are the whole configuration, and the note says where the
+                rest lives.
+                {% endcomment %}
+                {% if form.instance.pk %}
+                <div class="col-12 mt-2"
+                     hx-get="{% url 'job-opening-questions' form.instance.pk %}"
+                     hx-trigger="load"
+                     hx-swap="innerHTML">
+                    <p class="text-muted small">{% trans "Loading questions…" %}</p>
+                </div>
+                {% else %}
+                <div class="col-12 mt-2">
+                    <p class="text-muted small mb-0">
+                        {% trans "Save this job opening to review its questions and add opening-specific ones." %}
+                    </p>
+                </div>
+                {% endif %}
                     <div class="col-12 col-sm-12 col-md-12 col-lg-6">
                         <label class="oh-label" for="{{form.publish_in_linkedin.id_for_label}}"
                         title="{{form.publish_in_linkedin.help_text}}"
@@ -162,17 +199,14 @@
                         {{form.linkedin_account_id}} {{form.linkedin_account_id.errors}}
                     </div>
 
-                <div class="col-12 col-sm-12 col-md-12 col-lg-4">
-                    <label
-                        class="oh-label"
-                        for="{{form.is_published.id_for_label}}"
-                        title="{{form.is_published.help_text}}"
-                        >{{form.is_published.label}} ?</label
-                    >
-                    <div class="w-100 d-flex" style="align-items: center">
-                        <div class="oh-switch">{{form.is_published}}</div>
-                    </div>
-                </div>
+                {% comment %}
+                The "Is Published?" switch was removed. is_published is now a
+                derived mirror of Recruitment.status, written only by
+                apply_status(), and RecruitmentCreationForm excludes it -- so
+                {{form.is_published}} already rendered nothing here, leaving a
+                label beside an empty switch. Publication is the explicit
+                Publish transition, which validates and audits.
+                {% endcomment %}
                 <div class="col-12 col-sm-12 col-md-12 col-lg-4">
                     <label
                         class="oh-label"

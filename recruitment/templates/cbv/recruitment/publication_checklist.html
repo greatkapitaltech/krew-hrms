@@ -1,0 +1,159 @@
+{% load i18n %}
+
+{% comment %}
+Save & Review summary. Shows what the job opening currently holds and what
+still blocks publication, so outstanding items are visible up front rather
+than surfacing one error at a time.
+
+Every value is rendered through normal (autoescaped) template output. Model
+helpers that return pre-built HTML -- open_job_detail, managers, etc. -- are
+deliberately NOT used here: they interpolate user-entered names, so rendering
+them would need |safe and would turn a job-position name into an XSS vector.
+
+Publish/Submit are POSTs; a lifecycle transition is never a GET.
+{% endcomment %}
+
+<div class="oh-modal__dialog-header">
+    <span class="oh-modal__dialog-title">
+        {% trans "Review job opening" %}: {{ job_opening.title }}
+    </span>
+    <button class="oh-modal__close" aria-label="{% trans 'Close' %}"
+            data-target="#genericModal" data-toggle="oh-modal-toggle"></button>
+</div>
+
+<div class="oh-modal__dialog-body">
+    <div class="mb-3">
+        <span class="oh-badge">{{ job_opening.get_status_display }}</span>
+    </div>
+
+    <table class="oh-table oh-table--sm mb-4">
+        <tbody>
+            <tr>
+                <th>{% trans "Job positions" %}</th>
+                <td>
+                    {% for position in job_opening.open_positions.all %}
+                        {{ position }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        {% trans "Not set" %}
+                    {% endfor %}
+                </td>
+            </tr>
+            <tr>
+                <th>{% trans "Managers" %}</th>
+                <td>
+                    {% for manager in job_opening.recruitment_managers.all %}
+                        {{ manager }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                        {% trans "Not set" %}
+                    {% endfor %}
+                </td>
+            </tr>
+            <tr>
+                <th>{% trans "Vacancies" %}</th>
+                <td>{{ job_opening.vacancy|default_if_none:0 }}</td>
+            </tr>
+            <tr>
+                <th>{% trans "Start date" %}</th>
+                <td>
+                    {% if job_opening.start_date %}
+                        {{ job_opening.start_date }}
+                    {% else %}
+                        {% trans "Not set" %}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>{% trans "End date" %}</th>
+                <td>
+                    {% if job_opening.end_date %}
+                        {{ job_opening.end_date }}
+                    {% else %}
+                        {% trans "No end date. Stays open until it is closed or removed." %}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>{% trans "Budget (internal only)" %}</th>
+                <td>
+                    {% if job_opening.budget_min or job_opening.budget_max %}
+                        {{ job_opening.budget_min|default:"?" }} &ndash;
+                        {{ job_opening.budget_max|default:"?" }}
+                        <small>{% trans "Never shown to candidates." %}</small>
+                    {% else %}
+                        {% trans "Not set" %}
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <th>{% trans "Contact verification" %}</th>
+                <td>
+                    {% if job_opening.contact_verification_required %}
+                        {% trans "Required for applicants" %}
+                    {% else %}
+                        {% trans "Not required" %}
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    {% comment %}
+    The exact question set that will be frozen into the publication snapshot --
+    not just the template names -- so the reviewer can confirm what candidates
+    will see and what HR will be asked at handoff. Shared partial with the Job
+    Opening configuration screen; Add Question is not offered here.
+    {% endcomment %}
+    {% include 'cbv/recruitment/job_opening_question_table.html' %}
+
+    {% if blockers %}
+        <div class="oh-alert oh-alert--warning">
+            <p class="fw-bold mb-2">
+                {% blocktrans count counter=blockers|length %}
+                    Fix this before publishing:
+                {% plural %}
+                    Fix these {{ counter }} items before publishing:
+                {% endblocktrans %}
+            </p>
+            <ul class="mb-0 ps-3" style="list-style: disc;">
+                {% for blocker in blockers %}
+                    <li>{{ blocker }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <div class="oh-alert oh-alert--success">
+            {% trans "This job opening is ready to publish." %}
+        </div>
+    {% endif %}
+</div>
+
+<div class="oh-modal__dialog-footer">
+    {% if can_publish and blockers %}
+        {# Why Publish is disabled, spelled out next to the button. #}
+        <div class="w-full mb-2 text-sm text-[#b91c1c]">
+            <p class="font-medium">{% trans "Publish is disabled until you fix:" %}</p>
+            <ul class="list-disc pl-5">
+                {% for blocker in blockers %}<li>{{ blocker }}</li>{% endfor %}
+            </ul>
+            <p class="text-xs text-[#565E6C] mt-1">{% trans "Edit the job opening to fix these, then open Review & Publish again." %}</p>
+        </div>
+    {% endif %}
+    <div class="d-flex gap-2 justify-end">
+        <button type="button" class="oh-btn oh-btn--light-bkg"
+                onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">{% trans "Cancel" %}</button>
+        {% if can_publish %}
+            {% if blockers %}
+                <button type="button" class="oh-btn oh-btn--secondary" disabled>
+                    {% trans "Publish" %}
+                </button>
+            {% else %}
+                <form method="post" action="{% url 'job-opening-publish' job_opening.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="oh-btn oh-btn--success">
+                        {% trans "Publish" %}
+                    </button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>

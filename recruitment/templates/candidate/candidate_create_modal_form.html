@@ -95,23 +95,12 @@
         {% endif %}
       </div>
       {% csrf_token %}
-      <div class="row">
-        <div class="col-12 col-lg-6 d-flex align-items-center">
-          <div
-            class="oh-profile-section__edit-photo me-4 mb-3"
-            data-toggle="oh-modal-toggle"
-            data-target="#uploadPhotoModal"
-          >
-            <img
-              src="{{form.instance.get_avatar}}"
-              class="oh-profile-section__modal-image preview"
-              alt="{{ form.instance }}"
-            />
-          </div>
-        </div>
-      </div>
-      <input type="file" hidden name="profile" id="hidden_profile" />
-      {{form.profile.errors}}
+      {% comment %}
+      The profile-photo picker is deliberately gone -- see the matching comment
+      in candidate_create_form.html. The hidden `profile` input sat outside the
+      form fields, so dropping the field from CandidateCreationForm alone would
+      have left it posting here.
+      {% endcomment %}
 
       {{ form.as_p }}
 

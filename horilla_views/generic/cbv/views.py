@@ -187,6 +187,21 @@ class HorillaListView(ListView):
     verbose_name: str = ""
     bulk_update_fields: list = []
     bulk_template: str = "generic/bulk_form.html"
+
+    #: Custom actions applied to the rows the user has selected, rendered in
+    #: the selection bar beside Select/Unselect/Update. Each entry is::
+    #:
+    #:     {
+    #:         "action": _("Move Forward"),   # label
+    #:         "url": reverse_lazy(...),      # POSTed the selected ids
+    #:         "class": "text-success",       # optional badge colour class
+    #:         "confirm": _("Move 5 ...?"),   # optional confirm prompt
+    #:     }
+    #:
+    #: The selected ids arrive as a JSON array in POST["ids"], the same shape
+    #: the existing bulk-update form uses. Distinct from `actions`/`options`,
+    #: which are per-row.
+    bulk_actions: list = []
     records_count_in_tab: bool = True
     history_tracking: bool = True
 
@@ -297,6 +312,7 @@ class HorillaListView(ListView):
 
         context["action_method"] = self.action_method
         context["actions"] = self.actions
+        context["bulk_actions"] = self.bulk_actions
 
         context["option_method"] = self.option_method
         context["options"] = self.options

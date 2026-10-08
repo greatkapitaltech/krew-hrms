@@ -190,26 +190,76 @@ def manager_can_enter(function, perm):
 
 
 @decorator_with_arguments
-def is_recruitment_manager(function, perm):
-    from recruitment.models import Recruitment
-
+def is_recruitment_manager(function, perm, recruitment_param=None):
     """
-    This method is used to check permission to employee for enter to the function if the employee
-    do not have permission also checks, has manager of any recruitment.
+    Permission gate for the screening-question views.
+
+    Authorization is always::
+
+        Django permission  +  specific object / company scope
+
+    and never "manages some recruitment somewhere".
+
+    Two defects are fixed here, both of which weakened the screening views this
+    decorator guards:
+
+    1. ``perm`` was ignored. The body reassigned it to
+       ``recruitment.view_recruitmentsurvey`` before use, so
+       ``@is_recruitment_manager(perm="recruitment.add_recruitmentsurvey")`` on
+       survey_form / survey_preview actually only required *view*. The caller's
+       permission is now the one that is checked.
+
+    2. Manager authority was unscoped: it walked every Recruitment and passed
+       anyone who managed ANY of them. A manager of one drive therefore reached
+       the screening configuration of every drive. Manager authority is now
+       scoped to the specific job opening under access, matching
+       recruitment.services.authorization.user_can_manage_job_opening.
+
+    ``recruitment_param`` names a GET parameter or view kwarg holding the job
+    opening id. When given and resolvable, an assigned manager of *that*
+    opening is allowed even without the permission. When it is absent -- list
+    and bank-wide views, where there is no single opening to scope to -- the
+    Django permission alone decides, and the view is responsible for scoping
+    its own queryset. A queryset filter is never the authorization.
+
+    Company scope is enforced server-side in the object-scoped branch, so a
+    manager cannot reach another tenant's opening by supplying its id.
     """
 
     def _function(request, *args, **kwargs):
-
         user = request.user
-        perm = "recruitment.view_recruitmentsurvey"
-        is_manager = False
-        recs = Recruitment.objects.all()
-        for i in recs:
-            for manager in i.recruitment_managers.all():
-                if request.user.employee_get == manager:
-                    is_manager = True
 
-        if user.has_perm(perm) or is_manager:
+        # When the request names a specific job opening, THAT OBJECT is the
+        # authorization boundary: the permission and the company/object scope
+        # are checked together, and holding the permission is never sufficient
+        # on its own. A permission granted inside one company must not reach
+        # another company's job opening, so there is deliberately no
+        # permission-only shortcut on this branch.
+        if recruitment_param:
+            raw_id = kwargs.get(recruitment_param) or request.GET.get(
+                recruitment_param
+            )
+            if raw_id:
+                from recruitment.models import Recruitment
+                from recruitment.services.authorization import (
+                    user_can_manage_job_opening,
+                )
+
+                # `default` (unfiltered) manager plus the explicit scope check
+                # inside user_can_manage_job_opening, so an out-of-scope id is
+                # refused rather than silently resolving to None.
+                job_opening = Recruitment.default.filter(pk=raw_id).first()
+                if job_opening is not None and user_can_manage_job_opening(
+                    user, job_opening, perm
+                ):
+                    return function(request, *args, **kwargs)
+                return handle_no_permission(request)
+
+        # No specific opening in the request -- question-bank and list views.
+        # The Django permission decides, and the view is responsible for
+        # scoping its own queryset. A queryset filter is never the
+        # authorization.
+        if user.has_perm(perm):
             return function(request, *args, **kwargs)
 
         return handle_no_permission(request)

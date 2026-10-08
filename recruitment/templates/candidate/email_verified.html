@@ -1,0 +1,40 @@
+{% load static i18n %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% trans "Email verified" %}</title>
+        <link rel="icon" type="image/png" sizes="32x32" href="{% static 'favicons/favicon-32x32.png' %}">
+        <link rel="stylesheet" href="{% static '/build/css/style.min.css' %}">
+    </head>
+    <body>
+        <div id="main">
+            <main class="oh-onboarding">
+                <div class="oh-onboarding-card oh-onboarding-card--top-bar">
+                    <div class="oh-onboarding-card__container oh-onboarding-card__container--wide">
+                        <div class="oh-onboarding__info-container">
+                            <svg width="48" height="48" fill="none" stroke="#3535C8" stroke-linecap="round"
+                                 stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24"
+                                 xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 12c0-4.969-4.031-9-9-9s-9 4.031-9 9 4.031 9 9 9 9-4.031 9-9Z" />
+                                <path d="m16.5 8.25-6.3 7.5-2.7-3" />
+                            </svg>
+                            <div class="oh-onboarding__title-container">
+                                <h1 class="oh-onboarding__title">{% trans "Email verified" %}</h1>
+                                <p class="oh-onboarding__content">
+                                    {% if sms_sent %}
+                                    {% trans "We sent a code to your mobile number. Go back to your application tab, enter the code there and submit. You can close this tab." %}
+                                    {% else %}
+                                    {% trans "We couldn't send the SMS code just now. Go back to your application tab and tap Resend code. You can close this tab." %}
+                                    {% endif %}
+                                </p>
+<p class="oh-onboarding__content"><strong>{% trans "Your form is still open in the other tab, with everything you entered." %}</strong></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </body>
+</html>

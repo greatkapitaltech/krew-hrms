@@ -175,7 +175,12 @@
                                     <img src="{{recruitment.company_id.icon.url}}" alt="">
                                 </div>
                                 <div>
-                                    <h5 class="text-md font-bold">{{ recruitment.title }}</h5>
+                                    <h5 class="text-md font-bold">
+                                        {{ recruitment.title }}
+                                        {% if recruitment.status == "CLOSED" %}
+                                            <span class="ms-1 align-middle text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#F0F2F8] text-[#565E6C]">{% trans "Closed" %}</span>
+                                        {% endif %}
+                                    </h5>
                                     <p class="text-xs text-dark-200 font-medium">
                                         {{ recruitment.created_at|timesince }}
                                     </p>
@@ -219,20 +224,27 @@
                                     <button
                                         class="toggleSidemenu w-20 justify-center px-4 py-2 border border-brand-600 text-brand-600 rounded-md text-xs flex items-center gap-2 hover:text-white hover:bg-brand-600 transition duration-300"
                                         data-target="#activitySidebar"
-                                        hx-get="{% url 'recruitment-details' recruitment.id %}"
+                                        hx-get="{% if career_slug %}{% url 'career-job-details' career_slug recruitment.id %}{% else %}{% url 'recruitment-details' recruitment.id %}{% endif %}"
                                         hx-target="#commentContainer"
                                         onclick="sidebarToggle()"
                                     >
                                         {% trans "View" %}
                                     </button>
+                                    {% if recruitment.status == "CLOSED" %}
+                                        {# PRD: a closed opening stays listed but accepts no new applications. #}
+                                        <span class="px-3 py-2 rounded-md text-xs text-[#565E6C] bg-[#F0F2F8] whitespace-nowrap">
+                                            {% trans "No longer accepting applications" %}
+                                        </span>
+                                    {% else %}
                                     <a
-                                        href="{% url 'application-form' %}?recruitmentId={{ recruitment.id }}"
+                                        href="{% if career_slug %}{% url 'career-apply' career_slug recruitment.id %}{% else %}{% url 'application-form' %}?recruitmentId={{ recruitment.id }}{% endif %}"
                                         target="_blank"
                                         class="w-20 justify-center px-4 py-2 bg-brand-600 text-white rounded-md text-xs flex items-center gap-2 hover:bg-brand-800 transition duration-300"
                                     >
                                         {% trans "Apply" %}
                                         <i class="fa-solid fa-arrow-right transform -rotate-45"></i>
                                     </a>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

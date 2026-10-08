@@ -218,7 +218,7 @@
                       >
                     </li>
                     {% endif %}
-                    {% if "onboarding"|app_installed %}
+                    {% if "onboarding"|app_installed and not cand.is_offer_rejected %}
                       {% if perms.recruitment.add_rejectedcandidate or request.user|is_stagemanager %}
                       <li class="oh-dropdown__item">
                         <a
@@ -229,17 +229,15 @@
                             data-toggle="oh-modal-toggle"
                             data-target="#rejectModal"
                             hx-get="{% url 'add-to-rejected-candidates' %}?candidate_id={{cand.id}}"
-                            {% if cand.is_offer_rejected %}
-                            title="{% trans "Added In Rejected Candidates" %}"
-                            {% else %}
                             title="{% trans "Add To Rejected Candidates" %}"
-                            {% endif %}
                           >
-                          {% if not cand.is_offer_rejected %}
+                          {% comment %}
+                          Only offered while the candidate has NOT been
+                          rejected: rejection is terminal and emails the
+                          candidate, so there is no "edit the reason"
+                          afterwards. The reason stays visible in History.
+                          {% endcomment %}
                           {% trans "Add to Rejected" %}
-                          {% else %}
-                          {% trans "Edit Rejected Candidate" %}
-                          {% endif %}
                           </a
                         >
                       </li>

@@ -804,6 +804,14 @@ def update_kanban_item_group(request):
     if not all([model_path, group_key, group_id, object_id, order_list, order_by]):
         return JsonResponse({"error": "Missing required parameters"}, status=400)
 
+    # A candidate's stage is never changed by drag-and-drop: it must go through
+    # recruitment.services.candidate (movement rules, hiring handoff, History).
+    if model_path == "recruitment.Candidate" and group_key == "stage_id":
+        return JsonResponse(
+            {"error": "Use Move Forward / Move Backward to change a stage."},
+            status=403,
+        )
+
     try:
         model = apps.get_model(*model_path.split("."))
 

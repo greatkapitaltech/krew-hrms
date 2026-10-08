@@ -11,13 +11,13 @@ from django.utils.translation import gettext_lazy as _
 
 from horilla_views.cbv_methods import hx_request_required, login_required
 from horilla_views.generic.cbv.views import HorillaTabView, TemplateView
-from recruitment.models import RejectReason, Skill, Stage
+from recruitment.models import Stage  # RejectReason, Skill: used by the hidden tabs
 
 
 @method_decorator(login_required, name="dispatch")
 class RecruitmentSettingsView(TemplateView):
     """
-    page for recruitment settings (Rejection Reason / Skill tabs)
+    page for recruitment settings (Stages tab)
     """
 
     template_name = "cbv/recruitment_settings/recruitment_settings_main.html"
@@ -37,16 +37,18 @@ class RecruitmentSettingsTabView(HorillaTabView):
                 "url": f"{reverse('recruitment-settings-stage-tab')}",
                 "badge": Stage.objects.count(),
             },
-            {
-                "title": _("Rejection Reasons"),
-                "url": f"{reverse('recruitment-settings-reject-reason-tab')}",
-                "badge": RejectReason.objects.count(),
-            },
-            {
-                "title": _("Skills"),
-                "url": f"{reverse('recruitment-settings-skill-tab')}",
-                "badge": Skill.objects.count(),
-            },
+            # Hidden per PRD: Reject takes a remark only, and skills tagging is
+            # deferred.
+            # {
+            #     "title": _("Rejection Reasons"),
+            #     "url": f"{reverse('recruitment-settings-reject-reason-tab')}",
+            #     "badge": RejectReason.objects.count(),
+            # },
+            # {
+            #     "title": _("Skills"),
+            #     "url": f"{reverse('recruitment-settings-skill-tab')}",
+            #     "badge": Skill.objects.count(),
+            # },
         ]
 
 

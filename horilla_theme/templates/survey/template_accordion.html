@@ -65,9 +65,25 @@
             </div>
         {% endif %}
     {% endif %}
-    <div class="p-2 mt-5 shadow-card bg-white">
+    {% comment %}
+    Two tabs: Application form templates (Form 1) and Hiring handoff templates
+    (Form 2), by each template's "Used for".
+    {% endcomment %}
+    <div class="flex gap-2 mt-5" id="templateTypeTabs">
+        <button type="button" data-type="form1"
+                class="template-type-tab px-4 py-1.5 rounded-md text-xs border">
+            {% trans "Application form" %}
+            (<span>{% for g in templates %}{% if g.form_type != "form2" %}x{% endif %}{% endfor %}</span>)
+        </button>
+        <button type="button" data-type="form2"
+                class="template-type-tab px-4 py-1.5 rounded-md text-xs border">
+            {% trans "Hiring handoff" %}
+            (<span>{% for g in templates %}{% if g.form_type == "form2" %}x{% endif %}{% endfor %}</span>)
+        </button>
+    </div>
+    <div class="p-2 mt-3 shadow-card bg-white">
         {% for grouper in templates %}
-            <div class="oh-accordion mb-3">
+            <div class="oh-accordion mb-3 template-group" data-type="{% if grouper.form_type == 'form2' %}form2{% else %}form1{% endif %}">
                 <div class="oh-accordion-item">
                     <div class="oh-accordion-header no-after d-flex justify-between align-center">
                         <span class="oh-accordion-title text-sm d-flex items-center">
@@ -117,19 +133,19 @@
                                                     {% trans "Preview" %}
                                                 </a>
                                             </li>
+                                            {% comment %}
+                                            Replaced: questions are picked (or created ad hoc) in the
+                                            template's Edit form. Original menu item:
                                             {% if perms.recruitment.change_surveytemplate %}
                                                 <li class="oh-dropdown__item">
-                                                    <a
-                                                        hx-get="{% url 'survey-template-question-add' %}?title={{grouper.grouper}}"
-                                                        hx-target="#templateModalBody"
-                                                        data-toggle="oh-modal-toggle"
-                                                        data-target="#templateModal"
-                                                        class="oh-dropdown__link"
-                                                    >
+                                                    <a hx-get="{% url 'survey-template-question-add' %}?title={{grouper.grouper}}"
+                                                       hx-target="#templateModalBody" data-toggle="oh-modal-toggle"
+                                                       data-target="#templateModal" class="oh-dropdown__link">
                                                         {% trans "Add Questions" %}
                                                     </a>
                                                 </li>
                                             {% endif %}
+                                            {% endcomment %}
                                             {% if perms.recruitment.change_surveytemplate %}
                                                 <li class="oh-dropdown__item">
                                                     <a
@@ -145,9 +161,13 @@
                                             {% endif %}
                                             {% if perms.recruitment.delete_surveytemplate %}
                                                 <li class="oh-dropdown__item">
+                                                    {% comment %}
+                                                    Was a link with onclick="return confirm(...)": Horilla's
+                                                    confirm() is a non-blocking popup, so the link misfired.
+                                                    {% endcomment %}
                                                     <a
-                                                        href="{% url 'survey-template-delete' %}?title={{grouper.grouper}}"
-                                                        onclick="return confirm('{% trans "Do you want to delete this template" %}')"
+                                                        href="#"
+                                                        onclick="event.preventDefault(); krewDeleteTemplate('{% url 'survey-template-delete' %}?title={{ grouper.grouper|urlencode }}')"
                                                         class="oh-dropdown__link text-danger"
                                                     >
                                                         {% trans "Delete" %}
@@ -240,6 +260,18 @@
                                                 <span class="">{% trans "Type" %}</span>
                                             </div>
                                         </th>
+                                        {% comment %}
+                                        Form 1 (the public application page) and
+                                        Form 2 (the internal hiring handoff)
+                                        were indistinguishable in this list.
+                                        Unconditional, so it stays aligned with
+                                        the matching cell in every row.
+                                        {% endcomment %}
+                                        <th class="text-sm font-medium text-left p-3">
+                                            <div class="flex gap-3">
+                                                <span class="">{% trans "Form" %}</span>
+                                            </div>
+                                        </th>
                                         {% if perms.recruitment.change_recruitmentsurvey or perms.recruitment.delete_recruitmentsurvey %}
                                             <th class="text-sm font-medium text-left p-3">
                                                 <div class="flex gap-3 justify-center">
@@ -271,6 +303,9 @@
                                             </td>
                                             <td class="text-sm text-left p-3 text-[#666]">
                                                 {{ question.get_type_display }}
+                                            </td>
+                                            <td class="text-sm text-left p-3 text-[#666]">
+                                                {{ question.get_form_type_display }}
                                             </td>
                                             {% if perms.recruitment.change_recruitmentsurvey or perms.recruitment.delete_recruitmentsurvey %}
                                                 <td class="text-sm text-left p-3 text-[#666]">
@@ -333,7 +368,54 @@
                 </div>
             </div>
         {% endfor %}
+        <p class="text-xs text-[#565E6C] px-2 py-3 hidden" id="templateTypeEmpty">{% trans "No templates of this type yet." %}</p>
     </div>
+    <script>
+    // Delete a template: our own confirm (Horilla's confirm() does not block),
+    // then a POST; the server refuses a template any job opening uses.
+    window.krewDeleteTemplate = function (url) {
+        Swal.fire({
+            text: "{% trans 'Delete this template? Its questions stay in the question bank.' %}",
+            icon: "question",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            cancelButtonColor: "#6c757d",
+            confirmButtonText: i18nMessages.confirm,
+            cancelButtonText: i18nMessages.cancel,
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            htmx.ajax("POST", url, { target: "body", swap: "none" }).then(function () {
+                $("#reloadMessagesButton").click();
+                $("#filterSubmit").click();
+            });
+        });
+    };
+    (function () {
+        var tabs = document.querySelectorAll("#templateTypeTabs .template-type-tab");
+        // Counts were rendered as one x per template; show the number.
+        tabs.forEach(function (t) { var c = t.querySelector("span"); c.textContent = c.textContent.trim().length; });
+        function show(type) {
+            var shown = 0;
+            document.querySelectorAll(".template-group").forEach(function (g) {
+                var on = g.dataset.type === type;
+                g.style.display = on ? "" : "none";
+                if (on) shown++;
+            });
+            document.getElementById("templateTypeEmpty").classList.toggle("hidden", shown > 0);
+            tabs.forEach(function (t) {
+                var on = t.dataset.type === type;
+                t.classList.toggle("bg-primary-600", on);
+                t.classList.toggle("text-white", on);
+                t.classList.toggle("border-primary-600", on);
+            });
+            try { localStorage.setItem("krewTemplateType", type); } catch (e) {}
+        }
+        tabs.forEach(function (t) { t.addEventListener("click", function () { show(t.dataset.type); }); });
+        var saved = null;
+        try { saved = localStorage.getItem("krewTemplateType"); } catch (e) {}
+        show(saved === "form2" ? "form2" : "form1");
+    })();
+    </script>
 {% else %}
     <div class="oh-empty">
         <img src="{% static 'images/ui/search.svg' %}" class="oh-404__image" alt="{% trans 'Page not found. 404.' %}">

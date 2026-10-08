@@ -70,7 +70,7 @@
                                 class="{% if field.field.required or field.name in form.required_fields %}required-star{% endif %}"
                                 for="id_{{ field.name }}"
                             >{% trans field.label %}</label>
-                            {% if field.help_text != '' %}
+                            {% if field.help_text != '' and not form.visible_help_text %}
                                 <span
                                     class="oh-info mr-2"
                                     title="{{ field.help_text }}"
@@ -98,7 +98,28 @@
                                 {{ field|add_class:'form-control' }} {{ field.errors }}
                             </div>
                         {% endif %}
+                        {% comment %}
+                        Helper text as visible muted copy under the input --
+                        between the label and the field it read as a paragraph
+                        before every row. Gated on the save_and_review opt-in,
+                        so every other form keeps the hover tooltip and renders
+                        exactly as before.
+                        {% endcomment %}
+                        {% if field.help_text != '' and form.visible_help_text %}
+                            <small class="text-muted d-block mt-1">{{ field.help_text }}</small>
+                        {% endif %}
                     </div>
+                    {% comment %}
+                    Optional per-field hook: a form may map a field name to an
+                    extra template, rendered as the next column right after that
+                    field. A form that sets no field_extras renders exactly as
+                    before, so this is inert everywhere else.
+                    {% endcomment %}
+                    {% if form.field_extras %}
+                        {% with extra_template=form.field_extras|get_item:field.name %}
+                            {% if extra_template %}{% include extra_template %}{% endif %}
+                        {% endwith %}
+                    {% endif %}
                 {% endfor %}
             </div>
 
@@ -107,7 +128,15 @@
             {% endfor %}
 
             <div class="d-flex flex gap-1 justify-end pt-3 mt-3">
-                {% if not form.instance.pk %}
+                {# Every popup form can be closed without saving. #}
+                <button
+                    type="button"
+                    class="oh-btn oh-btn--light-bkg mt-2 mr-0 pl-4 pr-5 oh-btn--w-100-resp"
+                    onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')"
+                >
+                    {% trans 'Cancel' %}
+                </button>
+                {% if not form.instance.pk and not form.save_and_review %}
                     <button
                         type="submit"
                         name="save_and_add_another"
@@ -131,6 +160,26 @@
                         {% trans 'Save And Add Another' %}
                     </button>
                 {% endif %}
+                {% if form.save_and_review %}
+                    {# Opt-in per view: a form that never sets save_and_review #}
+                    {# renders exactly as before, so this is inert for every   #}
+                    {# other form in the app. Set by RecruitmentForm.          #}
+                    <button
+                        type="submit"
+                        name="save_and_review"
+                        value="true"
+                        class="oh-btn oh-btn--secondary mt-2 mr-0 pl-4 pr-5 oh-btn--w-100-resp"
+                        {{form.submit_button_attrs|safe}}
+                    >
+                        {% trans 'Save & Review' %}
+                    </button>
+                {% endif %}
+                {% comment %}
+                Suppressed when the form opts into Save & Review: the PRD gives
+                the Job Opening form exactly two actions, and a bare Save beside
+                Save & Review offers two ways to do the same thing.
+                {% endcomment %}
+                {% if not form.save_and_review %}
                 <button
                     type="submit"
                     class="oh-btn oh-btn--secondary mt-2 mr-0 pl-4 pr-5 oh-btn--w-100-resp"
@@ -138,6 +187,7 @@
                 >
                     {% trans 'Save' %}
                 </button>
+                {% endif %}
             </div>
         </div>
     </div>

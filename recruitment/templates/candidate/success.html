@@ -112,5 +112,13 @@
             src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"
         ></script>
         <script></script>
+        <script>
+            // The application is saved: drop any draft the form kept.
+            try {
+                Object.keys(localStorage)
+                    .filter(function (k) { return k.indexOf("krewApplicationDraft:") === 0; })
+                    .forEach(function (k) { localStorage.removeItem(k); });
+            } catch (e) {}
+        </script>
     </body>
 </html>

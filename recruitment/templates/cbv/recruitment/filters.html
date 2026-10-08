@@ -13,9 +13,13 @@
             <label class="oh-label">{% trans "Is Closed" %}</label>
             {% comment %} {{form.closed}} {% endcomment %}
             <select name="closed" id="closed" class="oh-select oh-select-2 w-100">
-              <option value="unknown">{% trans "Unknown" %}</option>
-              <option value="true">{% trans "True" %}</option>
-              <option value="false" selected>{% trans "False" %}</option>
+              {# Default: all openings, closed included (PRD: a closed opening stays visible). #}
+              {# <option value="unknown">{% trans "Unknown" %}</option> #}
+              {# <option value="true">{% trans "True" %}</option> #}
+              {# <option value="false" selected>{% trans "False" %}</option> #}
+              <option value="unknown" selected>{% trans "All" %}</option>
+              <option value="true">{% trans "Yes" %}</option>
+              <option value="false">{% trans "No" %}</option>
             </select>
           </div>
         </div>
@@ -25,8 +29,11 @@
             {{form.company_id}}
           </div>
           <div class="oh-input-group">
-            <label class="oh-label">{% trans "Is Published" %}</label>
-            {{form.is_published}}
+            {# Authoritative lifecycle state, in place of the is_published #}
+            {# mirror: that mirror cannot distinguish Draft from Review,   #}
+            {# and Status=Published selects exactly what it used to.       #}
+            <label class="oh-label">{% trans "Status" %}</label>
+            {{form.status}}
           </div>
         </div>
       </div>

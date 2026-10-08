@@ -18,22 +18,30 @@
             </button>
             <div class="oh-dropdown__menu oh-dropdown__menu--right" x-show="open" style="min-width:135px !important;">
               <ul class="oh-dropdown__items">
-                {% if perms.recruitment.add_candidate or request.user.employee_get in stage.stage_managers.all or request.user.employee_get in rec.recruitment_managers.all %}
+                {% if not stage.is_rejected_stage %}{% if perms.recruitment.add_candidate or request.user.employee_get in stage.stage_managers.all or request.user.employee_get in rec.recruitment_managers.all %}
                 <li class="oh-dropdown__item" style="cursor: pointer;">
                   <a hx-target="#objectCreateModalTarget" hx-get="{% url 'add-candidate-to-stage'%}?stage_id={{ stage.id }}" data-toggle="oh-modal-toggle" data-target="#objectCreateModal" class="oh-dropdown__link">{% trans 'Add Candidate' %}</a>
                 </li>
-                {% endif %}
-                {% if perms.recruitment.change_stage or request.user|recruitment_manages:rec or request.user.employee_get in stage.stage_managers.all %}
+                {% endif %}{% endif %}
+                {% if not stage.is_fixed and perms.recruitment.change_stage or not stage.is_fixed and request.user|recruitment_manages:rec or not stage.is_fixed and request.user.employee_get in stage.stage_managers.all %}
                   <li class="oh-dropdown__item" style="cursor: pointer;">
                     <a hx-target="#genericModalBody" hx-get="{% url 'stage-update-pipeline' stage.id %}" data-toggle="oh-modal-toggle" data-target="#genericModal" class="oh-dropdown__link">{% trans 'Edit' %}</a>
                   </li>
+                  {% endif %}
+                  {% if stage.is_fixed and not stage.is_rejected_stage and perms.recruitment.change_stage or stage.is_fixed and not stage.is_rejected_stage and request.user|recruitment_manages:rec %}
+                  <li class="oh-dropdown__item" style="cursor: pointer;">
+                    <a hx-target="#genericModalBody" hx-get="{% url 'stage-managers-update' stage.id %}" data-toggle="oh-modal-toggle" data-target="#genericModal" class="oh-dropdown__link">{% trans 'Edit Managers' %}</a>
+                  </li>
+                  {% endif %}
+{% comment %}
+Hidden per PRD: Bulk Mail is not in MVP.
                   <li class="oh-dropdown__item" style="cursor: pointer;">
                     <a hx-target="#objectCreateModalTarget" hx-get="{% url 'send-mail' %}?stage_id={{stage.id}}" data-toggle="oh-modal-toggle" data-target="#objectCreateModal"  class="oh-dropdown__link">
                       {% trans "Bulk mail" %}
                     </a>
                   </li>
-                  {% endif %}
-                  {% if perms.recruitment.delete_stage %}
+{% endcomment %}
+                  {% if perms.recruitment.delete_stage and not stage.is_fixed %}
                   <li class="oh-dropdown__item oh-dropdown__link--danger">
 
                     <a data-toggle="oh-modal-toggle"

@@ -88,3 +88,22 @@ if env("CASHFREE_CLIENT_ID", default=None):
             if os.path.isabs(_cashfree_key_path)
             else str(BASE_DIR / _cashfree_key_path)
         )
+
+# SMS delivery (recruitment contact verification). SMS_PROVIDER is a dotted
+# path to a callable(to, body); see base/sms.py. No adapter ships with the
+# project, so leaving these unset means base.sms.send_sms raises rather than
+# silently reporting success.
+SMS_PROVIDER = env("SMS_PROVIDER", default=None)
+SMS_API_KEY = env("SMS_API_KEY", default=None)
+SMS_SENDER_ID = env("SMS_SENDER_ID", default=None)
+# MSG91 Flow template. Required for Indian delivery: DLT rules reject
+# arbitrary message text, so the OTP is sent as a template variable.
+MSG91_TEMPLATE_ID = env("MSG91_TEMPLATE_ID", default=None)
+# Name of the OTP variable in that template (##var1## -> "var1").
+MSG91_OTP_VARIABLE = env("MSG91_OTP_VARIABLE", default="otp")
+# Endpoint override. MSG91 issues account-specific/regional base URLs, so the
+# deployment supplies its own rather than relying on the default baked into
+# base/sms.py. Left unset, base.sms.msg91 falls back to the public endpoint.
+MSG91_URL = env("MSG91_URL", default=None)
+# Country code prefixed to bare 10-digit mobile numbers (base.sms._msisdn).
+SMS_DEFAULT_COUNTRY_CODE = env("SMS_DEFAULT_COUNTRY_CODE", default=None)

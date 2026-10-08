@@ -1,0 +1,222 @@
+{% load i18n widget_tweaks %}
+{% comment %}
+Create / edit a question template (PRD Tab 2 "Base Templates") -- the whole
+template in one popup:
+
+* "Used for" decides application (Form 1) vs hiring handoff (Form 2); questions
+  themselves are just questions in one shared bank.
+* Questions in this template: in order (drag or arrows), Mandatory per template,
+  remove with x. Posted as ordered hidden "questions" inputs + "mandatory" boxes.
+* Add from the bank: click a question to append it.
+* "+ Add Question": creates a new bank question (ad hoc) and appends it here.
+{% endcomment %}
+<div class="oh-modal__dialog-header">
+    <h2 class="oh-modal__dialog-title font-semibold">
+        {% if form.instance.pk %}{% trans "Edit Template" %}{% else %}{% trans "Create Template" %}{% endif %}
+    </h2>
+    <button type="button" class="oh-modal__close" aria-label="{% trans 'Close' %}"
+            onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+
+<form id="templateEditorForm"
+      hx-post="{{ request.path }}?{{ request.GET.urlencode }}"
+      {% if request.META.HTTP_HX_TARGET %}hx-target="#{{ request.META.HTTP_HX_TARGET }}"{% endif %}
+      class="p-4">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="mb-2">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div>
+            <label class="oh-label required-star" for="{{ form.title.id_for_label }}">{% trans "Template name" %}</label>
+            {{ form.title|add_class:"oh-input w-full"|attr:"placeholder:e.g. Blue-collar Application" }}
+            {{ form.title.errors }}
+        </div>
+        <div>
+            <span class="oh-label required-star">{% trans "Used for" %}</span>
+            <div class="flex gap-5 py-2">
+                {% for radio in form.form_type %}
+                    <label class="flex items-center gap-2 cursor-pointer text-sm">{{ radio.tag }} {{ radio.choice_label }}</label>
+                {% endfor %}
+            </div>
+            {{ form.form_type.errors }}
+        </div>
+    </div>
+
+    {% if form.company_id %}
+        <div class="mb-3">
+            <label class="oh-label" for="{{ form.company_id.id_for_label }}">{% trans "Company" %}</label>
+            {{ form.company_id|add_class:"oh-select w-full"|attr:"style:height:42px" }}
+            {{ form.company_id.errors }}
+        </div>
+    {% endif %}
+
+    {# ---- questions in this template ---- #}
+    <div class="mb-3">
+        <div class="flex items-center justify-between gap-3 mb-1">
+            <span class="oh-label mb-0">{% trans "Questions in this template" %} (<span id="tplCount">0</span>)</span>
+            <button type="button" class="oh-btn oh-btn--light-bkg oh-btn--small"
+                    hx-get="{% url 'recruitment-survey-question-template-create' %}?picker=1"
+                    hx-target="#objectCreateModalTarget"
+                    data-toggle="oh-modal-toggle"
+                    data-target="#objectCreateModal">
+                + {% trans "Add Question" %}
+            </button>
+        </div>
+        <ol id="tplSelected" class="border border-dark-50 rounded-md divide-y divide-[#DDE1EB] min-h-[48px]">
+            {% for question, is_mandatory in form.selected_rows %}
+                <li class="tpl-row flex items-center gap-2 px-2 py-1.5 bg-white" draggable="true" data-id="{{ question.pk }}">
+                    <span class="tpl-handle cursor-move text-[#9e9e9e] select-none" title="{% trans 'Drag to reorder' %}">&#8942;&#8942;</span>
+                    <span class="tpl-num w-6 text-xs text-[#565E6C] text-right"></span>
+                    <input type="hidden" name="questions" value="{{ question.pk }}">
+                    <span class="tpl-text flex-1 text-sm">{{ question.question }}</span>
+                    <span class="text-xs text-[#565E6C] whitespace-nowrap">{{ question.get_question_type }}</span>
+                    <label class="flex items-center gap-1 text-xs whitespace-nowrap cursor-pointer">
+                        <input type="checkbox" name="mandatory" value="{{ question.pk }}" {% if is_mandatory %}checked{% endif %}> {% trans "Mandatory" %}
+                    </label>
+                    <button type="button" class="tpl-up px-1 text-[#565E6C]" title="{% trans 'Move up' %}">&uarr;</button>
+                    <button type="button" class="tpl-down px-1 text-[#565E6C]" title="{% trans 'Move down' %}">&darr;</button>
+                    <button type="button" class="tpl-remove px-1 text-lg text-[#9e9e9e] hover:text-red-500" title="{% trans 'Remove from template' %}">&times;</button>
+                </li>
+            {% endfor %}
+        </ol>
+        <p id="tplEmpty" class="text-xs text-[#565E6C] mt-1 hidden">{% trans "No questions yet. Add from the bank below or create one with + Add Question." %}</p>
+    </div>
+
+    {# ---- the bank ---- #}
+    <div class="mb-3">
+        <span class="oh-label">{% trans "Add from the question bank" %}</span>
+        <input type="search" id="tplBankSearch" class="oh-input w-full mb-2" placeholder="{% trans 'Search the question bank' %}">
+        <ul id="tplBank" class="border border-dark-50 rounded-md p-1 overflow-y-auto" style="max-height: 220px;">
+            {% for question in form.bank_rows %}
+                <li class="tpl-bank flex items-center justify-between gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-[#F5F6FA] text-sm"
+                    data-id="{{ question.pk }}" data-type="{{ question.get_question_type }}">
+                    <span class="tpl-text">{{ question.question }}</span>
+                    <span class="text-xs text-[#3E3BB5] whitespace-nowrap">+ {% trans "Add" %}</span>
+                </li>
+            {% empty %}
+                <li class="text-xs text-[#565E6C] px-2 py-1">{% trans "Every bank question is already in this template." %}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="mb-3">
+        <label class="oh-label" for="{{ form.description.id_for_label }}">{% trans "Description" %}</label>
+        {{ form.description|add_class:"oh-input w-full"|attr:"rows:2" }}
+    </div>
+
+    <div class="flex justify-end gap-2 mt-2">
+        <button type="button" class="oh-btn oh-btn--light-bkg"
+                onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">{% trans "Cancel" %}</button>
+        <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Save" %}</button>
+    </div>
+</form>
+
+<script>
+(function () {
+    var selected = document.getElementById("tplSelected");
+    var bank = document.getElementById("tplBank");
+    var search = document.getElementById("tplBankSearch");
+    var MANDATORY = "{% trans 'Mandatory' %}";
+
+    function renumber() {
+        var rows = selected.querySelectorAll(".tpl-row");
+        rows.forEach(function (row, i) { row.querySelector(".tpl-num").textContent = (i + 1) + "."; });
+        document.getElementById("tplCount").textContent = rows.length;
+        document.getElementById("tplEmpty").classList.toggle("hidden", rows.length > 0);
+    }
+
+    function selectedRow(id, text, type, mandatory) {
+        var li = document.createElement("li");
+        li.className = "tpl-row flex items-center gap-2 px-2 py-1.5 bg-white";
+        li.draggable = true;
+        li.dataset.id = id;
+        li.innerHTML =
+            '<span class="tpl-handle cursor-move text-[#9e9e9e] select-none">&#8942;&#8942;</span>' +
+            '<span class="tpl-num w-6 text-xs text-[#565E6C] text-right"></span>' +
+            '<input type="hidden" name="questions" value="' + id + '">' +
+            '<span class="tpl-text flex-1 text-sm"></span>' +
+            '<span class="tpl-type text-xs text-[#565E6C] whitespace-nowrap"></span>' +
+            '<label class="flex items-center gap-1 text-xs whitespace-nowrap cursor-pointer">' +
+            '<input type="checkbox" name="mandatory" value="' + id + '"' + (mandatory ? " checked" : "") + '> ' + MANDATORY + '</label>' +
+            '<button type="button" class="tpl-up px-1 text-[#565E6C]">&uarr;</button>' +
+            '<button type="button" class="tpl-down px-1 text-[#565E6C]">&darr;</button>' +
+            '<button type="button" class="tpl-remove px-1 text-lg text-[#9e9e9e] hover:text-red-500">&times;</button>';
+        li.querySelector(".tpl-text").textContent = text;
+        li.querySelector(".tpl-type").textContent = type || "";
+        return li;
+    }
+
+    // Bank -> template
+    bank.addEventListener("click", function (e) {
+        var item = e.target.closest(".tpl-bank");
+        if (!item) return;
+        selected.appendChild(selectedRow(item.dataset.id, item.querySelector(".tpl-text").textContent, item.dataset.type, false));
+        item.remove();
+        renumber();
+    });
+
+    // Up / down / remove
+    selected.addEventListener("click", function (e) {
+        var row = e.target.closest(".tpl-row");
+        if (!row) return;
+        if (e.target.classList.contains("tpl-up") && row.previousElementSibling) {
+            selected.insertBefore(row, row.previousElementSibling);
+        } else if (e.target.classList.contains("tpl-down") && row.nextElementSibling) {
+            selected.insertBefore(row.nextElementSibling, row);
+        } else if (e.target.classList.contains("tpl-remove")) {
+            var back = document.createElement("li");
+            back.className = "tpl-bank flex items-center justify-between gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-[#F5F6FA] text-sm";
+            back.dataset.id = row.dataset.id;
+            var typeEl = row.querySelector(".tpl-type") || row.children[4];
+            back.dataset.type = typeEl ? typeEl.textContent : "";
+            back.innerHTML = '<span class="tpl-text"></span><span class="text-xs text-[#3E3BB5] whitespace-nowrap">+ {% trans "Add" %}</span>';
+            back.querySelector(".tpl-text").textContent = row.querySelector(".tpl-text").textContent;
+            bank.prepend(back);
+            row.remove();
+        } else {
+            return;
+        }
+        renumber();
+    });
+
+    // Drag to reorder
+    var dragged = null;
+    selected.addEventListener("dragstart", function (e) {
+        dragged = e.target.closest(".tpl-row");
+        if (dragged) dragged.style.opacity = "0.5";
+    });
+    selected.addEventListener("dragend", function () {
+        if (dragged) dragged.style.opacity = "";
+        dragged = null;
+        renumber();
+    });
+    selected.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        var over = e.target.closest(".tpl-row");
+        if (!dragged || !over || over === dragged) return;
+        var rect = over.getBoundingClientRect();
+        var after = e.clientY > rect.top + rect.height / 2;
+        selected.insertBefore(dragged, after ? over.nextSibling : over);
+    });
+
+    // Search the bank
+    search.addEventListener("input", function () {
+        var term = search.value.trim().toLowerCase();
+        bank.querySelectorAll(".tpl-bank").forEach(function (item) {
+            item.classList.toggle("hidden", term && item.textContent.toLowerCase().indexOf(term) === -1);
+        });
+    });
+
+    // Called by the question popup after "+ Add Question" saves to the bank.
+    window.krewTemplatePickerAdd = function (id, label) {
+        var tmp = document.createElement("textarea");
+        tmp.innerHTML = label; // label arrives HTML-escaped
+        selected.appendChild(selectedRow(id, tmp.value, "", false));
+        renumber();
+    };
+
+    renumber();
+})();
+</script>
