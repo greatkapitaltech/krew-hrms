@@ -1,10 +1,10 @@
 """
 Tests for Attendance.update_attendance_overtime() / handle_overtime_
 conditions() -- the Overtime feature (#7): opt-in tracking per tier, one
-shared company-level ot_threshold_hours added to a mode-appropriate
+shared company-level ot_threshold_minutes added to a mode-appropriate
 baseline to find where overtime starts (shift end time for Shift-based,
 total_work_hours_reference for Flexible -- see AttendanceRuleSet.
-ot_threshold_hours' comment for the worked examples), and auto-approve-
+ot_threshold_minutes' comment for the worked examples), and auto-approve-
 within-buffer with the comparison inverted from the pre-existing
 (now-replaced) logic that auto-approved once overtime reached *at
 least* a threshold.
@@ -39,7 +39,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
         # get_shift_end_time() reads a real EmployeeShiftSchedule row --
         # only needed by the Shift-based tests below, but cheap enough
         # to always have available. Shift 10-6, matching the worked
-        # example in AttendanceRuleSet.ot_threshold_hours' comment.
+        # example in AttendanceRuleSet.ot_threshold_minutes' comment.
         self.shift = EmployeeShift.objects.create(employee_shift="Day Shift")
         self.day = EmployeeShiftDay.objects.create(day="monday")
         self.schedule = EmployeeShiftSchedule.objects.create(
@@ -84,7 +84,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_worked_hour="11:00",
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_FLEXIBLE, track_overtime=True,
-                total_work_hours_reference="8.00", ot_threshold_hours="1.50",
+                total_work_hours_reference="8.00", ot_threshold_minutes=90,
             ),
         )
         attendance.update_attendance_overtime()
@@ -95,7 +95,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_worked_hour="09:00",  # under 9:30
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_FLEXIBLE, track_overtime=True,
-                total_work_hours_reference="8.00", ot_threshold_hours="1.50",
+                total_work_hours_reference="8.00", ot_threshold_minutes=90,
             ),
         )
         attendance.update_attendance_overtime()
@@ -105,7 +105,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
         attendance = self._attendance(
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_FLEXIBLE, track_overtime=True,
-                ot_threshold_hours="1.50",
+                ot_threshold_minutes=90,
                 # total_work_hours_reference left blank
             )
         )
@@ -118,7 +118,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_FLEXIBLE, track_overtime=True,
                 total_work_hours_reference="8.00",
-                # ot_threshold_hours left blank
+                # ot_threshold_minutes left blank
             )
         )
         attendance.update_attendance_overtime()
@@ -132,7 +132,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_clock_out_date=date(2026, 9, 21),
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_SHIFT_BASED, track_overtime=True,
-                ot_threshold_hours="1.50",
+                ot_threshold_minutes=90,
             ),
         )
         attendance.update_attendance_overtime()
@@ -145,7 +145,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_clock_out_date=date(2026, 9, 21),
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_SHIFT_BASED, track_overtime=True,
-                ot_threshold_hours="1.50",
+                ot_threshold_minutes=90,
             ),
         )
         attendance.update_attendance_overtime()
@@ -157,7 +157,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_clock_out=None,
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_SHIFT_BASED, track_overtime=True,
-                ot_threshold_hours="1.50",
+                ot_threshold_minutes=90,
             ),
         )
         attendance.update_attendance_overtime()
@@ -172,7 +172,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_clock_out_date=date(2026, 9, 21),
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_SHIFT_BASED, track_overtime=True,
-                # ot_threshold_hours left blank
+                # ot_threshold_minutes left blank
             ),
         )
         attendance.update_attendance_overtime()
@@ -186,7 +186,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_clock_out_date=date(2026, 9, 21),
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_SHIFT_BASED, track_overtime=True,
-                ot_threshold_hours="1.50",
+                ot_threshold_minutes=90,
             ),
         )
         attendance.update_attendance_overtime()
@@ -203,7 +203,7 @@ class UpdateAttendanceOvertimeTests(TestCase):
             attendance_clock_out_date=date(2026, 9, 21),
             attendance_rule_set_snapshot=_snapshot(
                 mode=AttendanceRuleSet.MODE_SHIFT_BASED, track_overtime=True,
-                ot_threshold_hours="1.50",
+                ot_threshold_minutes=90,
             ),
         )
         attendance.update_attendance_overtime()
@@ -322,7 +322,7 @@ class OvertimeEndToEndClockOutTests(TestCase):
             tier="COMPANY", company=self.company,
             mode=AttendanceRuleSet.MODE_SHIFT_BASED,
             track_overtime=True,
-            ot_threshold_hours="1.50",  # shift ends 18:00 -> OT starts 19:30
+            ot_threshold_minutes=90,  # shift ends 18:00 -> OT starts 19:30
             shift_ot_auto_approve_buffer_minutes=30,
         )
 
@@ -392,7 +392,7 @@ class ValidationAndOvertimeTogetherTests(TestCase):
             tier="COMPANY", company=self.company,
             mode=AttendanceRuleSet.MODE_SHIFT_BASED,
             track_overtime=True,
-            ot_threshold_hours="1.50",  # shift ends 18:00 -> OT starts 19:30
+            ot_threshold_minutes=90,  # shift ends 18:00 -> OT starts 19:30
             shift_ot_auto_approve_buffer_minutes=30,
         )
 
@@ -481,7 +481,7 @@ class ManualOvertimeApprovalTests(TestCase):
             tier="COMPANY", company=self.company,
             mode=AttendanceRuleSet.MODE_SHIFT_BASED,
             track_overtime=True,
-            ot_threshold_hours="1.50",  # shift ends 18:00 -> OT starts 19:30
+            ot_threshold_minutes=90,  # shift ends 18:00 -> OT starts 19:30
             shift_ot_auto_approve_buffer_minutes=30,
         )
         clock_in_attendance_and_activity(

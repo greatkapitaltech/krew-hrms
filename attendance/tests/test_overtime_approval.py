@@ -49,7 +49,7 @@ class OvertimeApprovalTestBase(TestCase):
         # test_overtime_calculation.py's own tests.
         rule_set = AttendanceRuleSet.objects.create(
             tier="COMPANY", company=self.company, mode=AttendanceRuleSet.MODE_FLEXIBLE,
-            track_overtime=True, total_work_hours_reference="8.00", ot_threshold_hours="1.00",
+            track_overtime=True, total_work_hours_reference="8.00", ot_threshold_minutes=60,
         )
         day = date.today() - timedelta(days=1)
         self.attendance = Attendance.objects.create(

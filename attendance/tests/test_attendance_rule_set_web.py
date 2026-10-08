@@ -308,7 +308,7 @@ class DepartmentOverrideTests(AttendanceRuleSetWebTestBase):
                 "mode": "SHIFT_BASED",
                 "shift_ot_auto_approve_buffer_minutes": "15",
                 "track_overtime": "true",
-                "ot_threshold_hours": "2",
+                "ot_threshold_minutes": "120",
             },
             **self.HX,
         )
@@ -319,3 +319,4 @@ class DepartmentOverrideTests(AttendanceRuleSetWebTestBase):
         pending = PendingConfigChange.objects.get(object_id=row.pk)
         self.assertEqual(pending.changes["shift_ot_auto_approve_buffer_minutes"], 15)
         self.assertTrue(pending.changes["track_overtime"])
+        self.assertEqual(pending.changes["ot_threshold_minutes"], 120)

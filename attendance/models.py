@@ -861,14 +861,14 @@ class Attendance(HorillaModel):
         Zero (and skipped entirely) if track_overtime doesn't resolve
         True for this day's rule set -- overtime is opt-in, not computed
         by default. Otherwise overtime starts at a mode-appropriate
-        baseline plus one shared company-level ot_threshold_hours (see
+        baseline plus one shared company-level ot_threshold_minutes (see
         that field's comment for the worked examples):
           Shift-based: this day's actual shift end time
-            (get_shift_end_time()) + ot_threshold_hours -- worked out
+            (get_shift_end_time()) + ot_threshold_minutes -- worked out
             entirely in real datetimes (not bare clock-time subtraction)
             so a late-ending shift crossing midnight still compares
             correctly.
-          Flexible: total_work_hours_reference + ot_threshold_hours.
+          Flexible: total_work_hours_reference + ot_threshold_minutes.
         Both fall back to the pre-existing worked-hour-vs-minimum_hour
         formula if the relevant settings aren't configured, or
         (Shift-based specifically) this day hasn't been clocked out yet
@@ -885,14 +885,14 @@ class Attendance(HorillaModel):
             self.overtime_second = 0
             return
 
-        threshold_hours = resolve(snapshot, "ot_threshold_hours")
+        threshold_minutes = resolve(snapshot, "ot_threshold_minutes")
         overtime_seconds = None
 
         if self.is_flexible_mode():
             baseline_hours = resolve(snapshot, "total_work_hours_reference")
-            if baseline_hours not in (None, "") and threshold_hours not in (None, ""):
-                effective_threshold_seconds = int(
-                    (Decimal(baseline_hours) + Decimal(threshold_hours)) * 3600
+            if baseline_hours not in (None, "") and threshold_minutes not in (None, ""):
+                effective_threshold_seconds = (
+                    int(Decimal(baseline_hours) * 3600) + int(threshold_minutes) * 60
                 )
                 overtime_seconds = max(
                     0, self.at_work_second - effective_threshold_seconds
@@ -901,7 +901,7 @@ class Attendance(HorillaModel):
             shift_end_time = self.get_shift_end_time()
             if (
                 shift_end_time
-                and threshold_hours not in (None, "")
+                and threshold_minutes not in (None, "")
                 and self.attendance_clock_out
                 and self.attendance_clock_out_date
             ):
@@ -920,9 +920,7 @@ class Attendance(HorillaModel):
                 shift_end_dt = datetime.combine(
                     self.attendance_clock_out_date, shift_end_time
                 )
-                ot_start_dt = shift_end_dt + timedelta(
-                    hours=float(Decimal(threshold_hours))
-                )
+                ot_start_dt = shift_end_dt + timedelta(minutes=int(threshold_minutes))
                 overtime_seconds = max(
                     0, int((clock_out_dt - ot_start_dt).total_seconds())
                 )
@@ -2306,7 +2304,7 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         "auto_punch_out_cutoff_time",
         "total_work_hours_reference",
         "track_overtime",
-        "ot_threshold_hours",
+        "ot_threshold_minutes",
         "shift_ot_auto_approve_buffer_minutes",
         "flexible_ot_auto_approve_buffer_hours",
         "regularization_enabled",
@@ -2318,7 +2316,7 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         "auto_punch_out_cutoff_time",
         "total_work_hours_reference",
         "track_overtime",
-        "ot_threshold_hours",
+        "ot_threshold_minutes",
         "shift_ot_auto_approve_buffer_minutes",
         "flexible_ot_auto_approve_buffer_hours",
         "regularization_enabled",
@@ -2420,14 +2418,19 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
     # the point past which hours count as overtime (see Attendance.
     # update_attendance_overtime()):
     #   Shift-based: this day's actual shift end time (get_shift_end_
-    #     time()) + ot_threshold_hours. E.g. shift ends 18:00, threshold
-    #     1:30 -> overtime starts at 19:30.
-    #   Flexible: total_work_hours_reference + ot_threshold_hours. E.g.
-    #     reference 8 hours, threshold 1:30 -> overtime starts after
+    #     time()) + ot_threshold_minutes. E.g. shift ends 18:00,
+    #     threshold 90 -> overtime starts at 19:30.
+    #   Flexible: total_work_hours_reference + ot_threshold_minutes.
+    #     E.g. reference 8 hours, threshold 90 -> overtime starts after
     #     9:30 worked.
-    ot_threshold_hours = models.DecimalField(
-        max_digits=4, decimal_places=2, null=True, blank=True,
-        verbose_name=_("Overtime Threshold (hours)"),
+    # Stored (and entered on the settings form) as a plain integer
+    # number of minutes -- never a "HH:MM" string the way most other
+    # duration fields in this codebase are (e.g. Attendance.
+    # attendance_worked_hour), since every actual use site needs a
+    # plain number to add to a baseline, not a string to reparse.
+    ot_threshold_minutes = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name=_("Overtime Threshold (minutes)"),
     )
     # Auto-approve buffers, one per mode to match each mode's own OT-start
     # representation (a duration added to a clock time vs. a duration

@@ -14,7 +14,7 @@
             "auto_punch_out_cutoff_time",
             "total_work_hours_reference",
             "track_overtime",
-            "ot_threshold_hours",
+            "ot_threshold_minutes",
             "shift_ot_auto_approve_buffer_minutes",
             "flexible_ot_auto_approve_buffer_hours",
             "regularization_enabled",
@@ -27,7 +27,7 @@
         // the shift OT buffer is phrased against a shift's own clock
         // times; auto_punch_out_cutoff_time, total_work_hours_reference
         // and the flexible OT buffer only make sense with no shift to
-        // anchor to. track_overtime/ot_threshold_hours (the same
+        // anchor to. track_overtime/ot_threshold_minutes (the same
         // threshold field is read differently per mode -- see its own
         // comment -- not shown/hidden by mode), regularization and
         // irregularities are mode-agnostic and always shown (subject to
