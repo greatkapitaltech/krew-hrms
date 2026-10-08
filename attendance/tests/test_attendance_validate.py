@@ -11,8 +11,8 @@ own two-line decision.
 
 Supersedes test_validation_threshold.py, which tested the old flat
 "worked hours vs AttendanceRuleSet.validation_threshold" ceiling check --
-removed, see validation_threshold's own field comment in
-attendance/models.py for why.
+that field (and the column backing it) has since been removed entirely;
+see attendance_validate()'s own docstring for why it was dropped.
 """
 
 from datetime import date

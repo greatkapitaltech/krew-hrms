@@ -132,26 +132,6 @@ from horilla.decorators import (
 from notifications.signals import notify
 
 
-# def attendance_validate(attendance):
-#     """
-#     Old design: True if worked hours were at or under
-#     AttendanceRuleSet.validation_threshold (a flat, mode-agnostic
-#     worked-hours ceiling), False otherwise. Replaced -- see
-#     validation_threshold's own field comment in attendance/models.py
-#     for why -- by the version below, which derives auto-validate from
-#     the overtime auto-approve buffer instead. Kept here, commented out,
-#     rather than deleted, same as the rest of this module's dead code.
-#     """
-#     condition_for_at_work = strtime_seconds("09:00")
-#     threshold = AttendanceRuleSet.resolve_effective_value(
-#         attendance.attendance_rule_set_snapshot, "validation_threshold"
-#     )
-#     if threshold:
-#         condition_for_at_work = strtime_seconds(threshold)
-#     at_work = strtime_seconds(attendance.attendance_worked_hour)
-#     return condition_for_at_work >= at_work
-
-
 def attendance_validate(attendance):
     """
     True if this attendance can auto-validate itself, False if it needs
@@ -164,9 +144,9 @@ def attendance_validate(attendance):
     reimplemented: no overtime at all trivially validates; overtime
     within the buffer validates; overtime past the buffer needs review.
     Replaces the old flat "total worked hours vs a separate threshold"
-    ceiling check (see AttendanceRuleSet.validation_threshold's own
-    comment for why that was dropped) -- decided against per-mode:
-    Shift-based already has late-come/early-out tracking for "worked
+    ceiling check (AttendanceRuleSet.validation_threshold, since removed
+    entirely -- column and all) -- decided against per-mode: Shift-
+    based already has late-come/early-out tracking for "worked
     unusually little," and a flat worked-hours ceiling had no way to
     account for a legitimately long, fully-approved day; the OT buffer
     already carries the same "how much extra is normal enough to skip a

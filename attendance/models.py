@@ -2296,10 +2296,10 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
 
     # Rule fields an Employee-Type override leaves blank to inherit from
     # the Company Default row -- per the PRD, an Employee-Type override
-    # only ever picks the mode, never its own rule values.
-    # validation_threshold deliberately excluded -- see its own field
-    # comment. Auto-validate is now derived from the overtime auto-
-    # approve buffer fields already listed here, not a separate setting.
+    # only ever picks the mode, never its own rule values. Auto-validate
+    # is derived from the overtime auto-approve buffer fields already
+    # listed here, not a separate setting -- see attendance_validate()
+    # in attendance/views/views.py.
     RULE_FIELDS = (
         "mode",
         "late_grace_minutes",
@@ -2409,31 +2409,6 @@ class AttendanceRuleSet(TieredConfigResolutionMixin, HorillaModel):
         blank=True,
         verbose_name=_("Total Work Hours Reference"),
     )
-    # No longer used -- superseded by attendance_validate() (attendance/
-    # views/views.py) deriving auto-validate entirely from the overtime
-    # auto-approve buffer (shift_ot_auto_approve_buffer_minutes /
-    # flexible_ot_auto_approve_buffer_hours) instead. Decided against
-    # per-mode: for Shift-based, late-come/early-out tracking already
-    # covers "worked unusually little," and a flat worked-hours ceiling
-    # had no way to account for a legitimately long, fully-approved day;
-    # for Flexible, total_work_hours_reference already covers the
-    # minimum-hours side via Irregularities' shortfall check, making a
-    # second, differently-scoped floor/ceiling on the same concept
-    # redundant. Left declared (not deleted, not RemoveField'd) rather
-    # than dropping the column -- same "unlink the behavior, keep the
-    # data" precedent used elsewhere in this codebase (e.g.
-    # AUTO_CLOSE_DISPUTE) -- but removed from RULE_FIELDS/
-    # INHERITED_FIELDS below, so it's no longer part of the tiered
-    # config surface: not resolvable, not editable via the settings
-    # screen, not read anywhere.
-    validation_threshold = models.CharField(
-        max_length=10,
-        null=True,
-        blank=True,
-        validators=[validate_time_format],
-        verbose_name=_("Worked Hours Auto-Validate Till"),
-    )
-
     # Overtime cluster. Whether OT is tracked/computed/approved at all
     # for this tier -- nullable so it's inheritable the same way as
     # everything else here; treated as "off" wherever it resolves blank,
