@@ -1,0 +1,53 @@
+{% load i18n %}
+
+<div class="oh-modal__dialog-header">
+    <h2 class="oh-modal__dialog-title">{{ employee }} &mdash; {{ month_label }}</h2>
+    <button type="button" class="oh-modal__close--custom"
+        onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show')">
+        <ion-icon name="close-outline"></ion-icon>
+    </button>
+</div>
+
+<div class="oh-modal__dialog-body">
+    {% if not employee %}
+        <p>{% trans "Employee not found or not in your team." %}</p>
+    {% else %}
+        <style>
+            .krew-emp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+            .krew-emp-dow { text-align:center; font-size:.65rem; font-weight:700; text-transform:uppercase; color:#6c757d; }
+            .krew-emp-cell { min-height: 46px; border-radius: 6px; padding: 4px; font-size:.75rem; border:1px solid transparent; }
+            .krew-emp-cell--empty { visibility: hidden; }
+            .krew-emp-cell--green, .krew-emp-cell--green_note { background:#e6f6ea; border-color:#bfe8ca; }
+            .krew-emp-cell--red { background:#fcebea; border-color:#f3c3c0; }
+            .krew-emp-cell--blue { background:#e7f1fb; border-color:#bcd9f3; }
+            .krew-emp-cell--pink { background:#fbe9f3; border-color:#f0c2dd; }
+            .krew-emp-cell--today { background:#fff8e1; border-color:#ffe08a; }
+            .krew-emp-cell--future { background:#fff; border-color:#eee; }
+        </style>
+
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <span>{% trans "Days Present" %}: {{ summary.days_present }}</span>
+            <span>{% trans "Late-Comes" %}: {{ summary.late_comes }}</span>
+            <span>{% trans "OT Hours Accrued" %}: {{ summary.ot_hours_accrued }}</span>
+        </div>
+
+        <div class="krew-emp-grid">
+            <div class="krew-emp-dow">{% trans "Mon" %}</div>
+            <div class="krew-emp-dow">{% trans "Tue" %}</div>
+            <div class="krew-emp-dow">{% trans "Wed" %}</div>
+            <div class="krew-emp-dow">{% trans "Thu" %}</div>
+            <div class="krew-emp-dow">{% trans "Fri" %}</div>
+            <div class="krew-emp-dow">{% trans "Sat" %}</div>
+            <div class="krew-emp-dow">{% trans "Sun" %}</div>
+            {% for week in weeks %}
+                {% for cell in week %}
+                    {% if cell is None %}
+                        <div class="krew-emp-cell krew-emp-cell--empty"></div>
+                    {% else %}
+                        <div class="krew-emp-cell krew-emp-cell--{{ cell.color }}">{{ cell.day_num }}</div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>

@@ -1,0 +1,33 @@
+{% load i18n %}
+
+<div class="oh-alert oh-alert--warning mt-2">
+    {% blocktrans with date=existing.attendance_date %}
+        An attendance record for this employee already exists on {{ date }}
+        (check-in {{ existing.attendance_clock_in }}, check-out
+        {{ existing.attendance_clock_out }}). Submitting again will override
+        and replace it.
+    {% endblocktrans %}
+</div>
+
+<form hx-post="{{ post_url }}" hx-target="#genericModalBody" hx-swap="innerHTML">
+    {% csrf_token %}
+    {% for key, value in form_data.items %}
+        {% if key != "csrfmiddlewaretoken" and key != "confirm_override" %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endif %}
+    {% endfor %}
+    <input type="hidden" name="confirm_override" value="true">
+
+    <div class="d-flex gap-2 justify-content-end mt-3">
+        <button
+            type="button"
+            class="oh-btn oh-btn--light-bkg"
+            onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show');"
+        >
+            {% trans "Cancel" %}
+        </button>
+        <button type="submit" class="oh-btn oh-btn--danger">
+            {% trans "Confirm Override" %}
+        </button>
+    </div>
+</form>

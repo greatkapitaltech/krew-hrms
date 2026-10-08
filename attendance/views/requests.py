@@ -28,7 +28,6 @@ from attendance.forms import (
 from attendance.methods.utils import (
     get_diff_dict,
     get_employee_last_name,
-    paginator_qry,
     shift_schedule_today,
 )
 from attendance.models import (
@@ -45,6 +44,7 @@ from base.methods import (
     filtersubordinates,
     get_key_instances,
     is_reportingmanager,
+    paginator_qry,
 )
 from base.models import EmployeeShift, EmployeeShiftDay
 from employee.models import Employee

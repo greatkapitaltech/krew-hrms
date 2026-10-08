@@ -76,9 +76,7 @@ from attendance.methods.utils import (
     Request,
     attendance_day_checking,
     format_time,
-    is_reportingmanger,
     monthly_leave_days,
-    paginator_qry,
     parse_date,
     parse_datetime,
     parse_time,
@@ -93,6 +91,7 @@ from attendance.models import (
     AttendanceOverTime,
     AttendanceRequestComment,
     AttendanceRequestFile,
+    AttendanceRuleSet,
     AttendanceValidationCondition,
     BatchAttendance,
     GraceTime,
@@ -100,6 +99,7 @@ from attendance.models import (
 )
 from attendance.views.handle_attendance_errors import handle_attendance_errors
 from attendance.views.process_attendance_data import process_attendance_data
+from base.caching import bust_attendance_general_settings_cache
 from base.forms import AttendanceAllowedIPForm, TrackLateComeEarlyOutForm
 from base.methods import (
     choosesubordinates,
@@ -110,6 +110,8 @@ from base.methods import (
     filtersubordinatesemployeemodel,
     get_key_instances,
     get_pagination,
+    is_reportingmanger,
+    paginator_qry,
 )
 from base.models import (
     AttendanceAllowedIP,
@@ -132,19 +134,39 @@ from notifications.signals import notify
 
 def attendance_validate(attendance):
     """
-    This method is is used to check condition for at work in AttendanceValidationCondition
-    model instance it return true if at work is smaller than condition
+    True if this attendance can auto-validate itself, False if it needs
+    a manager's review.
+
+    Driven entirely by whether this day's overtime (if any) falls within
+    the configured auto-approve buffer -- the same decision
+    Attendance.handle_overtime_conditions() makes for
+    attendance_overtime_approve, reused directly rather than
+    reimplemented: no overtime at all trivially validates; overtime
+    within the buffer validates; overtime past the buffer needs review.
+    Replaces the old flat "total worked hours vs a separate threshold"
+    ceiling check (AttendanceRuleSet.validation_threshold, since removed
+    entirely -- column and all) -- decided against per-mode: Shift-
+    based already has late-come/early-out tracking for "worked
+    unusually little," and a flat worked-hours ceiling had no way to
+    account for a legitimately long, fully-approved day; the OT buffer
+    already carries the same "how much extra is normal enough to skip a
+    human" judgment, just correctly scoped to the actual overtime
+    portion instead of the day's whole worked-hour total.
+
+    Expects attendance.overtime_second/attendance_overtime_approve to
+    already be current for this save -- the caller
+    (clock_out_attendance_and_activity()) computes them via
+    attendance.update_attendance_overtime()/handle_overtime_conditions()
+    immediately before calling this, since Attendance.save() (which
+    normally does that) hasn't run yet at this point in the clock-out
+    flow.
     args:
         attendance : attendance object
     """
-
-    conditions = AttendanceValidationCondition.objects.all()
-    # Set the default condition for 'at work' to 9:00 AM
-    condition_for_at_work = strtime_seconds("09:00")
-    if conditions.exists():
-        condition_for_at_work = strtime_seconds(conditions[0].validation_at_work)
-    at_work = strtime_seconds(attendance.attendance_worked_hour)
-    return condition_for_at_work >= at_work
+    overtime_second = attendance.overtime_second or 0
+    if overtime_second <= 0:
+        return True
+    return attendance.attendance_overtime_approve
 
 
 @login_required
@@ -3071,6 +3093,11 @@ def enable_timerunner(request):
             settings_qs.update(time_runner=enabled)
         else:
             AttendanceGeneralSetting(company_id=company, time_runner=enabled).save()
+    # Both .update() branches above bypass post_save (only the .save()
+    # fallback branches fire it on their own) -- bust explicitly so the
+    # cached lookup (base/caching.py) doesn't serve the pre-toggle value
+    # for up to CACHE_TTL_SECONDS.
+    bust_attendance_general_settings_cache()
 
     message = _("enabled") if enabled else _("disabled")
     messages.success(
@@ -3153,6 +3180,10 @@ def enable_disable_check_in(request):
         )
 
         if updated:
+            # .update() bypasses post_save -- bust explicitly, this is
+            # the exact field clock_in()/clock_out() gate on via the
+            # cached lookup (base/caching.py).
+            bust_attendance_general_settings_cache()
             message = _("Check In/Check Out has been successfully {}.").format(
                 _("enabled") if enable else _("disabled")
             )
@@ -3187,7 +3218,10 @@ def grace_time_view(request):
 @permission_required("attendance.view_attendancevalidationcondition")
 def grace_time_page_view(request):
     """
-    Time Policies sidebar page with Grace Time and Validation Condition tabs.
+    Time Policies sidebar page. Used to also surface the Validation
+    Condition tab (AttendanceValidationCondition) -- removed from UI now
+    that the combined AttendanceRuleSet replaces it (see AttendanceRuleSet's
+    docstring); the view/URL below stays reachable directly for now.
     """
     return render(request, "attendance/grace_time/grace_time.html")
 
@@ -3205,7 +3239,9 @@ def grace_time_list_tab(request):
 @permission_required("attendance.view_attendancevalidationcondition")
 def grace_time_validation_condition_tab(request):
     """
-    HTMX tab body for the Validation Condition tab.
+    HTMX tab body for the old Validation Condition tab -- no longer
+    linked from grace_time.html, kept reachable directly (see
+    grace_time_page_view's docstring).
     """
     condition = AttendanceValidationCondition.objects.first()
     return render(

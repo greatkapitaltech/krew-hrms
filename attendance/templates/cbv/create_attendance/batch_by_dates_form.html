@@ -1,0 +1,86 @@
+{% load i18n %}
+
+<div id="batchByDatesContainer">
+    {% if errors %}
+        <div class="oh-alert oh-alert--danger mt-2">
+            <ul class="mb-0">
+                {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form hx-post="{% url 'create-attendance-batch-by-dates' %}"
+        hx-target="#batchByDatesContainer" hx-swap="outerHTML">
+        <div class="oh-input-group">
+            <label class="oh-label required-star">{% trans "Employee" %}</label>
+            <select name="employee_id" class="oh-select form-control" required>
+                <option value="">{% trans "Select employee" %}</option>
+                {% for employee in employees %}
+                    <option value="{{ employee.pk }}" {% if employee_id|stringformat:"s" == employee.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ employee }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <table class="oh-table w-100 mt-3" id="dateRowsTable">
+            <thead>
+                <tr>
+                    <th>{% trans "Date" %}</th>
+                    <th>{% trans "Check-in" %}</th>
+                    <th>{% trans "Check-out" %}</th>
+                    <th>{% trans "Shift" %}</th>
+                    <th>{% trans "Reason" %}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="dateRowsBody"></tbody>
+        </table>
+
+        <button type="button" class="oh-btn oh-btn--light-bkg mt-2" id="addDateRowBtn">
+            <ion-icon name="add-outline"></ion-icon> {% trans "Add Row" %}
+        </button>
+
+        <div class="d-flex flex-row-reverse mt-3">
+            <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Save" %}</button>
+        </div>
+    </form>
+</div>
+
+<template id="dateRowTemplate">
+    <tr class="date-row">
+        <td><input type="date" name="attendance_date" class="form-control"></td>
+        <td><input type="time" name="clock_in" class="form-control"></td>
+        <td><input type="time" name="clock_out" class="form-control"></td>
+        <td>
+            <select name="shift_id" class="oh-select form-control">
+                <option value="">{% trans "Select shift" %}</option>
+                {% for shift in shifts %}
+                    <option value="{{ shift.pk }}">{{ shift }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td><input type="text" name="reason" class="form-control" placeholder="{% trans 'Reason' %}"></td>
+        <td>
+            <button type="button" class="oh-btn oh-btn--danger remove-date-row">
+                <ion-icon name="trash-outline"></ion-icon>
+            </button>
+        </td>
+    </tr>
+</template>
+
+<script>
+    (function () {
+        function addRow() {
+            var template = document.getElementById("dateRowTemplate");
+            var row = template.content.firstElementChild.cloneNode(true);
+            document.getElementById("dateRowsBody").appendChild(row);
+            $(row).find(".oh-select").select2({ width: "100%" });
+            $(row).find(".remove-date-row").on("click", function () {
+                $(row).remove();
+            });
+        }
+        $("#addDateRowBtn").on("click", addRow);
+        addRow();
+    })();
+</script>

@@ -60,6 +60,56 @@ services:
       timeout: 5s
       retries: 5
 
+  celery_worker:
+    build: .
+    command: celery -A horilla worker -l info
+    volumes:
+      - .:/app
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    environment:
+      - DEBUG=1
+      - DB_HOST=db
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+      - CSRF_TRUSTED_ORIGINS=http://localhost:8000
+      - DATABASE_URL=postgres://horilla_user:horilla_pass@db:5432/horilla_db
+      - DB_INIT_PASSWORD=dev-init-password-change-in-production
+      - REDIS_URL=redis://:horilla_pass@redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_beat:
+    build: .
+    # sweep_stuck_background_tasks (attendance/tasks.py) is the retry
+    # mechanism for the clock-in/out background deferral -- see Part 3 of
+    # the Attendance performance plan. Without beat running, nothing
+    # re-enqueues a task that never even started (worker down when it
+    # was enqueued, broker hiccup); Celery's task processing alone
+    # doesn't cover that case.
+    command: celery -A horilla beat -l info
+    volumes:
+      - .:/app
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+    environment:
+      - DEBUG=1
+      - DB_HOST=db
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+      - CSRF_TRUSTED_ORIGINS=http://localhost:8000
+      - DATABASE_URL=postgres://horilla_user:horilla_pass@db:5432/horilla_db
+      - DB_INIT_PASSWORD=dev-init-password-change-in-production
+      - REDIS_URL=redis://:horilla_pass@redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   nginx:
     image: nginx:alpine
     ports:

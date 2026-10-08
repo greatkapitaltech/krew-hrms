@@ -10,13 +10,10 @@ from datetime import date, datetime, time, timedelta
 import pandas as pd
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Q, Sum
-from django.http import HttpResponse
 from django.utils.translation import gettext_lazy as _
 
-from base.methods import get_pagination
 from base.models import WEEK_DAYS, CompanyLeaves, Holidays
 from employee.models import Employee
 
@@ -178,10 +175,16 @@ def shift_schedule_today(day, shift):
         shift   : shift instance
         day     : shift day object
     """
-    schedule_today = day.day_schedule.filter(shift_id=shift)
+    # Local import: attendance.caching imports attendance.models, which
+    # itself imports this module at module scope -- importing caching up
+    # at the top of this file would be a circular import at app-load
+    # time. Safe here since the function isn't called until the app is
+    # fully loaded.
+    from attendance.caching import get_cached_shift_schedule_row
+
     start_time_sec, end_time_sec, minimum_hour = 0, 0, "00:00"
-    if schedule_today.exists():
-        schedule_today = schedule_today[0]
+    schedule_today = get_cached_shift_schedule_row(day, shift)
+    if schedule_today is not None:
         minimum_hour = schedule_today.minimum_working_hour
         start_time_sec = strtime_seconds(schedule_today.start_time.strftime("%H:%M"))
         end_time_sec = strtime_seconds(schedule_today.end_time.strftime("%H:%M"))
@@ -204,25 +207,6 @@ def overtime_calculation(attendance):
     if at_work_sec > minimum_hour_sec:
         return format_time((at_work_sec - minimum_hour_sec))
     return "00:00"
-
-
-def is_reportingmanger(request, instance):
-    """
-    if the instance have employee id field then you can use this method to know the
-    request user employee is the reporting manager of the instance
-    args :
-        request : request
-        instance : an object or instance of any model contain employee_id foreign key field
-    """
-
-    manager = request.user.employee_get
-    try:
-        employee_workinfo_manager = (
-            instance.employee_id.employee_work_info.reporting_manager_id
-        )
-    except Exception:
-        return HttpResponse("This Employee Dont Have any work information")
-    return manager == employee_workinfo_manager
 
 
 def validate_hh_mm_ss_format(value):
@@ -432,15 +416,6 @@ def attendance_day_checking(attendance_date, minimum_hour, employee=None):
     return minimum_hour
 
 
-def paginator_qry(qryset, page_number):
-    """
-    This method is used to paginate queryset
-    """
-    paginator = Paginator(qryset, get_pagination())
-    qryset = paginator.get_page(page_number)
-    return qryset
-
-
 def monthly_leave_days(month, year):
     leave_dates = []
     holidays = Holidays.objects.filter(start_date__month=month, start_date__year=year)
@@ -530,6 +505,11 @@ class Request:
         date,
         time,
         datetime,
+        latitude=None,
+        longitude=None,
+        geo_fence_violation=False,
+        geo_fence_unverified=False,
+        is_automated=False,
     ) -> None:
         self.user = user
         self.path = "/"
@@ -537,6 +517,15 @@ class Request:
         self.date = date
         self.time = time
         self.datetime = datetime
+        self.latitude = latitude
+        self.longitude = longitude
+        self.geo_fence_violation = geo_fence_violation
+        self.geo_fence_unverified = geo_fence_unverified
+        # Set by the Auto Punch-out scheduler (attendance/scheduler.py)
+        # so clock_out_attendance_and_activity() can log ACTION_AUTO_PUNCH_OUT
+        # (System actor) instead of ACTION_PUNCH_OUT (employee actor) for
+        # the exact same underlying clock-out call path.
+        self.is_automated = is_automated
         self.META = META()
 
     def build_absolute_uri(self, location=None):

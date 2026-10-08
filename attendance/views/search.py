@@ -26,8 +26,8 @@ from attendance.models import (
     AttendanceOverTime,
     AttendanceValidationCondition,
 )
-from attendance.views.views import paginator_qry, strtime_seconds
-from base.methods import filtersubordinates, get_key_instances, sortby
+from attendance.views.views import strtime_seconds
+from base.methods import filtersubordinates, get_key_instances, paginator_qry, sortby
 from horilla.decorators import hx_request_required, login_required, manager_can_enter
 from horilla.group_by import group_by_queryset
 

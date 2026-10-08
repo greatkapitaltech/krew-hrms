@@ -4,21 +4,30 @@ from django.http import QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
-from geopy.distance import geodesic
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from base.config_tiers import TIER_COMPANY
 from base.models import Company
 from geofencing.forms import GeoFencingSetupForm
+from geofencing.methods import check_geo_fence
 
 from .models import GeoFencing
 from .serializers import *
 
 
 class GeoFencingSetupGetPostAPIView(APIView):
+    """
+    Reads/creates this company's Company Default boundary (the
+    tier=COMPANY row) specifically -- Department overrides and
+    Employee-Type exemptions are separate rows, managed through
+    GeoFencingSetupPutDeleteAPIView by pk like any other row, not through
+    this single-object endpoint.
+    """
+
     permission_classes = [IsAuthenticated]
 
     @method_decorator(
@@ -27,7 +36,7 @@ class GeoFencingSetupGetPostAPIView(APIView):
     )
     def get(self, request):
         company = request.user.employee_get.get_company()
-        location = get_object_or_404(GeoFencing, pk=company.id)
+        location = get_object_or_404(GeoFencing, company=company, tier=TIER_COMPANY)
         serializer = GeoFencingSetupSerializer(location)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -37,13 +46,14 @@ class GeoFencingSetupGetPostAPIView(APIView):
     )
     def post(self, request):
         data = request.data
+        if isinstance(data, QueryDict):
+            data = data.dict()
+        data["tier"] = TIER_COMPANY
         if not request.user.is_superuser:
-            if isinstance(data, QueryDict):
-                data = data.dict()
             company = request.user.employee_get.get_company()
             if company:
-                data["company_id"] = company.id
-        serializer = GeoFencingSetupSerializer(data=request.data)
+                data["company"] = company.id
+        serializer = GeoFencingSetupSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -66,7 +76,7 @@ class GeoFencingSetupPutDeleteAPIView(APIView):
     def put(self, request, pk):
         location = self.get_location(pk)
         company = request.user.employee_get.get_company()
-        if request.user.is_superuser or company == location.company_id:
+        if request.user.is_superuser or company == location.company:
             serializer = GeoFencingSetupSerializer(
                 location, data=request.data, partial=True
             )
@@ -83,7 +93,7 @@ class GeoFencingSetupPutDeleteAPIView(APIView):
     def delete(self, request, pk):
         location = self.get_location(pk)
         company = request.user.employee_get.get_company()
-        if request.user.is_superuser or company == location.company_id:
+        if request.user.is_superuser or company == location.company:
             location.delete()
             return Response(
                 {"message": "GeoFencing location deleted successfully"},
@@ -93,47 +103,36 @@ class GeoFencingSetupPutDeleteAPIView(APIView):
 
 
 class GeoFencingEmployeeLocationCheckAPIView(APIView):
+    """
+    Standalone location check (e.g. for a mobile "you're in range"
+    indicator, independent of an actual punch). Delegates to the exact
+    same check_geo_fence() used by ClockInAPIView/ClockOutAPIView, so
+    there is one single source of truth for the distance/violation
+    logic -- this endpoint never re-implements it.
+    """
+
     permission_classes = [IsAuthenticated]
-
-    def get_company(self, request):
-        try:
-            company = request.user.employee_get.get_company()
-            return company
-        except Exception as e:
-            raise serializers.ValidationError(e)
-
-    def get_company_location(self, request):
-        company = self.get_company(request)
-        try:
-            location = GeoFencing.objects.get(company_id=company)
-            return location
-        except Exception as e:
-            raise serializers.ValidationError(e)
 
     def post(self, request):
         serializer = EmployeeLocationSerializer(data=request.data)
-        company_location = self.get_company_location(request)
-        if company_location.start:
-            if serializer.is_valid():
-                geofence_center = (
-                    company_location.latitude,
-                    company_location.longitude,
-                )
-                employee_location = (
-                    request.data.get("latitude"),
-                    request.data.get("longitude"),
-                )
-                distance = geodesic(geofence_center, employee_location).meters
-                if distance <= company_location.radius_in_meters:
-                    return Response(
-                        {"message": "Inside the geofence"}, status=status.HTTP_200_OK
-                    )
-                return Response(
-                    {"message": "Outside the geofence"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        raise serializers.ValidationError(_("Geofencing is not yet started.."))
+
+        employee = request.user.employee_get
+        latitude = request.data.get("latitude")
+        longitude = request.data.get("longitude")
+        result = check_geo_fence(employee, latitude, longitude)
+
+        if result.allowed and not result.violation and not result.unverified:
+            return Response({"message": "Inside the geofence"}, status=status.HTTP_200_OK)
+        if result.unverified:
+            return Response(
+                {"message": "Could not verify your location"},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {"message": "Outside the geofence"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class GeoFencingSetUpPermissionCheck(APIView):
@@ -161,7 +160,7 @@ def get_company(request):
 def get_company_location(request):
     company = get_company(request)
     try:
-        location = GeoFencing.objects.get(company_id=company)
+        location = GeoFencing.objects.get(company=company, tier=TIER_COMPANY)
         return location
     except Exception as e:
         raise serializers.ValidationError(e)
@@ -183,7 +182,8 @@ def geo_location_config(request):
             form = GeoFencingSetupForm(request.POST)
         if form.is_valid():
             geofencing = form.save(commit=False)
-            geofencing.company_id = get_company(request)
+            geofencing.company = get_company(request)
+            geofencing.tier = TIER_COMPANY
             geofencing.save()
             messages.success(request, _("Geofencing config created successfully."))
         else:

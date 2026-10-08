@@ -9,19 +9,29 @@ from django.urls import path
 
 from attendance import dashboard as att_dashboard
 from attendance.cbv import (
+    activity_log,
+    approval_delegate,
     attendance_activity,
+    attendance_irregularities,
     attendance_request,
+    attendance_rule_set,
     attendance_tab,
     attendances,
     break_point,
     check_in_check_out,
+    create_attendance,
     dashboard,
     dashboard_offline_online,
     grace_time,
     hour_account,
     ip_restriction,
     late_come_and_early_out,
+    my_attendance_calendar,
     my_attendances,
+    my_krew_attendance,
+    overtime_approval,
+    payroll_readiness,
+    regularization_request,
 )
 from attendance.views import clock_in_out
 from attendance.views import dashboard as attendance_dashboard
@@ -502,6 +512,246 @@ urlpatterns = [
         name="update-attendance-request",
     ),
     path(
+        "regularization-requests/",
+        regularization_request.RegularizationRequestPageView.as_view(),
+        name="regularization-request-view",
+    ),
+    path(
+        "regularization-requests/list/",
+        regularization_request.RegularizationRequestListView.as_view(),
+        name="regularization-request-list",
+    ),
+    path(
+        "regularization-requests/nav/",
+        regularization_request.RegularizationRequestNav.as_view(),
+        name="regularization-request-nav",
+    ),
+    path(
+        "regularization-requests/form/",
+        regularization_request.RegularizationRequestFormView.as_view(),
+        name="regularization-request-form",
+    ),
+    path(
+        "regularization-requests/eligible/list/",
+        regularization_request.RegularizableAttendanceListView.as_view(),
+        name="regularizable-attendance-list",
+    ),
+    path(
+        "regularization-requests/<int:pk>/approve/",
+        regularization_request.approve_regularization_request,
+        name="approve-regularization-request",
+    ),
+    path(
+        "regularization-requests/<int:pk>/reject/",
+        regularization_request.reject_regularization_request,
+        name="reject-regularization-request",
+    ),
+    path(
+        "regularization-requests/<int:pk>/reject/prompt/",
+        regularization_request.reject_regularization_prompt,
+        name="reject-regularization-request-prompt",
+    ),
+    path(
+        "overtime-approval/",
+        overtime_approval.OvertimeApprovalPageView.as_view(),
+        name="overtime-approval-view",
+    ),
+    path(
+        "overtime-approval/list/",
+        overtime_approval.OvertimeApprovalListView.as_view(),
+        name="overtime-approval-list",
+    ),
+    path(
+        "overtime-approval/nav/",
+        overtime_approval.OvertimeApprovalNav.as_view(),
+        name="overtime-approval-nav",
+    ),
+    path(
+        "overtime-approval/<int:pk>/approve/",
+        overtime_approval.approve_overtime_decision,
+        name="approve-overtime-decision",
+    ),
+    path(
+        "overtime-approval/<int:pk>/reject/",
+        overtime_approval.reject_overtime_decision,
+        name="reject-overtime-decision",
+    ),
+    path(
+        "overtime-approval/<int:pk>/reject/prompt/",
+        overtime_approval.reject_overtime_decision_prompt,
+        name="reject-overtime-decision-prompt",
+    ),
+    path(
+        "my-krew-attendance/",
+        my_krew_attendance.MyKrewAttendancePageView.as_view(),
+        name="my-krew-attendance-view",
+    ),
+    path(
+        "my-krew-attendance/view/",
+        my_krew_attendance.MyKrewViewDashboardView.as_view(),
+        name="my-krew-view",
+    ),
+    path(
+        "my-krew-attendance/need-your-action/",
+        my_krew_attendance.MyKrewNeedYourActionView.as_view(),
+        name="my-krew-need-your-action",
+    ),
+    path(
+        "my-krew-attendance/employee/<int:employee_id>/calendar/",
+        my_krew_attendance.MyKrewEmployeeCalendarView.as_view(),
+        name="my-krew-employee-calendar",
+    ),
+    path(
+        "payroll-readiness/",
+        payroll_readiness.PayrollReadinessPageView.as_view(),
+        name="payroll-readiness-view",
+    ),
+    path(
+        "payroll-readiness/live-preview/",
+        payroll_readiness.PayrollReadinessLivePreviewView.as_view(),
+        name="payroll-readiness-live-preview",
+    ),
+    path(
+        "payroll-readiness/final-report/",
+        payroll_readiness.PayrollReadinessFinalReportView.as_view(),
+        name="payroll-readiness-final-report",
+    ),
+    path(
+        "payroll-readiness/final-report/<int:pk>/",
+        payroll_readiness.PayrollReadinessSnapshotDetailView.as_view(),
+        name="payroll-readiness-snapshot-detail",
+    ),
+    path(
+        "payroll-readiness/lock/",
+        payroll_readiness.LockPayrollReadinessPeriodView.as_view(),
+        name="payroll-readiness-lock",
+    ),
+    path(
+        "approval-delegates/",
+        approval_delegate.ApprovalDelegatePageView.as_view(),
+        name="approval-delegate-view",
+    ),
+    path(
+        "approval-delegates/given/list/",
+        approval_delegate.ApprovalDelegateGivenListView.as_view(),
+        name="approval-delegate-given-list",
+    ),
+    path(
+        "approval-delegates/received/list/",
+        approval_delegate.ApprovalDelegateReceivedListView.as_view(),
+        name="approval-delegate-received-list",
+    ),
+    path(
+        "approval-delegates/nav/",
+        approval_delegate.ApprovalDelegateNav.as_view(),
+        name="approval-delegate-nav",
+    ),
+    path(
+        "approval-delegates/create/",
+        approval_delegate.ApprovalDelegateFormView.as_view(),
+        name="approval-delegate-create",
+    ),
+    path(
+        "approval-delegates/<int:pk>/update/",
+        approval_delegate.ApprovalDelegateFormView.as_view(),
+        name="approval-delegate-update",
+    ),
+    path(
+        "activity-log/",
+        activity_log.AttendanceActivityLogPageView.as_view(),
+        name="attendance-activity-log-view",
+    ),
+    path(
+        "activity-log/list/",
+        activity_log.AttendanceActivityLogListView.as_view(),
+        name="attendance-activity-log-list",
+    ),
+    path(
+        "activity-log/nav/",
+        activity_log.AttendanceActivityLogNav.as_view(),
+        name="attendance-activity-log-nav",
+    ),
+    path(
+        "irregularities/",
+        attendance_irregularities.AttendanceIrregularitiesPageView.as_view(),
+        name="attendance-irregularities-view",
+    ),
+    path(
+        "irregularities/instances/",
+        attendance_irregularities.AttendanceIrregularitiesInstancesView.as_view(),
+        name="attendance-irregularities-instances",
+    ),
+    path(
+        "irregularities/nav/",
+        attendance_irregularities.AttendanceIrregularitiesNav.as_view(),
+        name="attendance-irregularities-nav",
+    ),
+    path(
+        "irregularities/by-employee/",
+        attendance_irregularities.AttendanceIrregularitiesByEmployeeView.as_view(),
+        name="attendance-irregularities-by-employee",
+    ),
+    path(
+        "attendance-rule-sets/",
+        attendance_rule_set.AttendanceRuleSetPageView.as_view(),
+        name="attendance-rule-set-view",
+    ),
+    path(
+        "attendance-rule-sets/list/",
+        attendance_rule_set.AttendanceRuleSetListView.as_view(),
+        name="attendance-rule-set-list",
+    ),
+    path(
+        "attendance-rule-sets/nav/",
+        attendance_rule_set.AttendanceRuleSetNav.as_view(),
+        name="attendance-rule-set-nav",
+    ),
+    path(
+        "attendance-rule-sets/create/",
+        attendance_rule_set.AttendanceRuleSetFormView.as_view(),
+        name="attendance-rule-set-create",
+    ),
+    path(
+        "attendance-rule-sets/<int:pk>/update/",
+        attendance_rule_set.AttendanceRuleSetFormView.as_view(),
+        name="attendance-rule-set-update",
+    ),
+    path(
+        "create-attendance/",
+        create_attendance.CreateAttendancePageView.as_view(),
+        name="create-attendance-view",
+    ),
+    path(
+        "create-attendance/list/",
+        create_attendance.CreateAttendanceListView.as_view(),
+        name="create-attendance-list",
+    ),
+    path(
+        "create-attendance/nav/",
+        create_attendance.CreateAttendanceNav.as_view(),
+        name="create-attendance-nav",
+    ),
+    path(
+        "create-attendance/create/",
+        create_attendance.CreateAttendanceFormView.as_view(),
+        name="create-attendance-create",
+    ),
+    path(
+        "create-attendance/entry/",
+        create_attendance.CreateAttendanceEntryView.as_view(),
+        name="create-attendance-entry",
+    ),
+    path(
+        "create-attendance/batch-by-employees/",
+        create_attendance.CreateAttendanceBatchByEmployeesView.as_view(),
+        name="create-attendance-batch-by-employees",
+    ),
+    path(
+        "create-attendance/batch-by-dates/",
+        create_attendance.CreateAttendanceBatchByDatesView.as_view(),
+        name="create-attendance-batch-by-dates",
+    ),
+    path(
         "create-batch-attendance/",
         requests.create_batch_attendance,
         name="create-batch-attendance",
@@ -646,8 +896,13 @@ urlpatterns = [
     ),
     path(
         "view-my-attendance/",
-        my_attendances.MyAttendances.as_view(),
+        my_attendance_calendar.MyAttendanceCalendarPageView.as_view(),
         name="view-my-attendance",
+    ),
+    path(
+        "my-attendance-calendar/day/<int:year>/<int:month>/<int:day>/",
+        my_attendance_calendar.MyAttendanceDayDetailView.as_view(),
+        name="my-attendance-day-detail",
     ),
     path(
         "my-attendance-list/",

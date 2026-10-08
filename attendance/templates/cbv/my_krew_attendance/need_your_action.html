@@ -1,0 +1,34 @@
+{% load i18n %}
+
+<div id="need-your-action">
+    <h4 class="mt-2 mb-2">{% trans "Validation" %}</h4>
+    <div hx-get="{% url 'attendance-request-list-tab' %}" hx-trigger="load" hx-target="this" hx-swap="innerHTML">
+        <div class="animated-background"></div>
+    </div>
+
+    <hr class="my-4">
+
+    <h4 class="mb-2">{% trans "Overtime" %}</h4>
+    <div hx-get="{% url 'overtime-approval-nav' %}" hx-trigger="load"></div>
+    <div hx-get="{% url 'overtime-approval-list' %}" hx-trigger="load" hx-target="this" hx-swap="innerHTML">
+        <div class="animated-background"></div>
+    </div>
+
+    <hr class="my-4">
+
+    <h4 class="mb-2">{% trans "Regularization" %}</h4>
+    <div hx-get="{% url 'regularization-request-nav' %}" hx-trigger="load"></div>
+    <div hx-get="{% url 'regularization-request-list' %}" hx-trigger="load" hx-target="this" hx-swap="innerHTML">
+        <div class="animated-background"></div>
+    </div>
+
+    <hr class="my-4">
+
+    <h4 class="mb-2">{% trans "Attendance Irregularities" %}</h4>
+    <p>
+        {% trans "Read-only -- late arrivals, early departures, and hours shortfalls across your team." %}
+        <a href="{% url 'attendance-irregularities-view' %}" class="oh-btn oh-btn--light-bkg ms-2">
+            {% trans "Open Attendance Irregularities" %}
+        </a>
+    </p>
+</div>

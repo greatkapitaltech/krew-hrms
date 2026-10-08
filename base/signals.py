@@ -14,7 +14,7 @@ from django.http import Http404
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext as _
 
-from base.models import Announcement, PenaltyAccounts
+from base.models import COLLAR_CATEGORY_CHOICES, Announcement, Company, PenaltyAccounts
 from horilla.methods import get_horilla_model_class
 
 
@@ -164,6 +164,28 @@ def create_shift_days(sender, **kwargs):
         EmployeeShiftDay.objects.bulk_create(
             [EmployeeShiftDay(day=day[0]) for day in days]
         )
+
+
+@receiver(post_save, sender=Company)
+def create_default_employee_types(sender, instance, created, **kwargs):
+    """
+    Seeds the three default Employee-Type rows the moment a company is
+    created, so Attendance's Employee-Type tier always has something to
+    resolve against without an admin having to set it up by hand first.
+    Each company gets its own three rows rather than sharing one row
+    across companies via the M2M -- so one company renaming or removing
+    its own type can never affect another company's.
+    """
+    if not created:
+        return
+
+    from base.models import EmployeeType
+
+    for category, label in COLLAR_CATEGORY_CHOICES:
+        employee_type = EmployeeType.objects.create(
+            employee_type=str(label).upper(), collar_category=category
+        )
+        employee_type.company_id.add(instance)
 
 
 # ---------------------------------------------------------------------------

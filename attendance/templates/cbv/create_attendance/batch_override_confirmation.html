@@ -1,0 +1,59 @@
+{% load i18n %}
+
+<div class="oh-alert oh-alert--warning mt-2">
+    {% trans "The following records already exist and will be overridden if you continue:" %}
+</div>
+
+<div class="oh-table-container mt-2" style="max-height: 300px; overflow-y: auto;">
+    <table class="oh-table w-100">
+        <thead>
+            <tr>
+                {% if attendance_date %}
+                    <th>{% trans "Employee" %}</th>
+                {% else %}
+                    <th>{% trans "Date" %}</th>
+                {% endif %}
+                <th>{% trans "Existing Check-in" %}</th>
+                <th>{% trans "Existing Check-out" %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for conflict in conflicts %}
+                <tr>
+                    {% if attendance_date %}
+                        <td>{{ conflict.employee }}</td>
+                    {% else %}
+                        <td>{{ conflict.attendance_date }}</td>
+                    {% endif %}
+                    <td>{{ conflict.existing.attendance_clock_in }}</td>
+                    <td>{{ conflict.existing.attendance_clock_out }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<form hx-post="{{ post_url }}" hx-target="#genericModalBody" hx-swap="innerHTML">
+    {% csrf_token %}
+    {% for key, values in form_data.lists %}
+        {% if key != "csrfmiddlewaretoken" and key != "confirm_override" %}
+            {% for value in values %}
+                <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+    <input type="hidden" name="confirm_override" value="true">
+
+    <div class="d-flex gap-2 justify-content-end mt-3">
+        <button
+            type="button"
+            class="oh-btn oh-btn--light-bkg"
+            onclick="$(this).closest('.oh-modal--show').removeClass('oh-modal--show');"
+        >
+            {% trans "Cancel" %}
+        </button>
+        <button type="submit" class="oh-btn oh-btn--danger">
+            {% trans "Confirm Override" %}
+        </button>
+    </div>
+</form>

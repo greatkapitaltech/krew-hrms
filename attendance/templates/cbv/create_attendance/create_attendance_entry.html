@@ -1,0 +1,39 @@
+{% load i18n %}
+
+<div x-data="{mode: 'single'}">
+    <div class="oh-tabs mb-3" style="display:flex; gap:0.5rem; border-bottom:1px solid #e0e0e0;">
+        <button type="button"
+            @click="mode = 'single'"
+            :class="mode === 'single' ? 'oh-btn oh-btn--secondary' : 'oh-btn oh-btn--light-bkg'">
+            {% trans "Single Entry" %}
+        </button>
+        <button type="button"
+            @click="mode = 'batch_employees'"
+            :class="mode === 'batch_employees' ? 'oh-btn oh-btn--secondary' : 'oh-btn oh-btn--light-bkg'">
+            {% trans "Multiple Employees, One Date" %}
+        </button>
+        <button type="button"
+            @click="mode = 'batch_dates'"
+            :class="mode === 'batch_dates' ? 'oh-btn oh-btn--secondary' : 'oh-btn oh-btn--light-bkg'">
+            {% trans "One Employee, Multiple Dates" %}
+        </button>
+    </div>
+
+    <div x-show="mode === 'single'"
+        hx-get="{% url 'create-attendance-create' %}"
+        hx-trigger="load"
+        hx-target="this"
+        hx-swap="innerHTML"></div>
+
+    <div x-show="mode === 'batch_employees'" x-cloak
+        hx-get="{% url 'create-attendance-batch-by-employees' %}"
+        hx-trigger="load"
+        hx-target="this"
+        hx-swap="innerHTML"></div>
+
+    <div x-show="mode === 'batch_dates'" x-cloak
+        hx-get="{% url 'create-attendance-batch-by-dates' %}"
+        hx-trigger="load"
+        hx-target="this"
+        hx-swap="innerHTML"></div>
+</div>

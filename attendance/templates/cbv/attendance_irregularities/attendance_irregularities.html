@@ -1,0 +1,33 @@
+{% extends "index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="oh-wrapper" x-data="{tab: 'instances'}">
+    <div class="oh-tabs mb-3" style="display:flex; gap:0.5rem; border-bottom:1px solid #e0e0e0;">
+        <button type="button"
+            @click="tab = 'instances'"
+            :class="tab === 'instances' ? 'oh-btn oh-btn--secondary' : 'oh-btn oh-btn--light-bkg'">
+            {% trans "Instances" %}
+        </button>
+        <button type="button"
+            @click="tab = 'by_employee'"
+            :class="tab === 'by_employee' ? 'oh-btn oh-btn--secondary' : 'oh-btn oh-btn--light-bkg'">
+            {% trans "By Employee" %}
+        </button>
+    </div>
+
+    <div x-show="tab === 'instances'">
+        <div hx-get="{% url 'attendance-irregularities-nav' %}" hx-trigger="load"></div>
+        {% include "generic/components.html" %}
+        <div class="oh-wrapper" id="listContainer">
+            <div class="animated-background"></div>
+        </div>
+    </div>
+
+    <div x-show="tab === 'by_employee'" x-cloak
+        hx-get="{% url 'attendance-irregularities-by-employee' %}"
+        hx-trigger="load"
+        hx-target="this"
+        hx-swap="innerHTML"></div>
+</div>
+{% endblock content %}

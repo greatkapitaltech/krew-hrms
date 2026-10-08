@@ -31,6 +31,45 @@ services:
     ports: !override
       - "8000:8000"
 
+  # Without these two overrides, `make prod` still starts celery_worker/
+  # celery_beat (Compose merges services by name across both files) but
+  # with the hardcoded dev secrets from docker-compose.yml's base
+  # definition -- the same gap web has here, just missed for these two
+  # since they were added after this overlay's web block was written.
+  celery_worker:
+    env_file:
+      - .env
+    environment: !override
+      DEBUG: "0"
+      HORILLA_ENV: production
+      DB_HOST: db
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Set ALLOWED_HOSTS in .env}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?Set CSRF_TRUSTED_ORIGINS in .env}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      DB_INIT_PASSWORD: ${DB_INIT_PASSWORD:?Set DB_INIT_PASSWORD in .env}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
+    volumes: !override
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+
+  celery_beat:
+    env_file:
+      - .env
+    environment: !override
+      DEBUG: "0"
+      HORILLA_ENV: production
+      DB_HOST: db
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Set ALLOWED_HOSTS in .env}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?Set CSRF_TRUSTED_ORIGINS in .env}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      DB_INIT_PASSWORD: ${DB_INIT_PASSWORD:?Set DB_INIT_PASSWORD in .env}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
+    volumes: !override
+      - staticfiles:/app/staticfiles
+      - media:/app/media
+
   db:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-horilla_db}

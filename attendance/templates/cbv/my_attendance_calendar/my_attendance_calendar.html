@@ -1,0 +1,9 @@
+{% extends "index.html" %}
+{% load i18n %}
+
+{% block content %}
+{% include "generic/components.html" %}
+<div class="oh-wrapper">
+    {% include "cbv/my_attendance_calendar/_calendar_body.html" %}
+</div>
+{% endblock content %}

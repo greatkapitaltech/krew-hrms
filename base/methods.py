@@ -420,6 +420,32 @@ def is_reportingmanager(request):
         return False
 
 
+def is_reportingmanger(request, instance):
+    """
+    If the instance have employee id field then you can use this method to know the
+    request user employee is the reporting manager of the instance.
+
+    Not a typo fix of is_reportingmanager() above -- a different, unrelated
+    check despite the near-identical name: that one asks "is this user a
+    reporting manager of anyone at all," this one asks "is this user the
+    reporting manager of this specific instance." Consolidated here from
+    three independent copies (attendance/methods/utils.py, base/views.py,
+    this one) that were byte-identical in logic.
+    args:
+        request : request
+        instance : an object or instance of any model containing an
+            employee_id foreign key field
+    """
+    manager = request.user.employee_get
+    try:
+        employee_workinfo_manager = (
+            instance.employee_id.employee_work_info.reporting_manager_id
+        )
+    except Exception:
+        return HttpResponse("This Employee Dont Have any work information")
+    return manager == employee_workinfo_manager
+
+
 # def choosesubordinates(
 #     request,
 #     form,

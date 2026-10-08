@@ -1,0 +1,20 @@
+{% extends "index.html" %}
+{% load i18n %}
+
+{% block content %}
+    {% if not current_company %}
+        <div class="oh-wrapper">
+            <div class="oh-alert oh-alert--info mt-4">
+                {% trans "Select a single company (not \"All Companies\") to configure its attendance rule sets." %}
+            </div>
+        </div>
+    {% else %}
+        <div hx-get="{% url 'attendance-rule-set-nav' %}" hx-trigger="load"></div>
+
+        {% include "generic/components.html" %}
+
+        <div class="oh-wrapper" id="listContainer">
+            <div class="animated-background"></div>
+        </div>
+    {% endif %}
+{% endblock content %}

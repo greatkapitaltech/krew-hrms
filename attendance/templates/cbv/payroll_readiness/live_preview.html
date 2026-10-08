@@ -1,0 +1,74 @@
+{% load i18n %}
+
+<div id="liveLreviewContainer">
+    <form hx-get="{% url 'payroll-readiness-live-preview' %}" hx-target="#liveLreviewContainer" hx-swap="outerHTML"
+        class="d-flex flex-wrap gap-2 align-items-end mb-3">
+        <div class="oh-input-group">
+            <label class="oh-label">{% trans "From" %}</label>
+            <input type="date" name="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+        </div>
+        <div class="oh-input-group">
+            <label class="oh-label">{% trans "To" %}</label>
+            <input type="date" name="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+        </div>
+        <button type="submit" class="oh-btn oh-btn--secondary">{% trans "Apply" %}</button>
+    </form>
+
+    <table class="oh-table w-100">
+        <thead>
+            <tr>
+                <th>{% trans "Employee" %}</th>
+                <th>{% trans "Total Working Days" %}</th>
+                <th>{% trans "Total Present Days" %}</th>
+                <th>{% trans "Total OT Hours" %}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>{{ row.employee }}</td>
+                    <td>{{ row.total_working_days }}</td>
+                    <td>{{ row.total_present_days }}</td>
+                    <td>{{ row.total_ot_hours }}</td>
+                    <td>
+                        <button type="button" class="oh-btn oh-btn--light-bkg"
+                            onclick="$(this).closest('tr').next().toggleClass('d-none')">
+                            {% trans "View Days" %}
+                        </button>
+                    </td>
+                </tr>
+                <tr class="d-none">
+                    <td colspan="5">
+                        <table class="oh-table w-100">
+                            <thead>
+                                <tr>
+                                    <th>{% trans "Date" %}</th>
+                                    <th>{% trans "Day Type" %}</th>
+                                    <th>{% trans "Check-in" %}</th>
+                                    <th>{% trans "Check-out" %}</th>
+                                    <th>{% trans "Hours" %}</th>
+                                    <th>{% trans "OT Hours" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for day in row.days %}
+                                    <tr {% if day.was_exception %}style="color:#c0392b;"{% endif %}>
+                                        <td>{{ day.date }}</td>
+                                        <td>{{ day.day_type }}</td>
+                                        <td>{{ day.check_in|default:"-" }}</td>
+                                        <td>{{ day.check_out|default:"-" }}</td>
+                                        <td>{{ day.worked_hours }}</td>
+                                        <td>{{ day.overtime_hours }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5">{% trans "No employees found for this company." %}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

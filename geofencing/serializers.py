@@ -1,5 +1,3 @@
-from django.utils.translation import gettext_lazy as _
-from geopy.geocoders import Nominatim
 from rest_framework import serializers
 
 from .models import GeoFencing
@@ -10,20 +8,12 @@ class GeoFencingSetupSerializer(serializers.ModelSerializer):
         model = GeoFencing
         fields = "__all__"
 
-    def validate(self, data):
-        geolocator = Nominatim(user_agent="geo_checker")  # Use a unique user-agent
-        try:
-            latitude = data.get("latitude")
-            longitude = data.get("longitude")
-            location = geolocator.reverse((latitude, longitude), exactly_one=True)
-            if not location:
-                raise serializers.ValidationError(_("Invalid Location"))
-        except Exception as e:
-            raise serializers.ValidationError(e)
-        return data
+    # No geocoding validation here -- GeoFencing.save() already runs
+    # full_clean() (which includes it for boundary-bearing tiers) before
+    # every save, so duplicating the Nominatim call here would just mean
+    # doing the same external lookup twice per request.
 
 
-class EmployeeLocationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GeoFencing
-        fields = ["latitude", "longitude"]
+class EmployeeLocationSerializer(serializers.Serializer):
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()

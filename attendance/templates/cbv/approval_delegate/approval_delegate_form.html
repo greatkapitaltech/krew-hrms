@@ -1,0 +1,28 @@
+{% load i18n %}
+{% include "generic/horilla_form.html" %}
+
+<script>
+    (function () {
+        // mode is a RadioSelect, not a <select> -- rendered as one
+        // <input name="mode"> per option (id_mode_0/id_mode_1), not a
+        // single #id_mode -- bind to the input group by name instead.
+        function toggleApprovalDelegateFields() {
+            var mode = $('input[name="mode"]:checked').val();
+            $("#id_start_date_parent_div").toggle(mode === "RANGE");
+            $("#id_end_date_parent_div").toggle(mode === "RANGE");
+            $("#id_target_request_parent_div").toggle(mode === "REQUEST");
+        }
+
+        // A short delay rather than relying on precise event-ordering
+        // assumptions against Select2's own init -- see
+        // AttendanceRuleSetForm's own template for the fuller story on
+        // why htmx:afterSettle timing alone wasn't reliable enough.
+        setTimeout(toggleApprovalDelegateFields, 50);
+        $(document)
+            .off("htmx:afterSettle.approvalDelegateForm")
+            .on("htmx:afterSettle.approvalDelegateForm", toggleApprovalDelegateFields);
+        $(document)
+            .off("change.approvalDelegateForm")
+            .on("change.approvalDelegateForm", 'input[name="mode"]', toggleApprovalDelegateFields);
+    })();
+</script>

@@ -21,7 +21,7 @@ SUBMENUS = [
         "accessibility": "attendance.sidebar.dashboard_accessibility",
     },
     {
-        "menu": _("My Attendances"),
+        "menu": _("My Attendance"),
         "redirect": reverse_lazy("view-my-attendance"),
     },
     {
@@ -30,8 +30,42 @@ SUBMENUS = [
         "accessibility": "attendance.sidebar.attendances_accessibility",
     },
     {
-        "menu": _("Attendance Requests"),
-        "redirect": reverse_lazy("request-attendance-view"),
+        "menu": _("Create Attendance"),
+        "redirect": reverse_lazy("create-attendance-view"),
+        "accessibility": "attendance.sidebar.create_attendance_accessibility",
+    },
+    {
+        "menu": _("Regularization Requests"),
+        "redirect": reverse_lazy("regularization-request-view"),
+    },
+    {
+        "menu": _("Approval Delegation"),
+        "redirect": reverse_lazy("approval-delegate-view"),
+    },
+    {
+        "menu": _("Attendance Rule Sets"),
+        "redirect": reverse_lazy("attendance-rule-set-view"),
+        "accessibility": "attendance.sidebar.attendance_rule_set_accessibility",
+    },
+    {
+        "menu": _("Attendance Activity Log"),
+        "redirect": reverse_lazy("attendance-activity-log-view"),
+        "accessibility": "attendance.sidebar.activity_log_accessibility",
+    },
+    {
+        "menu": _("Attendance Irregularities"),
+        "redirect": reverse_lazy("attendance-irregularities-view"),
+        "accessibility": "attendance.sidebar.irregularities_accessibility",
+    },
+    {
+        "menu": _("My Krew Attendance"),
+        "redirect": reverse_lazy("my-krew-attendance-view"),
+        "accessibility": "attendance.sidebar.my_krew_attendance_accessibility",
+    },
+    {
+        "menu": _("Payroll Readiness"),
+        "redirect": reverse_lazy("payroll-readiness-view"),
+        "accessibility": "attendance.sidebar.payroll_readiness_accessibility",
     },
     {
         "menu": _("Daily Work Status"),
@@ -108,6 +142,34 @@ def monthly_summary_accessibility(request, submenu, user_perms, *args, **kwargs)
     return request.user.has_perm("attendance.view_attendance") or is_reportingmanager(
         request.user
     )
+
+
+def attendance_rule_set_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.view_attendanceruleset")
+
+
+def activity_log_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.view_attendanceactivitylog")
+
+
+def create_attendance_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.can_create_attendance")
+
+
+def irregularities_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm(
+        "attendance.view_attendancelatecomeearlyout"
+    ) or is_reportingmanager(request.user)
+
+
+def my_krew_attendance_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.view_attendance") or is_reportingmanager(
+        request.user
+    )
+
+
+def payroll_readiness_accessibility(request, submenu, user_perms, *args, **kwargs):
+    return request.user.has_perm("attendance.change_attendance")
 
 
 # ---------------------------------------------------------------------------

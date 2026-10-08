@@ -32,6 +32,7 @@ from typing import Any, Dict
 
 from django import forms
 from django.apps import apps
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db.models.query import QuerySet
 from django.forms import DateInput, DateTimeInput, TimeInput
@@ -41,19 +42,23 @@ from django.utils.translation import gettext_lazy as _
 
 from attendance.filters import AttendanceFilters
 from attendance.models import (
+    ApprovalDelegate,
     Attendance,
     AttendanceActivity,
     AttendanceLateComeEarlyOut,
     AttendanceOverTime,
     AttendanceRequestComment,
+    AttendanceRuleSet,
     AttendanceValidationCondition,
     BatchAttendance,
     GraceTime,
+    RegularizationRequest,
     WorkRecords,
     attendance_date_validate,
     strtime_seconds,
     validate_time_format,
 )
+from base.config_tiers import TIER_EMPLOYEE_TYPE
 from base.forms import ModelForm as BaseModelForm
 from base.forms import MultipleFileField
 from base.methods import (
@@ -62,7 +67,7 @@ from base.methods import (
     is_reportingmanager,
     reload_queryset,
 )
-from base.models import Company, EmployeeShift
+from base.models import Company, Department, EmployeeShift
 from employee.filters import EmployeeFilter
 from employee.models import Employee
 from horilla import horilla_middlewares
@@ -1370,3 +1375,352 @@ class BatchAttendanceForm(BaseModelForm):
 
         if self.instance.pk:
             self.verbose_name = _("Update attendance batch")
+
+
+class RegularizationRequestForm(BaseModelForm):
+    """
+    The new correction-flow form (#8 Regularization) -- what an employee
+    fills in to raise a RegularizationRequest. AUTO_CLOSE_DISPUTE is left
+    out of reason_code's choices here (no backing flag exists yet for it,
+    see RegularizationRequest.approve()) though the model still keeps it
+    for later/programmatic use.
+    """
+
+    class Meta:
+        model = RegularizationRequest
+        fields = [
+            "attendance",
+            "reason_code",
+            "reason",
+            "corrected_clock_in",
+            "corrected_clock_in_date",
+            "corrected_clock_out",
+            "corrected_clock_out_date",
+        ]
+        widgets = {
+            "reason": forms.Textarea(attrs={"rows": 3}),
+        }
+
+    def __init__(self, *args, employee=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["reason_code"].choices = [
+            choice
+            for choice in RegularizationRequest.REASON_CHOICES
+            if choice[0] != RegularizationRequest.REASON_AUTO_CLOSE_DISPUTE
+        ]
+        if employee is not None:
+            self.fields["attendance"].queryset = Attendance.objects.filter(
+                employee_id=employee
+            ).order_by("-attendance_date")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Meta.model.clean() (the TIME_CORRECTION-needs-a-corrected-time
+        # rule) only runs through full_clean() on the model instance --
+        # ModelForm.clean() doesn't call it automatically once fields are
+        # individually valid, so trigger it explicitly here.
+        instance = self.instance
+        for field_name in self.Meta.fields:
+            setattr(instance, field_name, cleaned_data.get(field_name))
+        try:
+            instance.clean()
+        except ValidationError as error:
+            raise forms.ValidationError(error.messages) from error
+        return cleaned_data
+
+
+class ApprovalDelegateForm(BaseModelForm):
+    """
+    A manager handing off Validation/Overtime/Regularization approval
+    authority to someone else (see ApprovalDelegate's own docstring in
+    attendance/models.py) -- either a date range or one specific request,
+    picked here via `mode` (form-only, not a model field) rather than
+    showing both sets of fields and letting the model's own clean()
+    reject whichever wasn't meant. `delegator` is never a field here --
+    always the logged-in user, forced onto the instance by the view
+    (ApprovalDelegateFormView.init_form()) before validation runs, the
+    same "set it before is_valid(), not just in form_valid()" fix already
+    applied to AttendanceRuleSetFormView/RegularizationRequestFormView.
+
+    "Specific request" mode is scoped to RegularizationRequest only, even
+    though ApprovalDelegate.target is a generic FK meant to eventually
+    cover Validation/Overtime targets too -- those don't have their own
+    approval-list screen yet, so there's nothing concrete to pick from
+    for them today.
+    """
+
+    MODE_RANGE = "RANGE"
+    MODE_REQUEST = "REQUEST"
+    MODE_CHOICES = (
+        (MODE_RANGE, _("A date range (e.g. while I'm on leave)")),
+        (MODE_REQUEST, _("One specific request")),
+    )
+
+    mode = forms.ChoiceField(
+        choices=MODE_CHOICES, initial=MODE_RANGE, widget=forms.RadioSelect,
+        label=_("Delegate for"),
+    )
+    target_request = forms.ModelChoiceField(
+        queryset=RegularizationRequest.objects.none(),
+        required=False,
+        label=_("Specific request"),
+        help_text=_("Only your own currently-pending, approvable requests are listed."),
+    )
+
+    class Meta:
+        model = ApprovalDelegate
+        fields = ["delegate", "start_date", "end_date", "is_active"]
+        widgets = {
+            "start_date": DateInput(attrs={"type": "date"}),
+            "end_date": DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, delegator=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.delegator = delegator
+        # Eligible delegates: holds attendance.can_be_delegate, and never
+        # the delegator themselves (the model's own clean() blocks
+        # self-delegation too, but filtering it out of the dropdown is
+        # better UX than letting them pick it and then erroring).
+        eligible_ids = [
+            employee.pk
+            for employee in Employee.objects.filter(is_active=True).exclude(
+                pk=delegator.pk if delegator else None
+            )
+            if employee.employee_user_id
+            and employee.employee_user_id.has_perm("attendance.can_be_delegate")
+        ]
+        self.fields["delegate"].queryset = Employee.objects.filter(pk__in=eligible_ids)
+
+        if delegator is not None:
+            # Requests this delegator could currently approve themselves
+            # (their own subordinates' pending requests) -- the realistic
+            # set of things worth handing off one at a time. Built as a
+            # direct reporting-chain filter, not base.methods.
+            # filtersubordinates(), since that helper needs a real
+            # request object and there isn't one at form-init time.
+            self.fields["target_request"].queryset = RegularizationRequest.objects.filter(
+                status=RegularizationRequest.STATUS_PENDING,
+                employee__employee_work_info__reporting_manager_id=delegator,
+            ).order_by("-created_at")
+
+        if self.instance.pk:
+            # Editing an existing row -- lock the mode to whatever it
+            # already is, rather than letting an edit silently flip a
+            # range delegation into a request-specific one (or back) by
+            # just not noticing the radio button; same "scope fields are
+            # disabled on edit" precedent as AttendanceRuleSetForm's
+            # tier/department.
+            self.fields["mode"].disabled = True
+            if self.instance.object_id:
+                self.initial["mode"] = self.MODE_REQUEST
+                self.fields["target_request"].queryset = RegularizationRequest.objects.filter(
+                    pk=self.instance.object_id
+                )
+                self.initial["target_request"] = self.instance.object_id
+            else:
+                self.initial["mode"] = self.MODE_RANGE
+
+    def clean(self):
+        cleaned_data = super().clean()
+        mode = cleaned_data.get("mode")
+        instance = self.instance
+        instance.delegator = self.delegator
+        instance.delegate = cleaned_data.get("delegate")
+        instance.is_active = cleaned_data.get("is_active")
+
+        if mode == self.MODE_REQUEST:
+            target_request = cleaned_data.get("target_request")
+            if not target_request:
+                raise forms.ValidationError(
+                    {"target_request": _("Pick a request to delegate.")}
+                )
+            instance.content_type = ContentType.objects.get_for_model(RegularizationRequest)
+            instance.object_id = target_request.pk
+            instance.start_date = None
+            instance.end_date = None
+        else:
+            instance.content_type = None
+            instance.object_id = None
+            instance.start_date = cleaned_data.get("start_date")
+            instance.end_date = cleaned_data.get("end_date")
+
+        try:
+            instance.clean()
+        except ValidationError as error:
+            raise forms.ValidationError(error.messages) from error
+        return cleaned_data
+
+
+class CreateAttendanceForm(forms.Form):
+    """
+    Manual single-entry attendance creation (Create Attendance PRD
+    section) -- a plain forms.Form, not a ModelForm, since this feeds a
+    custom save path (attendance/cbv/create_attendance.py) that builds
+    both the Attendance row and its one backing AttendanceActivity row
+    directly, rather than letting ModelForm.save() write one model.
+
+    `reason` is deliberately not a field on Attendance itself (no new
+    column) -- it's written into the Attendance Activity Log's
+    what_changed text (see log_attendance_activity() in form_valid()),
+    which is already the durable, queryable/exportable record of why a
+    manual entry happened.
+
+    No separate `attendance_date` field -- Attendance.attendance_date is
+    the logical day the record belongs to, which for a manually-created
+    record is just the check-in's own calendar date; asking the admin to
+    enter the same date twice (once as "Date", once as "Check-in Date")
+    was confusing with no real benefit. attendance_clock_out_date stays
+    separate since an overnight session can legitimately check out the
+    next calendar day.
+
+    Shift is never required at the form-validation layer regardless of
+    mode -- Shift-based vs. Flexible is resolved and enforced in
+    clean(), not via a conditionally-required field, since whether it's
+    needed depends on the picked employee's own resolved
+    AttendanceRuleSet mode, not a fixed form-wide rule.
+    """
+
+    employee_id = forms.ModelChoiceField(
+        queryset=Employee.objects.filter(is_active=True), label=_("Employee")
+    )
+    attendance_clock_in = forms.TimeField(
+        label=_("Check-in Time"), widget=forms.TimeInput(attrs={"type": "time"})
+    )
+    attendance_clock_in_date = forms.DateField(
+        label=_("Check-in Date"), widget=forms.DateInput(attrs={"type": "date"})
+    )
+    attendance_clock_out = forms.TimeField(
+        label=_("Check-out Time"), widget=forms.TimeInput(attrs={"type": "time"})
+    )
+    attendance_clock_out_date = forms.DateField(
+        label=_("Check-out Date"), widget=forms.DateInput(attrs={"type": "date"})
+    )
+    shift_id = forms.ModelChoiceField(
+        queryset=EmployeeShift.objects.all(), required=False, label=_("Shift")
+    )
+    reason = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), label=_("Reason"))
+
+    def clean_attendance_clock_in_date(self):
+        value = self.cleaned_data["attendance_clock_in_date"]
+        if value > datetime.date.today():
+            raise ValidationError(_("Date cannot be in the future."))
+        return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        clock_in_date = cleaned_data.get("attendance_clock_in_date")
+        clock_in_time = cleaned_data.get("attendance_clock_in")
+        clock_out_date = cleaned_data.get("attendance_clock_out_date")
+        clock_out_time = cleaned_data.get("attendance_clock_out")
+        if clock_in_date and clock_in_time and clock_out_date and clock_out_time:
+            clock_in_dt = datetime.datetime.combine(clock_in_date, clock_in_time)
+            clock_out_dt = datetime.datetime.combine(clock_out_date, clock_out_time)
+            if clock_out_dt < clock_in_dt:
+                raise ValidationError(
+                    {"attendance_clock_out": _("Check-out must be on or after check-in.")}
+                )
+
+        employee = cleaned_data.get("employee_id")
+        if employee is not None:
+            rule_set = AttendanceRuleSet.resolve_for_employee(employee)
+            mode = rule_set.mode if rule_set else AttendanceRuleSet.MODE_SHIFT_BASED
+            if mode == AttendanceRuleSet.MODE_SHIFT_BASED and not cleaned_data.get("shift_id"):
+                raise ValidationError(
+                    {"shift_id": _("Shift is required for a Shift-based employee.")}
+                )
+        return cleaned_data
+
+
+# late_grace_minutes stays in AttendanceRuleSet.RULE_FIELDS/
+# INHERITED_FIELDS (resolvable, snapshotted, inheritable -- the model layer
+# is fully wired) but is excluded here: the field it would actually govern,
+# late-mark grace, is still read entirely from the pre-existing GraceTime
+# model (shift.grace_time_id, or the company-wide default GraceTime row --
+# see late_come()/early_out() in attendance/views/clock_in_out.py), not from
+# AttendanceRuleSet at all. Exposing it on this screen let an admin set a
+# value with zero actual effect. Same "unlink the UI, keep the backend"
+# treatment used elsewhere in this codebase (e.g. AUTO_CLOSE_DISPUTE) --
+# the column/resolution logic stays intact for whenever grace time is
+# properly merged into the tiered model, just not reachable from here yet.
+ATTENDANCE_RULE_SET_EDITABLE_FIELDS = tuple(
+    field for field in AttendanceRuleSet.RULE_FIELDS if field != "late_grace_minutes"
+)
+
+
+class AttendanceRuleSetForm(BaseModelForm):
+    """
+    The combined settings screen for #1 Attendance Type, Validation
+    Threshold, the Overtime cluster, and Regularization's enable/cap --
+    one form per tier (Company Default / Employee-Type Override /
+    Department Override), per AttendanceRuleSet's own docstring.
+
+    Never saved directly (see AttendanceRuleSetFormView.form_valid): this
+    form only produces validated field values; every actual write goes
+    through PendingConfigChange.schedule() so "changes apply from the 1st
+    of next month" is one mechanism, not reimplemented here. `tier`/
+    `employee_type_category`/`department` pick WHICH row is being
+    configured and, once a row exists, never change again -- disabled
+    (not just read-only) on an edit so a tampered POST can't move an
+    existing override to a different scope.
+
+    Exposes ATTENDANCE_RULE_SET_EDITABLE_FIELDS, not the model's full
+    RULE_FIELDS -- see that constant's own comment for why
+    late_grace_minutes is left out.
+    """
+
+    class Meta:
+        model = AttendanceRuleSet
+        fields = ["tier", "employee_type_category", "department"] + list(
+            ATTENDANCE_RULE_SET_EDITABLE_FIELDS
+        )
+
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.company = company
+        self.fields["mode"].help_text = _(
+            "For an Employee-Type Override, this is the only rule value "
+            "that applies -- every other field is ignored and stays "
+            "inherited from the Company Default row."
+        )
+        if self.instance.pk is None:
+            self.instance.company = company
+            self.fields["department"].queryset = (
+                Department.objects.filter(company_id=company)
+                if company is not None
+                else Department.objects.none()
+            )
+        else:
+            # An existing row's scope is fixed -- see class docstring.
+            self.fields["tier"].disabled = True
+            self.fields["employee_type_category"].disabled = True
+            self.fields["department"].disabled = True
+            self.fields["department"].queryset = Department.objects.filter(
+                company_id=self.instance.company_id
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # An Employee-Type override only ever picks `mode` -- every other
+        # rule field must stay blank so it inherits the Company Default
+        # row (see AttendanceRuleSet.RULE_FIELDS's own comment); silently
+        # dropped here rather than rejected, since the fields stay visible
+        # and fillable in this single shared form.
+        if cleaned_data.get("tier") == TIER_EMPLOYEE_TYPE:
+            for field_name in AttendanceRuleSet.INHERITED_FIELDS:
+                if field_name in ATTENDANCE_RULE_SET_EDITABLE_FIELDS:
+                    cleaned_data[field_name] = None
+
+        instance = self.instance
+        for field_name in self.Meta.fields:
+            if field_name in cleaned_data:
+                setattr(instance, field_name, cleaned_data[field_name])
+        # clean() re-checks the tier/scope shape (e.g. an Employee-Type
+        # row must set employee_type_category and leave department blank)
+        # -- ModelForm doesn't call the model's whole-instance clean()
+        # automatically once individual fields already validated.
+        try:
+            instance.clean()
+        except ValidationError as error:
+            raise forms.ValidationError(error.messages) from error
+        return cleaned_data
